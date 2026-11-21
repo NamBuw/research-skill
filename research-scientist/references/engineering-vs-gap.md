@@ -16,12 +16,13 @@ Freeze the failure before changing the implementation. Record:
 
 Then check, in this order:
 
-1. **Input and data integrity:** correct files, IDs, schema, units, labels, splits, and transformations. For compatible local CSVs, the optional [read-only alignment audit](../scripts/audit_alignment.py) counts unmatched, repeated, positionally mismatched, and cross-split IDs without printing identifiers. Review its flags against the study design; it cannot prove leakage or label correctness.
-2. **Implementation fidelity:** compare the code path, defaults, model variants, formulas, pseudocode, and appendix with the source. Treat undisclosed details as unknown.
-3. **Configuration and protocol:** match seeds or seed policy, optimizer, compute, stopping rules, evaluation population, metrics, baselines, and information available to each method.
-4. **Mechanical sanity:** run tiny hand-checkable cases, invariants, dimensional/unit checks, edge cases, and tests of the metric against known outputs.
-5. **Reference result:** reproduce a known result or baseline in the same environment before interpreting a new comparison.
-6. **Independent check:** where the claim is consequential, ask another implementer to inspect or reproduce the failure without inheriting the first investigator's undocumented assumptions.
+1. **Input and data integrity:** correct files, IDs, schema, units, labels, splits, and transformations. For compatible local CSVs, run `scripts/audit_alignment.py` (`--id-column`, `--split-column`, `--group-column`, `--out`, `--compact`) to count unmatched, repeated, positionally mismatched, and cross-split sample/group IDs without printing identifiers. Review its flags against the study design; it cannot prove leakage or label correctness.
+2. **Executable AI/CS/CV/NLP diagnostics:** run `scripts/check_engineering_diagnostics.py` (`--code-dir`, `--splits`, `--metrics`, `--out`, `--compact`) to screen for pre-split preprocessing leakage (`StandardScaler`/`TfidfVectorizer`/`PCA` before `train_test_split`), test-set tuning, duplicate/group split leakage, missing baselines or constant/shuffled sanity controls, NLP benchmark contamination or single-prompt fragility, CV backbone/resolution/crop/augmentation/HPO budget mismatches, PyTorch `.eval()`/`no_grad()`/gradient-accumulation/metric-direction/averaging bugs, and seed/failed-run cherry-picking. The tool explicitly separates `"repaired_engineering_bug"` from `"genuine_scientific_novelty"`.
+3. **Implementation fidelity:** compare the code path, defaults, model variants, formulas, pseudocode, and appendix with the source. Treat undisclosed details as unknown.
+4. **Configuration and protocol:** match seeds or seed policy, optimizer, compute, stopping rules, evaluation population, metrics, baselines, and information available to each method.
+5. **Mechanical sanity & run receipts:** run tiny hand-checkable cases and verify on-disk SHA-256 hashes, run logs, numeric values, and repo completeness via `scripts/check_experiment_manifest.py` (`--verify-files`, `--claims`, `--rel-tol`, `--abs-tol`, `--map`, `--audit-repo`, `--blind`, `--strict-repo`, `--out`, `--compact`).
+6. **Reference result & pressure cases:** reproduce a known baseline in the same environment and audit against [AI/CS pressure cases](good-question-pressure-cases.md) before interpreting a new comparison.
+7. **Independent check:** where the claim is consequential, ask another implementer to inspect or reproduce the failure without inheriting the first investigator's undocumented assumptions.
 
 Do not tune, patch, change metrics, drop failed cases, or widen the claim after seeing the outcome without recording the change. A post-result repair can be useful engineering; it cannot retroactively turn the observation into a preregistered prediction. Preserve the original run and report deviations.
 

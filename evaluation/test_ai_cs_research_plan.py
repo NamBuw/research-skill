@@ -63,6 +63,43 @@ class AIPlanTests(unittest.TestCase):
         result = module.check(self.gap, self.rq, self.plan)
         self.assertIn('experiments:0:focal_and_comparator_conditions_identical', result['errors'])
 
+    def test_confirmatory_enforces_all_engineering_checks_and_campaign(self):
+        self.gap['candidates'][0]['trigger'] = 'benchmark_observation'
+        self.plan['claim_mode'] = 'confirmatory'
+        for k in self.plan['engineering_checks']:
+            self.plan['engineering_checks'][k]['status'] = 'passed'
+        self.plan['engineering_checks']['baseline_fidelity']['status'] = 'failed'
+        result = module.check(self.gap, self.rq, self.plan)
+        self.assertEqual(result['status'], 'invalid')
+        self.assertIn('plan:confirmatory_claim_requires_campaign_manifest', result['errors'])
+        self.assertIn('engineering_checks:baseline_fidelity:confirmatory_requires_passed_check', result['errors'])
+
+    def test_b11_confirmatory_rejects_not_applicable_engineering_check(self):
+        self.gap['candidates'][0]['trigger'] = 'novel_idea'
+        self.plan['claim_mode'] = 'confirmatory'
+        for k in self.plan['engineering_checks']:
+            self.plan['engineering_checks'][k]['status'] = 'passed'
+        self.plan['engineering_checks']['split_integrity']['status'] = 'not_applicable'
+        result = module.check(self.gap, self.rq, self.plan)
+        self.assertEqual(result['status'], 'invalid')
+        self.assertIn('engineering_checks:split_integrity:confirmatory_requires_passed_check', result['errors'])
+
+    def test_cli_exits_nonzero_on_invalid_plan(self):
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp)
+            self.plan['claim_mode'] = 'confirmatory'
+            gp, rqp, pp = t / 'g.json', t / 'r.json', t / 'p.json'
+            gp.write_text(json.dumps(self.gap), encoding='utf-8')
+            rqp.write_text(json.dumps(self.rq), encoding='utf-8')
+            pp.write_text(json.dumps(self.plan), encoding='utf-8')
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPTS / 'check_ai_cs_research_plan.py'), str(gp), str(rqp), str(pp)],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(proc.returncode, 1)
+
 
 if __name__ == '__main__':
     unittest.main()

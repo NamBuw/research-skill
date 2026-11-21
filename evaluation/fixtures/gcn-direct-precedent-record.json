@@ -1,0 +1,75 @@
+{
+  "scope": "Hypothetical exact first-use claim for normalized-adjacency graph convolution in semi-supervised node classification; this does not assess any different contribution",
+  "search_date": "2026-11-21",
+  "coverage_limits": "Two OpenAlex/arXiv query rounds only; keyless Semantic Scholar and other indexes were not part of this recorded campaign. A direct original precedent is sufficient to reject the exact first-use claim, but this search is not exhaustive.",
+  "next_check": "For a different proposed contribution, compare its exact method, assumptions, data and consequence against this and other close works",
+  "queries": [
+    {
+      "id": "Q1",
+      "campaign_query_id": "direct-1",
+      "source": "openalex",
+      "query": "semi supervised graph convolution normalized adjacency",
+      "family": "direct_problem",
+      "status": "bounded_partial",
+      "retrieved": 10,
+      "inspected": 1
+    },
+    {
+      "id": "Q2",
+      "campaign_query_id": "direct-1",
+      "source": "arxiv",
+      "query": "all:semi AND all:supervised AND all:graph AND all:convolution AND all:normalized AND all:adjacency",
+      "family": "direct_problem",
+      "status": "complete",
+      "retrieved": 2,
+      "inspected": 0
+    },
+    {
+      "id": "Q3",
+      "campaign_query_id": "closure-1",
+      "source": "arxiv",
+      "query": "ti:semi-supervised AND ti:graph AND ti:convolutional",
+      "family": "closure",
+      "status": "bounded_partial",
+      "retrieved": 20,
+      "inspected": 1
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E1",
+      "source_id": "arxiv:1609.02907v4",
+      "study_id": "KIPF-WELLING-GCN-2016",
+      "locator": "Official arXiv PDF version 4, page 3, Equation 8 and Section 3.1 Equation 9",
+      "claim": "The paper defines renormalized adjacency propagation and applies a two-layer graph convolutional network to semi-supervised node classification",
+      "role": "method",
+      "access": "full_text"
+    }
+  ],
+  "closest_works": [
+    {
+      "id": "W1",
+      "source_id": "arxiv:1609.02907v4",
+      "relation": "direct_precedent",
+      "access": "full_text",
+      "difference": "No relevant difference from the deliberately narrow first-use claim; a distinct proposed mechanism or evaluation would require its own comparison",
+      "evidence_ids": ["E1"]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "G1",
+      "claim": "First use of normalized-adjacency graph convolution for semi-supervised node classification",
+      "type": "algorithmic_novelty",
+      "disposition": "not_a_gap",
+      "rationale": "The original arXiv PDF already describes the exact mechanism and task in the claim",
+      "trigger": "hypothetical_first_use_claim",
+      "engineering_status": "not_applicable",
+      "support_evidence_ids": ["E1"],
+      "counter_evidence_ids": [],
+      "closest_work_ids": ["W1"],
+      "search_query_ids": ["Q1", "Q2", "Q3"],
+      "kill_query_ids": ["Q3"]
+    }
+  ]
+}

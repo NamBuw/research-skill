@@ -30,5 +30,46 @@ class QuestionCardTests(unittest.TestCase):
         self.card['closest_work'] = 'Not searched'
         self.assertIn('closest_work_unchecked; do not score novelty', module.check(self.card)['warnings'])
 
+    def test_placeholder_rival_explanation_rejected(self):
+        for val in ('none', 'N/A', 'unknown', 'TBD', 'not applicable',
+                    'TBD - fill later', 'N/A - pending', 'none yet', 'placeholder text', 'todo: add later',
+                    'To be determined later', 'Unknown yet', 'No rival explanation'):
+            bad = dict(self.card)
+            bad['rival_explanation'] = val
+            rep = module.check(bad)
+            self.assertFalse(rep['valid_structure'], val)
+            self.assertIn('rival_explanation_placeholder', rep['errors'])
+
+    def test_legitimate_rival_explanation_starting_with_unknown_allowed(self):
+        ok = dict(self.card)
+        ok['rival_explanation'] = 'Unknown latent confounders in annotation noise rather than model depth'
+        rep = module.check(ok)
+        self.assertTrue(rep['valid_structure'], rep['errors'])
+
+    def test_r3_3_non_string_causal_identification_assumptions_no_crash(self):
+        import subprocess
+        import sys
+        import tempfile
+        for bad_val in (None, ['backdoor'], 123, {'rule': 'backdoor'}):
+            bad = dict(self.card)
+            bad['question_type'] = 'causal'
+            bad['identification_assumptions'] = bad_val
+            rep = module.check(bad)
+            self.assertFalse(rep['valid_structure'], repr(bad_val))
+            self.assertIn('causal_question_missing_identification_assumptions', rep['errors'])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / 'card.json'
+            bad = dict(self.card)
+            bad['question_type'] = 'causal'
+            bad['identification_assumptions'] = None
+            p.write_text(json.dumps(bad), encoding='utf-8')
+            proc = subprocess.run(
+                [sys.executable, str(ROOT / 'research-scientist/scripts/check_question_card.py'), str(p)],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn('causal_question_missing_identification_assumptions', json.loads(proc.stdout)['errors'])
+
 if __name__ == '__main__':
     unittest.main()
