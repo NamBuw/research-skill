@@ -66,3 +66,13 @@ Separate these layers in every write-up:
 5. **Next claim:** the narrowest statement a proposed follow-up could actually test.
 
 Never call a reproduction “independent” if it copied undocumented fixes, configs, or decisions from the first run. Do not hide engineering defects behind a grand method label or novelty score. Use [artifact templates](artifact-templates.md#11-failure-diagnosis-record) to preserve the triage.
+
+## Attribute causes only after a discriminating check
+
+A visible defect can invalidate a comparison without explaining the entire performance difference. Separate **confirmed deviation**, **suspected causal contribution**, and **demonstrated cause**. If labels were joined by row position after sorting, inspect stable sample IDs before asserting misalignment. If train/test preprocessing differs from the reference, record the deviation; do not claim it accounts for a particular accuracy loss until an appropriate controlled rerun.
+
+Repair a minimum failing case, then rerun the matched baseline with audited metric and data identity. When several defects coexist, use isolated changes or a justified small factorial comparison where feasible; preserve original and corrected configurations. Do not continue running a known invalid scientific comparison simply to increase seed count. After mechanical validity is established, use a suitable seed/replication policy and uncertainty analysis to separate stochastic variation from a systematic discrepancy. Explain any remaining deviations and whether they still prevent interpretation.
+
+A correction that restores the reference result closes this local failure; it does not establish a new scientific method. A correction that does not restore it leaves residual explanations to investigate; it does not automatically promote the failure to a gap. A bug in widely used code may itself motivate a consequential reproducibility audit, but claims about prevalence and impact need independent evidence.
+
+Diagnose the artifact and process, not the person's competence. “The evaluation joined labels incorrectly” is testable; “the author is a poor engineer” is not a scientific explanation and adds no evidential value.

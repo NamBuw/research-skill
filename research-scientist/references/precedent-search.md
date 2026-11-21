@@ -181,3 +181,7 @@ Return the actual search funnel: sources queried, query families run, records re
 ### Preserve evidence when updating a corpus
 
 Use separate old/new search labels and immutable source record IDs. Retain a merge map from every raw record to its canonical paper/version and study, and keep prior screening decisions linked to their original evidence. Review changed versions, corrections and eligibility criteria before carrying old decisions forward. Ambiguous fuzzy duplicate pairs remain available for manual review. Audit both false merges (lost distinct work) and missed duplicates (inflated evidence). For known-seed checks, confirm identifiers and content, not just a nearest-title similarity score. These practices are illustrated by the targeted [litsearchr, revtools and ASySD readings](repository-landscape.md).
+
+### Do not collapse retrieval and novelty into one Boolean
+
+Record `source_failed`, `valid_zero_results`, `truncated`, `close_work_unread`, `direct_precedent_found`, and `unresolved` as different states. An empty or failed search is not the same as evidence that a contribution is original. A bounded top-10 abstract search can suggest nearby papers; it cannot clear a claim after an arbitrary number of iterations. Keep the actual queries, retrieved records, reading level, and decision rationale available for review.
