@@ -506,25 +506,28 @@ def cmd_iclr_build(args: argparse.Namespace) -> None:
 
 def _build(args: argparse.Namespace) -> None:
     conn = open_snor(snor_db())
-    conn.execute("DELETE FROM papers")
-    conn.execute("DELETE FROM reviews")
-    conn.execute("DELETE FROM meta")
-    conn.commit()
-    if args.sample:
-        # Later offsets reach years with rejected papers. The two files are not aligned, so overlap is partial.
-        size = 30 * 1024 * 1024
-        kept, stored = ingest(
-            conn, stream_lines(SNOR.format("normalized_papers"), 200 * 1024 * 1024, size), stream_lines(SNOR.format("normalized_comments"), 600 * 1024 * 1024, size)
-        )
-        extra_papers, extra_reviews = ingest_failed(conn, stream_lines(SNOR.format("failed_matches"), 200 * 1024 * 1024, size))
-    else:
-        warn("Streaming papers (450 MB), comments (1.3 GB) and rejected papers (475 MB). Embeddings and signatures are not kept.")
-        kept, stored = ingest(conn, stream_lines(SNOR.format("normalized_papers")), stream_lines(SNOR.format("normalized_comments")))
-        extra_papers, extra_reviews = ingest_failed(conn, stream_lines(SNOR.format("failed_matches")))
-    mode = "sample" if args.sample else "full"
-    conn.execute("INSERT OR REPLACE INTO meta VALUES ('mode', ?)", (mode,))
-    conn.commit()
-    emit({"mode": mode, "papers": kept + extra_papers, "comments": stored + extra_reviews, "path": str(snor_db()), "license": "CC BY 4.0", "source": SNOR_RECORD})
+    try:
+        conn.execute("DELETE FROM papers")
+        conn.execute("DELETE FROM reviews")
+        conn.execute("DELETE FROM meta")
+        conn.commit()
+        if args.sample:
+            # Later offsets reach years with rejected papers. The two files are not aligned, so overlap is partial.
+            size = 30 * 1024 * 1024
+            kept, stored = ingest(
+                conn, stream_lines(SNOR.format("normalized_papers"), 200 * 1024 * 1024, size), stream_lines(SNOR.format("normalized_comments"), 600 * 1024 * 1024, size)
+            )
+            extra_papers, extra_reviews = ingest_failed(conn, stream_lines(SNOR.format("failed_matches"), 200 * 1024 * 1024, size))
+        else:
+            warn("Streaming papers (450 MB), comments (1.3 GB) and rejected papers (475 MB). Embeddings and signatures are not kept.")
+            kept, stored = ingest(conn, stream_lines(SNOR.format("normalized_papers")), stream_lines(SNOR.format("normalized_comments")))
+            extra_papers, extra_reviews = ingest_failed(conn, stream_lines(SNOR.format("failed_matches")))
+        mode = "sample" if args.sample else "full"
+        conn.execute("INSERT OR REPLACE INTO meta VALUES ('mode', ?)", (mode,))
+        conn.commit()
+        emit({"mode": mode, "papers": kept + extra_papers, "comments": stored + extra_reviews, "path": str(snor_db()), "license": "CC BY 4.0", "source": SNOR_RECORD})
+    finally:
+        conn.close()
 
 
 OUTCOME_GROUPS = {
@@ -562,50 +565,53 @@ def cmd_iclr(args: argparse.Namespace) -> None:
         emit({"status": "not ready", "hint": "The index is still building, or a build did not finish. Use the other review sources, and say this lens did not run.", "papers": []})
         return
     conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
-    results: list[dict[str, Any]] = []
-    for outcome in OUTCOME_GROUPS[args.outcome]:
-        clauses = ["accepted = ?", "EXISTS (SELECT 1 FROM reviews r WHERE r.paper_id = papers.id AND r.is_review)"]
-        values: list[Any] = [outcome == "accepted"]
-        alternatives = []
-        for query in args.query:
-            words = query.split()
-            alternatives.append("(" + " AND ".join("(title || ' ' || COALESCE(abstract,'') || ' ' || keywords) LIKE ?" for _ in words) + ")")
-            values += [f"%{word}%" for word in words]
-        clauses.append("(" + " OR ".join(alternatives) + ")")
-        if args.conference:
-            clauses.append("conference = ?")
-            values.append(args.conference)
-        if args.since:
-            clauses.append("year >= ?")
-            values.append(args.since)
-        rows = conn.execute(f"SELECT * FROM papers WHERE {' AND '.join(clauses)} ORDER BY year DESC, id", values)  # noqa: S608
-        taken = 0
-        for row in rows:
-            # LIKE is only a fast first pass: it matches inside words, so check whole words here.
-            if taken >= args.limit:
-                break
-            if paper_outcome(row["accepted"], row["decision"]) != outcome:
-                continue
-            if not matches(f"{row['title']} {row['abstract'] or ''} {row['keywords']}", args.query):
-                continue
-            taken += 1
-            reviews = [r["text"] for r in conn.execute("SELECT text FROM reviews WHERE paper_id = ? AND is_review", (row["id"],))]
-            results.append(
-                {
-                    "title": row["title"], "venue": f"{(row['conference'] or '').upper()} {row['year']}", "year": row["year"],
-                    "outcome": outcome, "decision": row["decision"], "review_score_avg": row["score"],
-                    "url": f"https://openreview.net/forum?id={row['id']}", "abstract": (row["abstract"] or "")[:600],
-                    "reviews": "\n---\n".join(reviews)[: args.max_chars],
-                }
-            )  # fmt: skip
-    emit(
-        {
-            "source": "SNOR v1 (Zenodo), CC BY 4.0", "dataset": SNOR_RECORD, "snapshot": "July 2025; ICLR 2017 and 2019-2025, NeurIPS 2021-2024", "index_mode": mode,
-            "warning": "SAMPLE index: fragments only. Do not draw conclusions from it." if mode == "sample" else None,
-            "note": "Readable reviews are not a random sample. Rejected NeurIPS papers are few (about 5% of NeurIPS records), so compare outcomes mainly on ICLR. --outcome both means accepted and rejected; withdrawn papers are a different outcome, so they are left out unless requested.", "count": len(results), "papers": results,
-        }
-    )  # fmt: skip
+    try:
+        conn.row_factory = sqlite3.Row
+        results: list[dict[str, Any]] = []
+        for outcome in OUTCOME_GROUPS[args.outcome]:
+            clauses = ["accepted = ?", "EXISTS (SELECT 1 FROM reviews r WHERE r.paper_id = papers.id AND r.is_review)"]
+            values: list[Any] = [outcome == "accepted"]
+            alternatives = []
+            for query in args.query:
+                words = query.split()
+                alternatives.append("(" + " AND ".join("(title || ' ' || COALESCE(abstract,'') || ' ' || keywords) LIKE ?" for _ in words) + ")")
+                values += [f"%{word}%" for word in words]
+            clauses.append("(" + " OR ".join(alternatives) + ")")
+            if args.conference:
+                clauses.append("conference = ?")
+                values.append(args.conference)
+            if args.since:
+                clauses.append("year >= ?")
+                values.append(args.since)
+            rows = conn.execute(f"SELECT * FROM papers WHERE {' AND '.join(clauses)} ORDER BY year DESC, id", values)  # noqa: S608
+            taken = 0
+            for row in rows:
+                # LIKE is only a fast first pass: it matches inside words, so check whole words here.
+                if taken >= args.limit:
+                    break
+                if paper_outcome(row["accepted"], row["decision"]) != outcome:
+                    continue
+                if not matches(f"{row['title']} {row['abstract'] or ''} {row['keywords']}", args.query):
+                    continue
+                taken += 1
+                reviews = [r["text"] for r in conn.execute("SELECT text FROM reviews WHERE paper_id = ? AND is_review", (row["id"],))]
+                results.append(
+                    {
+                        "title": row["title"], "venue": f"{(row['conference'] or '').upper()} {row['year']}", "year": row["year"],
+                        "outcome": outcome, "decision": row["decision"], "review_score_avg": row["score"],
+                        "url": f"https://openreview.net/forum?id={row['id']}", "abstract": (row["abstract"] or "")[:600],
+                        "reviews": "\n---\n".join(reviews)[: args.max_chars],
+                    }
+                )  # fmt: skip
+        emit(
+            {
+                "source": "SNOR v1 (Zenodo), CC BY 4.0", "dataset": SNOR_RECORD, "snapshot": "July 2025; ICLR 2017 and 2019-2025, NeurIPS 2021-2024", "index_mode": mode,
+                "warning": "SAMPLE index: fragments only. Do not draw conclusions from it." if mode == "sample" else None,
+                "note": "Readable reviews are not a random sample. Rejected NeurIPS papers are few (about 5% of NeurIPS records), so compare outcomes mainly on ICLR. --outcome both means accepted and rejected; withdrawn papers are a different outcome, so they are left out unless requested.", "count": len(results), "papers": results,
+            }
+        )  # fmt: skip
+    finally:
+        conn.close()
 
 
 # --- verify -------------------------------------------------------------------------------------------------
@@ -657,8 +663,10 @@ def cmd_check(_args: argparse.Namespace) -> None:
             status["iclr_index"] = "not ready: still building, or a build did not finish"
         else:
             conn = sqlite3.connect(index)
-            status["iclr_index"] = f"built ({mode}): {conn.execute('SELECT COUNT(*) FROM papers').fetchone()[0]} papers"
-            conn.close()
+            try:
+                status["iclr_index"] = f"built ({mode}): {conn.execute('SELECT COUNT(*) FROM papers').fetchone()[0]} papers"
+            finally:
+                conn.close()
     else:
         status["iclr_index"] = "not built (rejected-paper reviews unavailable until built)"
     status["openreview_notes"] = "not probed: guests get a human-verification challenge, which this tool never tries to get around"

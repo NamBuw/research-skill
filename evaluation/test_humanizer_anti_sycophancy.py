@@ -872,6 +872,25 @@ class HumanizerAntiSycophancyTests(unittest.TestCase):
         self.assertEqual(module._mask_display_math_line("x $$a$$ y", False, False), ("x  [math]  y", False, False))
         self.assertEqual(module._mask_display_math_line(r"\[a\] b \[c\]", False, False), (" b ", False, False))
 
+    def test_oversized_unclosed_heading_skips_accumulation_and_multiline_heading_preserved(self):
+        import time
+
+        module.mask_prose("We evaluate BM25 on BEIR.\n", source_path="warm.tex")
+        for probe in (
+            "\\section[" * 5000 + "\nline" * 25,
+            "\\section[Short\n" + "\\section[" * 5000 + "\nline" * 25,
+        ):
+            t0 = time.perf_counter()
+            masked = module.mask_prose(probe, source_path="oversized.tex")
+            elapsed = time.perf_counter() - t0
+            self.assertLess(elapsed, 0.02, f"elapsed={elapsed:.4f}s")
+            self.assertEqual(len(masked["masked_lines"]), 27 if probe.startswith("\\section[Short") else 26)
+
+        multiline_tex = "\\section[Short\nTitle]{Full\nTitle}\nWe evaluate BM25 on BEIR.\n"
+        masked_ok = module.mask_prose(multiline_tex, source_path="heading.tex")
+        self.assertEqual(masked_ok["headings"], [(3, "Full Title")])
+        self.assertIn("Full Title", " ".join(masked_ok["masked_lines"]))
+
 
 if __name__ == "__main__":
     unittest.main()

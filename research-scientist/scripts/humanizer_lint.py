@@ -974,6 +974,7 @@ def _mask_tex_lines(raw_lines: list[str], keep_tables: bool = False) -> tuple[li
 
     skip_envs = MASK_ENVS - ({"tabular", "tabularx", "tabular*", "longtable", "array"} if keep_tables else set())
     pending_heading_parts: list[tuple[int, str]] = []
+    max_pending_heading_chars = 4096
 
     def _finalize_tex_prose(chunk: str, line_no: int, record_headings: bool) -> str:
         w = _URL_CMD_RE.sub(" [url] ", chunk)
@@ -1113,7 +1114,12 @@ def _mask_tex_lines(raw_lines: list[str], keep_tables: bool = False) -> tuple[li
             continue
 
         if pending_heading_parts:
-            if len(pending_heading_parts) >= 20 or re.search(r"\\(?:begin|end)\{", work_math):
+            pending_len = sum(len(p) for _, p in pending_heading_parts) + len(pending_heading_parts)
+            if (
+                len(pending_heading_parts) >= 20
+                or pending_len + len(work_math) > max_pending_heading_chars
+                or re.search(r"\\(?:begin|end)\{", work_math)
+            ):
                 _flush_pending_headings()
             else:
                 combined = "\n".join([p for _, p in pending_heading_parts] + [work_math])
@@ -1125,7 +1131,7 @@ def _mask_tex_lines(raw_lines: list[str], keep_tables: bool = False) -> tuple[li
                     out.append("")
                 continue
 
-        if _has_incomplete_heading_cmd(work_math):
+        if len(work_math) <= max_pending_heading_chars and _has_incomplete_heading_cmd(work_math):
             pending_heading_parts.append((len(out), work_math))
             out.append("")
             continue
