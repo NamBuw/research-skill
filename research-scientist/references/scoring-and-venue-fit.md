@@ -54,7 +54,7 @@ Novelty is the degree of supported contribution difference, not the number of ne
 | 9 | A major advance that changes important explanations, methods, or decisions, with strong expert and field-level corroboration. |
 | 10 | Rare field-changing novelty. Reserve for exceptional retrospective cases, not proposal-stage prediction. |
 
-For a proposal, novelty is always provisional until a documented search and domain review. If search coverage is weak, the score should be low-confidence or `not assessed`; do not compensate with model intuition. If a method recombines existing techniques, score the combination only for its demonstrated new consequence, and separately disclose the components' lineage. A new name does not add novelty points.
+For a proposal, novelty is always provisional until a documented search and domain review. If the closest work for a specific claim has not been checked, report that claim’s novelty as `not assessed`; a low-confidence number is not a substitute for missing prior-art evidence. If some closest work has been inspected but broader coverage remains limited, a requested claim-level score may be given with low confidence, the exact search boundary, and the unsearched threats. Do not compensate with model intuition. If a method recombines existing techniques, score the combination only for its demonstrated new consequence, and separately disclose the components' lineage. A new name does not add novelty points.
 
 ### Adapt the profile to genre
 
@@ -75,7 +75,7 @@ For a proposal-stage idea, do not apply completed-paper weights. Score a profile
 
 ## Compare novelty across papers without false precision
 
-Use the same date boundary and prior-art protocol for each paper. First construct a closest-work matrix that compares problem, insight, method/mechanism, assumptions, data/measurement, evaluation, and consequence. Then give a per-paper novelty score with:
+Use the same date boundary and prior-art protocol for each paper. First construct a closest-work matrix that compares problem, insight, method/mechanism, assumptions, data/measurement, evaluation, and consequence. Then give a per-paper novelty score only for claims that pass the claim-specific evidence gate below; otherwise mark novelty `not assessed`. A permissible score must include:
 
 - exact nearest precedents and source locators;
 - the component or claim that overlaps;
@@ -98,9 +98,9 @@ Score fit on five axes, 0–2 each:
 | Contribution and track | Contribution type is not accepted | Possible fit, track unclear | Current call explicitly accepts this article/contribution type |
 | Evidence maturity | Central claims miss an explicit bar or required evidence | Partial match with a named weakness | Evidence and study type match the stated bar and recent comparable work |
 | Format and eligibility | Violates a hard rule or eligibility condition | A rule remains uncertain | Current format, length, eligibility, and policy requirements are met |
-| User constraints | Conflicts with a stated hard constraint | Constraint or cost remains unresolved | Fits the stated timing, access, cost, language, and practical constraints |
+| User constraints | Verified conflict with a stated hard constraint | A nonbinding preference is only partly met; an unresolved hard constraint is `unverified`, outside the numerical score | Verified fit to the stated timing, access, cost, language, and practical constraints |
 
-Only compute `/10` when all axes are checked. Use `unverified` where an official source was unavailable; do not silently turn missing information into a zero or a perfect score. A 2 means documented fit, not likely acceptance. Report desk-reject risks and the best evidence that would strengthen fit. Do not use impact factor or venue prestige as a substitute for scope, evidence, and audience fit.
+Only compute `/10` when all axes have verifiable evidence. An unresolved hard constraint (such as a strict budget, eligibility rule, or deadline) blocks a complete fit score even if the other axes are known; report the verified axes and a conditional option instead. Use `unverified` where an official source was unavailable; do not silently turn missing information into a zero, a one, or a perfect score. A 2 means documented fit, not likely acceptance. Report desk-reject risks and the best evidence that would strengthen fit. Do not use impact factor or venue prestige as a substitute for scope, evidence, and audience fit.
 
 Give a short list of usually 3–5 options when enough current information exists. For each, include the fit score, article type/track, official scope or CFP links, deadline and fee/open-access facts only if currently verified, key mismatch, and confidence. Keep `paper quality`, `novelty`, `venue fit`, and `acceptance probability` separate. Do not estimate acceptance probability from the fit score alone.
 
