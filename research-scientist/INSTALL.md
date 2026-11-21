@@ -34,9 +34,12 @@ Start a new session or refresh the skill list. Gemini CLI supports `/skills list
 - `scripts/compare_scorecards.py` — declared reading/locator basis and weight-sensitivity checks across papers.
 - `scripts/score_math.py` — guarded score arithmetic.
 - `scripts/audit_alignment.py` — optional read-only CSV identity/split diagnostic.
+- `modules/kdense-scientific-writing/` — bundled MIT-licensed offline paper-writing toolkit with workspace, claim, reference, consistency, reporting, authorship and lint commands. See its `VENDOR.md` and `LICENSE.md`; invoke it through this skill's paper-production workflow.
+- `modules/humanizer/` — bundled MIT-licensed 26-pattern prose-editing catalog, applied after scientific checks through this skill's writing workflow.
+- `modules/researchradar/` — bundled MIT-licensed public-review, paper, citation, limitation and exact-quote tools, used as a gap-evidence lane. Network routes have source-specific access and optional large datasets; see its `VENDOR.md`.
 - `agents/openai.yaml` — optional Codex UI metadata.
 
-The folder is self-contained; it contains no copied project code and no hard dependency on a specific external service.
+The folder is self-contained and has no hard dependency on a specific external service. The paper-writing toolkit is a bundled copy of the named upstream MIT module with its license and source notice; the rest of the skill's scripts are written for this repository.
 
 ## Credentials and capability checks
 

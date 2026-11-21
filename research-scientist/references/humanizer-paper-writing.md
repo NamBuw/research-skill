@@ -1,6 +1,39 @@
 # Humanizer and scientific paper writing
 
-Use this reference when drafting or editing a manuscript, abstract, related-work section, proposal, review, figure caption, rebuttal, or other scholarly prose. Treat Humanizer as an editorial pass, never as a way to strengthen a claim or disguise weak evidence. Apply the editorial procedure in this document. External writing skills are background references only; see [Source notes](repository-landscape.md) for provenance.
+Use this reference when drafting or editing a manuscript, abstract, related-work section, proposal, review, figure caption, rebuttal, or other scholarly prose. Treat Humanizer as an editorial pass, never as a way to strengthen a claim or disguise weak evidence. Apply the editorial procedure in this document. The [bundled local paper-writing toolkit](../modules/kdense-scientific-writing/VENDOR.md) supplies executable manuscript checks inside this skill; the root workflow and scientific decisions remain here. See [Source notes](repository-landscape.md) for provenance.
+
+## Complete paper-production path
+
+For a full paper, start from the accepted RQ, protocol, run receipts, source ledger, closest-work matrix, and actual figures/tables. Record the intended article type and the current target venue instructions. If these are missing, create an evidence and writing plan before drafting a conclusion. Select the reporting guideline by the actual study design, then open the current official statement and venue policy. The bundled selector gives candidate routes, not compliance certification:
+
+```bash
+python modules/kdense-scientific-writing/scripts/select_reporting_guidelines.py select --study-design randomized_trial
+```
+
+For a new local draft, use the bundled scaffold with an unused output directory. It creates a manuscript, claim and source records, a consistency manifest, authorship record and guideline coverage file. All contents remain incomplete until verified:
+
+```bash
+python modules/kdense-scientific-writing/scripts/scaffold_manuscript.py --output-dir ./draft-workspace --document-id local-draft --study-design randomized_trial --guideline consort-2025
+```
+
+Run the bundled checks from the manuscript workspace after filling records with real evidence. The paths below assume the current working directory is `research-scientist/` and the workspace is `draft-workspace/`:
+
+```bash
+python modules/kdense-scientific-writing/scripts/validate_manifest.py draft-workspace/source_manifest.json --kind source --require-verified
+python modules/kdense-scientific-writing/scripts/audit_claims.py draft-workspace/manuscript.md draft-workspace/claims.csv draft-workspace/source_manifest.json
+python modules/kdense-scientific-writing/scripts/check_consistency.py draft-workspace/consistency_manifest.json
+python modules/kdense-scientific-writing/scripts/check_references.py draft-workspace/source_manifest.json
+python modules/kdense-scientific-writing/scripts/validate_authorship.py draft-workspace/authorship.json
+python modules/kdense-scientific-writing/scripts/select_reporting_guidelines.py check draft-workspace/reporting_coverage.json
+python modules/kdense-scientific-writing/scripts/validate_manifest.py draft-workspace/manuscript_manifest.json --kind manuscript
+python modules/kdense-scientific-writing/scripts/lint_manuscript.py draft-workspace/manuscript.md --manifest draft-workspace/manuscript_manifest.json
+```
+
+The bundled audit binds marked manuscript lines to claim-text hashes and declared evidence IDs. Re-run it after rewriting a claim, including after Humanizer editing; a prior verification does not transfer automatically to new wording. Resolve every structural finding by opening the original passage, result artifact or policy. Never treat a clean linter as proof of passage entailment, valid study conduct, ethical approval or venue compliance. The [toolkit CLI reference](../modules/kdense-scientific-writing/references/cli_reference.md) gives exact input fields and exit states.
+
+Write results and methods before the abstract. For each result, reconcile analysis population, comparator, metric, estimate, uncertainty, figure/table values and run receipt. For each methods paragraph, reconcile data provenance, sampling, preprocessing, exclusions, split, controls, parameters, software and deviations with the protocol and actual execution. Keep a method-lineage table so reused and combined parts are credited and cannot be renamed as a new invention. Use an evidence-linked outline for introduction and discussion; cite close competing and contrary work with source locators, not title-level summaries. Write the title and abstract only after those claims stabilize.
+
+For tables and figures, preserve the source data and transformation script, verify axis/row labels, units, denominators, uncertainty, missing runs and caption claims, and inspect the final rendered output. Include only displays that answer a question or establish a result; a decorative diagram cannot repair a missing experiment. In revision or rebuttal, classify each comment, identify affected claims/methods/results, update the ledgers before prose, rerun the affected checks and write a point-by-point response with exact manuscript locations. Keep confidential review material within its authorized boundary. Human authors approve declarations, author order and submission.
 
 ## Order of work: argument, evidence, prose
 
@@ -24,7 +57,7 @@ Keep the ledger local when it contains unpublished work or restricted evidence. 
 
 ## Humanizer pass for scholarly prose
 
-Read the full draft and flag patterns that make the writing sound formulaic, inflated, or detached from the evidence. Look at the document as a whole, not one sentence at a time. Common structural signs include:
+Use the [bundled Humanizer pattern catalog](../modules/humanizer/UPSTREAM_SKILL.md) for this stage; it is part of this package, with its [source and license notice](../modules/humanizer/VENDOR.md). Read the full draft and flag patterns that make the writing sound formulaic, inflated, or detached from the evidence. Look at the document as a whole, not one sentence at a time. Common structural signs include:
 
 - staged openings that announce an important point before making it;
 - repeated “not X, but Y” contrasts when the rejected alternative was never claimed;
@@ -36,6 +69,8 @@ Read the full draft and flag patterns that make the writing sound formulaic, inf
 - uniform sentence length or a voice that is more polished, emphatic, or certain than the authors' actual argument.
 
 Rebuild a paragraph around its inferential point when local word substitutions leave it mechanical. Use a direct subject and verb when they clarify agency. Vary sentence length where the argument allows it. Preserve a deliberate contrast when it names a real comparator, a negative result, an assumption, or a claim boundary. Keep a technical term, passive construction, repetition, dash, or list when the discipline, logic, or author's voice needs it. Never apply a banlist mechanically.
+
+After the edit, re-run claim and consistency checks because changing wording can invalidate a prior claim hash or alter a causal, numerical, temporal, or methodological statement. Compare before and after at paragraph and claim level. Reject a smoother sentence when it drops a limitation, changes an estimate, alters a cited relation, or makes a hypothesis sound like a result.
 
 If the authors provide a writing sample, use it to calibrate vocabulary, cadence, punctuation, formality, and first-person use. The sample informs voice, not facts or scientific claims. Without a sample, use a clear, restrained academic register appropriate to the field and genre. Avoid corporate, promotional, social-media, and generic assistant language.
 

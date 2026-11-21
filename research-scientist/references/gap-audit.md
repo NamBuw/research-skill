@@ -96,6 +96,8 @@ Apply the full [prior-art search protocol](precedent-search.md) for query famili
 
 ## Gate 3 — Resolve records to studies and inspect the evidence
 
+When review text, author limitations, or public decision letters are part of the evidence, use the [review-signal lane](review-signal-mining.md) to preserve exact quotes, response status, denominator and later-work checks. Such text creates a candidate problem; it does not itself establish that the issue remains open or that the authors' interpretation is correct.
+
 1. Deduplicate versions and connect conference/journal/preprint reports of the same work. Count independent **studies/work**, not database hits, versions, reviewer comments, authors, or repeated model runs as separate confirmations.
 2. Note shared datasets, author groups, research programs, and dependent analyses. Several papers can be one evidentiary lineage.
 3. Inspect full text for every source carrying a central gap claim, whenever available. Abstract-only evidence may locate a candidate but rarely supports a subtle limitation, method, or result claim. Label the access level explicitly.

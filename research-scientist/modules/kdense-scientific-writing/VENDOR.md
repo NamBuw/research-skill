@@ -1,0 +1,5 @@
+# Bundled scientific-writing toolkit
+
+This directory contains the `skills/scientific-writing` folder from [K-Dense Scientific Agent Skills](https://github.com/K-Dense-AI/scientific-agent-skills), snapshot `ec59a29a03d5c40f73ab40878df04860bc00e876`, inspected on 2026-11-21. The upstream folder's `SKILL.md` is stored as `UPSTREAM_SKILL.md` so this package has one agent entrypoint at `research-scientist/SKILL.md`. The other upstream files are copied without functional changes. `LICENSE.md` is the upstream repository's MIT license and copyright notice.
+
+The root research-scientist skill owns the complete research workflow, including prior-art and method-lineage gates, experimental provenance, paper writing, and Humanizer editing. These bundled offline scripts provide manuscript workspace, evidence, consistency, references, reporting, authorship, and lint checks within that workflow. They do not verify source passages, scientific truth, originality, current journal policies, or submission readiness on their own. Check the upstream repository before importing later updates; do not silently replace these files or delete attribution.

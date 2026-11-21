@@ -189,6 +189,8 @@ Then discard candidates that have no consequential stake, no answer path, no mea
 
 ### Good Question Card
 
+Apply the [field-specific question checks](rq-field-checks.md) when the target domain changes the relevant units, evidence, validation, ethics, or counter-reading. Use them to sharpen the same question card, not as a substitute for reading field sources.
+
 For a reusable structured card, use [the JSON example](question-card.schema-example.json) and the [local checker](../scripts/check_question_card.py). Replace every example field with actual study details and source IDs. The checker flags empty fields and identical focal/rival predictions; a passing check does not establish novelty, identification, validity, or feasibility.
 
 If the RQ rests on a claimed gap, retain its candidate ID and [gap audit record](gap-record.schema-example.json). Run `python scripts/check_gap_record.py your-gap-record.json` before promoting `supported_candidate`; inspect the returned errors and warnings, then read the sources yourself. A passed structural check is a readiness aid, never a positive scientific verdict. Formulate the RQ even when the honest gap status is `early_signal` if the question would still produce useful evidence, but remove unsupported originality language.
