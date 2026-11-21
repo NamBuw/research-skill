@@ -21,7 +21,7 @@ Start a new session or refresh the skill list. Gemini CLI supports `/skills list
 - `references/research-workflow.md` — review designs, search, evidence, question and study workflows.
 - `references/artifact-templates.md` — formats for durable, auditable research artifacts.
 - `references/repository-landscape.md` — source-reading provenance, outside the runtime workflow.
-- `scripts/search_papers.py` — bounded four-source scholarly discovery with source-status logging.
+- `scripts/search_papers.py` — bounded six-source scholarly discovery with source-status logging.
 - `scripts/citation_trails.py` — bounded OpenAlex one-hop backward/forward citation leads for a verified work ID.
 - `scripts/local_evidence.py` — local lexical passage leads from text and MinerU Content List V2 exports.
 - `scripts/check_evidence_map.py` — structural question, passage, claim, and outline links.

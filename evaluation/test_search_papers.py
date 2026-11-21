@@ -51,5 +51,40 @@ class SearchTests(unittest.TestCase):
         r = module.search('graph methods', ('s2',), 2, 1, lambda source, params: {'error': 'service unavailable'})
         self.assertEqual(r['sources']['s2']['status'], 'missing_result_list')
 
+    def test_arxiv_query_and_version_identity(self):
+        params = module.request_params('arxiv', 'graph neural network', 2, 2)
+        self.assertEqual(params['start'], 2)
+        self.assertEqual(params['search_query'], 'all:graph AND all:neural AND all:network')
+        r = module.search('graph neural network', ('arxiv',), 1, 1,
+                          lambda source, params: {'total': 2, 'entries': [
+                              {'id': 'https://arxiv.org/abs/2401.00001v2', 'title': 'Example', 'published': '2024-01-01'}]})
+        self.assertEqual(r['records'][0]['source_id'], 'arxiv:2401.00001v2')
+        self.assertEqual(r['sources']['arxiv']['status'], 'bounded_partial')
+
+    def test_pubmed_page_and_doi(self):
+        params = module.request_params('pubmed', 'graph methods', 2, 3)
+        self.assertEqual(params['retstart'], 4)
+        r = module.search('graph methods', ('pubmed',), 1, 1,
+                          lambda source, params: {'total': 1, 'records': [
+                              {'id': '123', 'title': 'Example', 'year': '2025 Aug', 'doi': '10.1/ABC'}]})
+        self.assertEqual(r['records'][0]['source_id'], 'pmid:123')
+        self.assertEqual(r['records'][0]['doi'], '10.1/abc')
+        self.assertEqual(r['records'][0]['year'], 2025)
+
+    def test_missing_total_is_unchecked(self):
+        r = module.search('graph methods', ('arxiv',), 1, 1,
+                          lambda source, params: {'entries': []})
+        self.assertEqual(r['sources']['arxiv']['status'], 'missing_or_invalid_total')
+
+    def test_source_specific_arxiv_query_is_sent_verbatim_and_logged(self):
+        seen = []
+        def transport(source, params):
+            seen.append(params['search_query'])
+            return {'total': 0, 'entries': []}
+        r = module.search('generic query', ('arxiv',), 1, 1, transport,
+                          source_queries={'arxiv': 'ti:graph AND abs:network'})
+        self.assertEqual(seen, ['ti:graph AND abs:network'])
+        self.assertEqual(r['sources']['arxiv']['executed_query'], seen[0])
+
 if __name__ == '__main__':
     unittest.main()

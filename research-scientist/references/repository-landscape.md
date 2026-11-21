@@ -99,6 +99,8 @@ These are worth knowing because they implement the literal requested feature. Th
 
 Other relevant research/review resources include [AgentSLR](https://github.com/OxRML/AgentSLR), [ASReview](https://github.com/asreview/asreview), [OpenScholar](https://github.com/AkariAsai/OpenScholar), and [PaperQA2](https://github.com/Future-House/paper-qa). They help with screening, retrieval, or synthesis; none by itself certifies a field-wide research gap.
 
+The bundled discovery script later added arXiv Atom and PubMed E-utilities routes after checking the [arXiv API manual](https://info.arxiv.org/help/api/user-manual.html) and [NCBI E-utilities documentation](https://www.ncbi.nlm.nih.gov/books/NBK25499/). It uses arXiv `search_query`, `start`, and `max_results`, and PubMed `esearch` followed by `esummary` for returned PMIDs. Query translation, provider ranking, API totals, and indexing remain provider-specific. A few successful pages do not measure recall.
+
 ## Implemented design decisions
 
 The runnable instructions live in this skill's own [research workflow](research-workflow.md), [prior-art audit](precedent-search.md), [gap gate](gap-audit.md), [question cards](artifact-templates.md), [engineering diagnostic](engineering-vs-gap.md), [scoring and venue rules](scoring-and-venue-fit.md), and [agent task contracts](agent-orchestration.md). The repositories above are provenance and critique material. Their code, accounts, APIs, or skills are not dependencies.

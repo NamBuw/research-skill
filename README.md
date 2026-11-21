@@ -22,7 +22,7 @@ python scripts/check_venue_plan.py /path/to/venue-dossier.json
 
 The example OpenAlex ID is only a syntax example. Replace it and every fictional JSON fixture before a real audit. Each checker enforces declared structure or arithmetic; the agent must still read the original papers, verify factual inputs, and make a reasoned scientific judgment.
 
-Version 2.1.0 includes multi-source paper discovery, bounded citation and local passage retrieval, evidence and gap records, operational research questions, experiment receipts, manuscript and method-lineage checks, scored comparisons, and venue planning. Supply your own `S2_API_KEY` through runtime configuration; no personal credentials are included.
+Version 2.1.0 includes six-source paper discovery, bounded citation and local passage retrieval, evidence and gap records, operational research questions, experiment receipts, manuscript and method-lineage checks, scored comparisons, and venue planning. Supply your own `S2_API_KEY` through runtime configuration; no personal credentials are included.
 
 [Evaluation scope](research-scientist/references/quality-evaluation.md): structural checks and synthetic review scenarios are not evidence of parity or superiority to K-Dense or any research system.
 
@@ -30,7 +30,7 @@ Version 2.1.0 includes multi-source paper discovery, bounded citation and local 
 
 | Capability in this repository | Built-in implementation | What still requires source or expert review |
 |---|---|---|
-| Literature discovery | Four-source search helper with query/page counts, DOI candidate groups, explicit API failure states, bounded OpenAlex citation trails, local passage retrieval, and a structural evidence-map checker | Broader field-specific indexes, cross-provider citation checks, original full-text reading, and recall assessment |
+| Literature discovery | Semantic Scholar, OpenAlex, Crossref, Europe PMC, arXiv and PubMed helper with query/page counts, DOI candidate groups and explicit API failure states; bounded OpenAlex citation trails, local passage retrieval, and a structural evidence-map checker | Broader field-specific indexes, cross-provider citation checks, original full-text reading, and recall assessment |
 | Gap and novelty audit | Own search, closest-precedent, counterevidence, and abstention protocols; linked gap-record checker | Reading decisive prior work and domain judgment; no field-wide completeness guarantee |
 | Research questions | Own question-card workflow and structural JSON checker | Whether constructs, causal assumptions, predictions, and scientific importance are valid |
 | Engineering failure diagnosis | Own failure protocol and local sample-ID/split diagnostic | Correctness of the implementation, benchmark, and causal explanation of a failure |
