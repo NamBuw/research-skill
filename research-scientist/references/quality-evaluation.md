@@ -50,3 +50,7 @@ Until that comparison is performed, describe concrete workflow improvements and 
 ## Deterministic arithmetic check
 
 The optional `scripts/score_math.py` passed local arithmetic and missing-dimension checks on 2026-11-21; [`evaluation/test_score_math.py`](../../evaluation/test_score_math.py) records the subsequent regression for an invalid score masked by a missing dimension. These checks cannot establish rating reliability, novelty, venue accuracy, or agent compliance.
+
+## Multi-index discovery probe
+
+On 2026-11-21, the bundled `scripts/search_papers.py` was run against the query `graph neural networks` with two records requested per source. The first-page probe returned two records each from OpenAlex, Crossref, and Europe PMC; keyless Semantic Scholar returned HTTP 429 and was marked unchecked. A two-page Europe PMC probe first exposed repeated records because the helper incorrectly sent a `page` parameter. The helper now follows the response's `nextCursorMark`; a repeated two-page probe returned four distinct source IDs. Thirteen local tests cover the package's score, identity/split, and search helpers, including HTTP failure versus valid zero, malformed body, bounded result, repeated page, and Europe PMC cursor handling. These probes check API plumbing for one query, not literature recall, source independence, or novelty accuracy.

@@ -21,6 +21,7 @@ Start a new session or refresh the skill list. Gemini CLI supports `/skills list
 - `references/research-workflow.md` — review designs, search, evidence, question and study workflows.
 - `references/artifact-templates.md` — formats for durable, auditable research artifacts.
 - `references/repository-landscape.md` — source-reading provenance, outside the runtime workflow.
+- `scripts/search_papers.py` — bounded four-source scholarly discovery with source-status logging.
 - `scripts/score_math.py` — guarded score arithmetic.
 - `scripts/audit_alignment.py` — optional read-only CSV identity/split diagnostic.
 - `agents/openai.yaml` — optional Codex UI metadata.
