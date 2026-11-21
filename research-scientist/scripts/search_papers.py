@@ -27,7 +27,7 @@ def fetch(source, params, timeout=20):
     if source == 's2' and os.environ.get('S2_API_KEY'):
         headers['x-api-key'] = os.environ['S2_API_KEY']
     if source == 'openalex' and os.environ.get('OPENALEX_API_KEY'):
-        params['api_key'] = os.environ['OPENALEX_API_KEY']
+        headers['Authorization'] = 'Bearer ' + os.environ['OPENALEX_API_KEY']
     url = ENDPOINTS[source] + '?' + urlencode(params)
     try:
         with urlopen(Request(url, headers=headers), timeout=timeout) as response:
