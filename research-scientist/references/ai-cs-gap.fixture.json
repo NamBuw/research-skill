@@ -1,0 +1,19 @@
+{
+  "scope": "Fictional synthetic graph node-classification study; this is a structural test fixture, not a real literature finding",
+  "search_date": "2026-11-21",
+  "coverage_limits": "Fictional source labels and study; replace with real searches and original passages before any claim",
+  "next_check": "Search real graph-learning sources and inspect the closest work in full text",
+  "queries": [
+    {"id": "Q1", "source": "Fictional index A", "query": "degree shift aggregation smoothing label noise", "family": "direct_problem", "status": "complete", "retrieved": 1, "inspected": 1},
+    {"id": "Q2", "source": "Fictional index B", "query": "graph classifier degree shift rival explanations", "family": "closure", "status": "complete", "retrieved": 1, "inspected": 1}
+  ],
+  "evidence": [
+    {"id": "E1", "source_id": "FICTIONAL-GRAPH-STUDY-A", "study_id": "FICTIONAL-S1", "locator": "Fictional Section 4", "claim": "Accuracy under degree shift is measured, but the fixture does not separate aggregation effects from label noise", "role": "result", "access": "full_text"}
+  ],
+  "closest_works": [
+    {"id": "W1", "source_id": "FICTIONAL-GRAPH-STUDY-A", "relation": "partial_precedent", "access": "full_text", "difference": "The fixture does not contain a matched manipulation of aggregation depth and label noise", "evidence_ids": ["E1"]}
+  ],
+  "candidates": [
+    {"id": "G1", "claim": "The two explanations remain indistinguishable in this fictional evidence set", "type": "mechanistic_uncertainty", "disposition": "supported_candidate", "rationale": "Only the fictional fixture source was inspected", "trigger": "literature_synthesis", "engineering_status": "not_applicable", "support_evidence_ids": ["E1"], "counter_evidence_ids": [], "closest_work_ids": ["W1"], "kill_query_ids": ["Q2"], "consequence": "Different causes would lead to different model changes", "answer_path": "Matched synthetic-graph interventions with independent graph instances"}
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "RQ-AI-FICTIONAL-1",
+  "question": "In the fictional graph benchmark, does added aggregation depth cause a larger node-classification accuracy drop under degree shift than added label noise at fixed depth?",
+  "question_type": "mechanistic",
+  "target_scope": "Synthetic graph instances generated under a specified degree-shift intervention",
+  "unit_of_observation": "Node prediction within a graph instance",
+  "unit_of_analysis": "Independent graph instance, with nodes clustered within graph",
+  "construct_or_estimand": "Difference in held-out accuracy drop attributable to aggregation depth versus label-noise intervention",
+  "measurement": "Node accuracy on held-out graph instances, with generator version and labels audited",
+  "closest_work": "FICTIONAL-GRAPH-STUDY-A, Fictional Section 4; replace with real full text",
+  "prior_art_boundary": "Fictional test fixture only; no real search coverage",
+  "rival_explanation": "The drop is caused by label noise rather than aggregation depth",
+  "expected_if_focal": "Increasing depth lowers held-out accuracy under degree shift even when label noise is fixed",
+  "expected_if_rival": "Increasing label noise lowers held-out accuracy while depth changes with fixed noise do not",
+  "discriminating_test": "Factorial depth-by-noise manipulation with held-out independent graph instances",
+  "falsifying_result": "Depth has no prespecified adverse contrast under valid measurement while noise produces the contrast",
+  "indeterminate_result": "Generator or metric fails checks, or uncertainty is too broad to separate the contrasts",
+  "pilot": "Check graph/label IDs, evaluator on hand-checkable graphs and a tiny matched baseline run",
+  "engineering_diagnosis": "Pre-run data identity, split, preprocessing, metric and baseline checks are planned; no failure is yet interpreted",
+  "prior_outcome_exposure": "No target outcomes inspected before this fictional plan"
+}

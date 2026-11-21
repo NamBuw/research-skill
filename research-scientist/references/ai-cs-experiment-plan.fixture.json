@@ -1,0 +1,77 @@
+{
+  "gap_candidate_id": "G1",
+  "question_id": "RQ-AI-FICTIONAL-1",
+  "claim_mode": "exploratory",
+  "claim_type": "mechanism",
+  "contribution_delta": "A matched manipulation that separates aggregation-depth effects from label-noise effects in the fictional benchmark",
+  "decision_if_resolved": "Choose depth or data-quality interventions based on the observed causal contrast",
+  "closest_work_ids": ["W1"],
+  "unresolved_close_work_ids": [],
+  "benchmark": {
+    "task": "Fictional synthetic graph node classification",
+    "dataset_version": "fictional-generator-v1",
+    "split_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "metric_id": "node_accuracy_v1",
+    "metric_direction": "higher",
+    "unit_of_analysis": "Independent graph instance, with nodes clustered within graph",
+    "contamination_check": "Audit generator seeds and graph IDs across train, validation and held-out test splits",
+    "test_set_access_policy": "Freeze model and decisions before opening held-out graph instances",
+    "benchmark_limitations": "Synthetic graphs may not represent real graph distributions"
+  },
+  "engineering_checks": {
+    "data_identity": {"status": "planned", "evidence_or_action": "Hash graph IDs and label files before training"},
+    "split_integrity": {"status": "planned", "evidence_or_action": "Verify disjoint graph-generator seeds across splits"},
+    "preprocessing": {"status": "planned", "evidence_or_action": "Compare normalization and feature construction with the reference code"},
+    "metric_sanity": {"status": "planned", "evidence_or_action": "Test accuracy evaluator on hand-labeled tiny graphs"},
+    "baseline_fidelity": {"status": "planned", "evidence_or_action": "Run the reference baseline under its documented configuration"},
+    "reference_reproduction": {"status": "planned", "evidence_or_action": "Attempt a matched reference-result reproduction before interpreting a deficit"}
+  },
+  "comparison_fairness": {
+    "baseline_source": "Fictional reference baseline implementation, to be verified",
+    "baseline_implementation": "Same code path except the declared depth/noise interventions",
+    "training_data_budget": "Same training graph count per condition",
+    "compute_budget": "Matched accelerator time or report deviations",
+    "tuning_budget": "Same validation trials and early-stopping rule per condition",
+    "information_access": "Same features, labels and validation feedback per condition"
+  },
+  "analysis": {
+    "effect_measure": "Depth-by-noise interaction in held-out accuracy drop",
+    "decision_threshold": "A prespecified five-percentage-point contrast for this fictional test",
+    "uncertainty_method": "Cluster bootstrap over independent graph instances",
+    "aggregation_unit": "Independent graph instance, with nodes clustered within graph",
+    "seed_policy": "Use multiple fixed generator and training seeds selected before outcome inspection",
+    "multiple_testing_policy": "One primary contrast; label secondary comparisons exploratory",
+    "failed_run_policy": "Retain every attempted run and diagnose failures before excluding any",
+    "holdout_policy": "Do not use held-out graphs for tuning or prompt selection"
+  },
+  "experiments": [
+    {
+      "id": "EXP-PRIMARY", "role": "primary", "purpose": "Distinguish aggregation-depth effect from label-noise effect",
+      "focal_condition": "Increase message-passing depth while fixing label noise",
+      "comparator_condition": "Fix depth while increasing label noise",
+      "variable_changed": "Depth and noise are separately randomized in a factorial design",
+      "outcome": "Held-out node accuracy aggregated by independent graph",
+      "predicted_if_focal": "Depth increase produces the larger accuracy drop under degree shift",
+      "predicted_if_rival": "Noise increase produces the larger drop while depth contrast remains small",
+      "falsifying_result": "The prespecified depth contrast is absent with adequate precision and valid checks",
+      "indeterminate_result": "Metric or split checks fail, or uncertainty overlaps both explanations",
+      "analysis_action": "Estimate the prespecified depth-by-noise contrast and interval",
+      "tuning_data_role": "validation", "evaluation_data_role": "test",
+      "controls": ["matched graph count", "matched tuning budget", "same metric implementation"]
+    },
+    {
+      "id": "EXP-ABLATION", "role": "ablation", "purpose": "Check whether extra aggregation is necessary for the predicted effect",
+      "focal_condition": "Remove extra aggregation at fixed label noise",
+      "comparator_condition": "Retain extra aggregation at fixed label noise",
+      "variable_changed": "Aggregation depth only",
+      "outcome": "Held-out node accuracy aggregated by independent graph",
+      "predicted_if_focal": "Removing extra aggregation reduces the degree-shift deficit",
+      "predicted_if_rival": "Removing extra aggregation has little effect when label noise is held fixed",
+      "falsifying_result": "No depth-associated change under a valid matched test",
+      "indeterminate_result": "Training instability prevents a reliable comparison",
+      "analysis_action": "Compare matched conditions with graph-level uncertainty",
+      "tuning_data_role": "validation", "evaluation_data_role": "test",
+      "controls": ["fixed label noise", "same training graphs", "same evaluation script"]
+    }
+  ]
+}

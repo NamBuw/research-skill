@@ -1,0 +1,53 @@
+{
+  "venue": {
+    "name": "Fictional AI Conference — test fixture only",
+    "edition": "2027",
+    "track": "Fictional research track",
+    "official_cfp_url": "https://example.org/fictional-cfp",
+    "checked_at_utc": "2026-11-21T10:00:00Z",
+    "max_source_age_days": 14
+  },
+  "target": {
+    "id": "FICTIONAL-TARGET",
+    "claim": "A fictional mechanism claim under a specified graph shift",
+    "contribution_type": "empirical mechanism study",
+    "reading_basis": "full_text",
+    "score": 6, "low": 5, "high": 7,
+    "closest_work_id": "FICTIONAL-PRIOR-A",
+    "closest_work_locator": "Fictional prior, Section 3",
+    "contribution_delta": "A discriminating test missing from the fictional prior",
+    "search_manifest": "fictional-search-manifest.json",
+    "score_reason": "Fictional bounded difference with uncertain generality",
+    "assessment_boundary": "Novelty of the target claim relative to work available by 2026-11-21",
+    "assessed_at_utc": "2026-11-21T10:00:00Z"
+  },
+  "panel_selection": {
+    "search_manifest": "fictional-panel-search.json",
+    "inclusion_rule": "Same fictional track and contribution type within three years",
+    "exclusion_log": "fictional-panel-exclusions.json",
+    "date_window": "2024-2026",
+    "screened_count": 12,
+    "rubric_version": "research-scientist novelty anchors v2.8",
+    "calibration_notes": "Fictional anchor examples only; no human calibration",
+    "selection_bias": "Fictional five-paper panel cannot represent all accepted papers"
+  },
+  "accepted_panel": [
+    {"id": "FICTIONAL-P1", "claim": "Fictional accepted contribution one", "contribution_type": "empirical mechanism study", "reading_basis": "full_text", "score": 4, "low": 3, "high": 5, "closest_work_id": "FICTIONAL-A1", "closest_work_locator": "Fictional Section 2", "contribution_delta": "Fictional bounded extension", "search_manifest": "fictional-p1-search.json", "score_reason": "Fictional incremental contribution", "assessment_boundary": "Prior work available before the fictional 2026 paper", "assessed_at_utc": "2026-11-21T10:00:00Z", "official_acceptance_url": "https://example.org/fictional-p1", "track": "Fictional research track", "year": 2026},
+    {"id": "FICTIONAL-P2", "claim": "Fictional accepted contribution two", "contribution_type": "empirical mechanism study", "reading_basis": "full_text", "score": 5, "low": 4, "high": 6, "closest_work_id": "FICTIONAL-A2", "closest_work_locator": "Fictional Section 2", "contribution_delta": "Fictional contextual result", "search_manifest": "fictional-p2-search.json", "score_reason": "Fictional moderate novelty", "assessment_boundary": "Prior work available before the fictional 2026 paper", "assessed_at_utc": "2026-11-21T10:00:00Z", "official_acceptance_url": "https://example.org/fictional-p2", "track": "Fictional research track", "year": 2026},
+    {"id": "FICTIONAL-P3", "claim": "Fictional accepted contribution three", "contribution_type": "empirical mechanism study", "reading_basis": "full_text", "score": 6, "low": 5, "high": 7, "closest_work_id": "FICTIONAL-A3", "closest_work_locator": "Fictional Section 2", "contribution_delta": "Fictional new test", "search_manifest": "fictional-p3-search.json", "score_reason": "Fictional substantial bounded test", "assessment_boundary": "Prior work available before the fictional 2025 paper", "assessed_at_utc": "2026-11-21T10:00:00Z", "official_acceptance_url": "https://example.org/fictional-p3", "track": "Fictional research track", "year": 2025},
+    {"id": "FICTIONAL-P4", "claim": "Fictional accepted contribution four", "contribution_type": "empirical mechanism study", "reading_basis": "full_text", "score": 7, "low": 6, "high": 8, "closest_work_id": "FICTIONAL-A4", "closest_work_locator": "Fictional Section 2", "contribution_delta": "Fictional method distinction", "search_manifest": "fictional-p4-search.json", "score_reason": "Fictional strong contribution", "assessment_boundary": "Prior work available before the fictional 2025 paper", "assessed_at_utc": "2026-11-21T10:00:00Z", "official_acceptance_url": "https://example.org/fictional-p4", "track": "Fictional research track", "year": 2025},
+    {"id": "FICTIONAL-P5", "claim": "Fictional accepted contribution five", "contribution_type": "empirical mechanism study", "reading_basis": "full_text", "score": 8, "low": 7, "high": 9, "closest_work_id": "FICTIONAL-A5", "closest_work_locator": "Fictional Section 2", "contribution_delta": "Fictional mechanism distinction", "search_manifest": "fictional-p5-search.json", "score_reason": "Fictional high novelty", "assessment_boundary": "Prior work available before the fictional 2024 paper", "assessed_at_utc": "2026-11-21T10:00:00Z", "official_acceptance_url": "https://example.org/fictional-p5", "track": "Fictional research track", "year": 2024}
+  ],
+  "fit_axes": [
+    {"name": "scope_audience", "score": 2, "source_url": "https://example.org/fictional-cfp", "locator": "Fictional scope section", "reason": "Fictional topic explicitly listed"},
+    {"name": "contribution_track", "score": 2, "source_url": "https://example.org/fictional-cfp", "locator": "Fictional track section", "reason": "Fictional contribution type accepted"},
+    {"name": "evidence_maturity", "score": 1, "source_url": "https://example.org/fictional-p3", "locator": "Fictional methods section", "reason": "Fictional target lacks one comparison"},
+    {"name": "format_eligibility", "score": 2, "source_url": "https://example.org/fictional-policy", "locator": "Fictional submission rules", "reason": "Fictional format and eligibility match"},
+    {"name": "user_constraints", "score": 1, "source_url": "https://example.org/fictional-fees", "locator": "Fictional fee schedule", "reason": "Fictional timing fits with a narrow buffer"}
+  ],
+  "hard_constraints": [
+    {"name": "deadline", "status": "met", "source_url": "https://example.org/fictional-cfp", "reason": "Fictional deadline remains open"},
+    {"name": "budget", "status": "met", "source_url": "https://example.org/fictional-fees", "reason": "Fictional total is within budget"},
+    {"name": "eligibility", "status": "met", "source_url": "https://example.org/fictional-policy", "reason": "Fictional article type eligible"}
+  ]
+}

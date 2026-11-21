@@ -18,6 +18,7 @@ python scripts/local_evidence.py "mechanism or outcome" /path/to/extracted/paper
 python scripts/extract_pdf_blocks.py /path/to/paper.pdf --output /path/to/paper.blocks.json
 python scripts/check_gap_record.py /path/to/gap-record.json
 python scripts/check_question_card.py /path/to/question-card.json
+python scripts/check_ai_cs_research_plan.py /path/to/gap-record.json /path/to/question-card.json /path/to/ai-cs-experiment-plan.json
 python scripts/check_experiment_manifest.py /path/to/experiment-manifest.json
 python scripts/check_manuscript_ledger.py /path/to/manuscript-ledger.json
 python scripts/compare_scorecards.py /path/to/scorecards.json
@@ -25,13 +26,14 @@ python scripts/venue_leads.py "specific contribution and field" --page-size 50 -
 python scripts/check_venue_plan.py /path/to/venue-dossier.json
 python scripts/capture_venue_sources.py /path/to/venue-dossier.json > venue-sources.json
 python scripts/check_venue_sources.py /path/to/venue-dossier.json venue-sources.json
+python scripts/compare_venue_novelty.py /path/to/venue-novelty-profile.json
 python modules/kdense-scientific-writing/scripts/scaffold_manuscript.py --output-dir ./draft-workspace --document-id local-draft --study-design observational
 python modules/researchradar/problem-statement-finder/scripts/radar.py check
 ```
 
 The example DOI and OpenAlex ID are only syntax examples. Replace them and every fictional JSON fixture with relevant, verified seeds before a real audit. An absent known seed means the executed query or source coverage needs repair; it does not mean the paper or idea is absent. Each checker enforces declared structure or arithmetic; the agent must still read the original papers, verify factual inputs, and make a reasoned scientific judgment.
 
-Version 2.7.0 includes six-source paper discovery with multi-query campaign and known-seed checks, open-access PDF lead resolution, bounded citation and local PDF passage retrieval, public-review/limitation mining, evidence and gap records, operational research questions, experiment receipts, bundled scientific-writing and Humanizer components, scored comparisons, and venue planning with dated source snapshots. Supply your own `S2_API_KEY` through runtime configuration; no personal credentials are included.
+Version 2.8.0 includes six-source paper discovery with multi-query campaign and known-seed checks, open-access PDF lead resolution, bounded citation and local PDF passage retrieval, public-review/limitation mining, evidence and gap records, AI/CS research-question and experiment gates, experiment receipts, bundled scientific-writing and Humanizer components, scored comparisons, and venue planning with same-track novelty panels and dated source snapshots. Supply your own `S2_API_KEY` through runtime configuration; no personal credentials are included.
 
 [Evaluation scope](research-scientist/references/quality-evaluation.md): structural checks and synthetic review scenarios are not evidence of parity or superiority to K-Dense or any research system.
 
@@ -40,12 +42,12 @@ Version 2.7.0 includes six-source paper discovery with multi-query campaign and 
 | Capability in this repository | Built-in implementation | What still requires source or expert review |
 |---|---|---|
 | Literature discovery | Semantic Scholar, OpenAlex, Crossref, Europe PMC, arXiv and PubMed helper with query/page counts, DOI candidate groups and explicit API failure states; multi-query campaign runner with known-seed checks and source-record provenance; OpenAlex OA PDF lead resolution with identity and download receipts; bounded citation trails, local PDF/text passage retrieval, and a structural evidence-map checker | OCR and complex PDF layout, broader field-specific indexes, cross-provider citation checks, original full-text reading, and recall assessment |
-| Gap and novelty audit | Own search, closest-precedent, counterevidence, and abstention protocols; linked gap-record checker; bundled ResearchRadar review/limitation/quote tools | Reading decisive prior work and domain judgment; no field-wide completeness guarantee |
-| Research questions | Own question-card workflow, field-specific validity checks and structural JSON checker | Whether constructs, causal assumptions, predictions, and scientific importance are valid |
+| Gap and novelty audit | Own search, closest-precedent, counterevidence, and abstention protocols; linked gap-record checker; AI/CS gap-to-experiment plan gate; bundled ResearchRadar review/limitation/quote tools | Reading decisive prior work and domain judgment; no field-wide completeness guarantee |
+| Research questions | Own question-card workflow, AI/CS rival and experiment design path, field-specific validity checks and structural JSON checker | Whether constructs, causal assumptions, predictions, and scientific importance are valid |
 | Engineering failure diagnosis | Own failure protocol and local sample-ID/split diagnostic | Correctness of the implementation, benchmark, and causal explanation of a failure |
-| Experiment lifecycle | Own frozen-protocol, apparatus, run-receipt, matched-comparison, analysis and review procedure; structural receipt checker | Execution, reproduction, statistical validity and domain review |
+| Experiment lifecycle | Own frozen-protocol, apparatus, run-receipt, matched-comparison, analysis and review procedure; AI/CS experiment-plan and structural receipt checkers | Execution, reproduction, statistical validity and domain review |
 | Paper comparison and scores | Own six-dimension rubric, guarded arithmetic helper, declared-evidence comparator and weight-sensitivity check | Evidence-based ratings, calibration, and human/domain disagreement resolution |
-| Submission planning | Related-paper publication-source leads, current-CFP/deadline/cost/fit protocol, local HTML/PDF source snapshots, exact quote-to-dossier provenance checks, and calendar/cost checker | Official status, correct track and fee interpretation, fit judgment, and the manuscript's actual readiness |
+| Submission planning | Related-paper publication-source leads, current-CFP/deadline/cost/fit protocol, same-track accepted-paper novelty panel comparison, local HTML/PDF source snapshots, exact quote-to-dossier provenance checks, and calendar/cost checker | Official status, correct track and fee interpretation, fit judgment, and the manuscript's actual readiness |
 | Scientific writing | Own evidence-first paper and Humanizer workflow, method-lineage ledger, and bundled MIT offline toolkit for manuscript scaffolding, claim hashes, references, consistency, reporting, authorship and lint | Author verification of methods, results, citations, current policy, and final approval |
 
 The skill runs in Codex, Claude Code, and Gemini CLI using each host's available tools. External repositories cited in the source notes are not installation requirements. No single parser or search index is silently treated as comprehensive.
@@ -60,6 +62,7 @@ The skill implements its own research workflow and small local checkers. The ref
 | [Stanford STORM / Co-STORM](https://github.com/stanford-oval/storm) | Multi-perspective questions, evolving evidence map, outline before synthesis, human correction | [Document evidence](research-scientist/references/document-evidence.md), [research workflow](research-scientist/references/research-workflow.md) |
 | [PaperQA2](https://github.com/Future-House/paper-qa) | Question-conditioned passage retrieval, corpus-bound answers, citation and abstention gates | [Local evidence search](research-scientist/scripts/local_evidence.py), [document evidence](research-scientist/references/document-evidence.md) |
 | [The AI Scientist](https://github.com/SakanaAI/AI-Scientist) | Ideation → experiment → writing → skeptical review loop, with stronger protocol and provenance gates | [Experiment-to-paper](research-scientist/references/experiment-to-paper.md), [run receipt checker](research-scientist/scripts/check_experiment_manifest.py) |
+| [Stanford AI-Researcher](https://github.com/NoviScl/AI-Researcher) | Detailed experiment-plan generation from an idea, with a separate prior-art challenge and fallback path | [AI/CS gap–RQ–experiment protocol](research-scientist/references/ai-cs-gap-rq-experiment.md), [cross-stage checker](research-scientist/scripts/check_ai_cs_research_plan.py) |
 | [Perplexica / Vane](https://github.com/ItzCrazyKns/Vane) | Search-mode selection, iterative follow-up, source-scoped answers | [Research workflow](research-scientist/references/research-workflow.md), [prior-art search](research-scientist/references/precedent-search.md) |
 | [MinerU](https://github.com/opendatalab/MinerU) | Structured page/block evidence locators and visual verification of tables and equations | [Content List V2 passage search](research-scientist/scripts/local_evidence.py), [document evidence](research-scientist/references/document-evidence.md) |
 | [Khoj](https://github.com/khoj-ai/khoj) | Local-corpus boundary, personal document retrieval, explicit source handoff | [Local evidence search](research-scientist/scripts/local_evidence.py), [document evidence](research-scientist/references/document-evidence.md) |

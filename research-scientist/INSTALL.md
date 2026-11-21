@@ -29,11 +29,13 @@ Start a new session or refresh the skill list. On the locally checked Gemini CLI
 - `scripts/extract_pdf_blocks.py` — optional local text-based PDF block/page extraction using PyMuPDF; no OCR.
 - `scripts/check_evidence_map.py` — structural question, passage, claim, and outline links.
 - `scripts/check_gap_record.py` — structural evidence/source/kill-search checks for a proposed gap.
+- `scripts/check_ai_cs_research_plan.py` — empirical AI/CS cross-check of gap, RQ and proposed discriminating experiments; the three fictional input examples are under `references/`.
 - `scripts/check_experiment_manifest.py` — structural run-receipt and baseline/candidate comparison checks.
 - `scripts/check_question_card.py` — structural RQ/rival/measurement check; an example JSON card is under `references/`.
 - `scripts/check_venue_plan.py` — deadline conversion and fee completeness; official facts still require review.
 - `scripts/capture_venue_sources.py` — dated HTML/plain/PDF snapshots of supplied venue source URLs.
 - `scripts/check_venue_sources.py` — exact quote matching from dossier facts to captured source text; interpretation still requires review.
+- `scripts/compare_venue_novelty.py` — arithmetic and evidence-field checks for a recent same-track accepted-paper panel versus the user's claim; `references/venue-novelty-profile.fixture.json` is fictional.
 - `scripts/venue_leads.py` — bounded related-paper publication-source leads, requiring official venue verification.
 - `scripts/check_manuscript_ledger.py` — structural claim, numeric fact, and method-lineage checks for a manuscript.
 - `scripts/compare_scorecards.py` — declared reading/locator basis and weight-sensitivity checks across papers.
