@@ -16,3 +16,7 @@ Engineering case: returned response satisfied the listed checks, including disti
 
 Scoring/venue case: response correctly withheld overall ranking, preserved unknown leakage/fees, and matched both independently computed timezone conversions. However, it gave the unsearched dataset/context contribution provisional novelty 2/10. This is a failure of claim-specific evidence gating, despite its uncertainty caveat. See [actual response](scoring-venue-response.md). Added a claim-specific novelty access gate to the scoring module; verification of the corrected behavior is pending. These results must not be reported as all tests passed.
 
+
+## Score helper regression, 2026-11-21
+
+A code review found that the helper returned `not_comparable` as soon as it saw a missing dimension, before validating the other five values. This let an invalid rating such as 12/10 coexist with a missing rating without an error. The helper now validates every non-null rating first, then reports missing dimensions. The reproducible checks in [`test_score_math.py`](test_score_math.py) cover valid arithmetic, missing dimensions, invalid weights, and the previously missed combination. All four passed locally. They do not assess scientific judgment.
