@@ -74,7 +74,9 @@ class CampaignTests(unittest.TestCase):
 
         out = module.run_campaign(plan, fake_search)
         self.assertEqual([x['status'] for x in out['known_seed_checks']], ['source_unavailable', 'source_not_queried'])
-        self.assertEqual(out['coverage']['failed_or_partial_source_runs'][0]['status'], 'http_429')
+        self.assertEqual(out['coverage']['failed_or_partial_source_runs'][0]['status'], 'rate_limited')
+        self.assertEqual(out['query_runs'][0]['sources']['s2']['raw_status'], 'http_429')
+        self.assertEqual(out['query_runs'][0]['sources']['s2']['http_status'], 429)
 
     def test_validation_rejects_duplicate_query_id(self):
         plan = {'question': 'Q', 'queries': [{'id': 'same', 'family': 'direct', 'query': 'A'},
@@ -95,6 +97,39 @@ class CampaignTests(unittest.TestCase):
         out = module.run_campaign(plan, fake_search)
         self.assertEqual(out['coverage']['failed_or_partial_source_runs'],
                          [{'query_id': 'q1', 'source': 'openalex', 'status': 'bounded_partial'}])
+
+    def test_bot_blocked_and_partial_failures_categorized_consistently(self):
+        plan = {
+            'question': 'Check coverage buckets',
+            'queries': [
+                {'id': 'q1', 'family': 'direct', 'query': 'graph learning', 'sources': ['dblp', 's2', 'openalex'], 'pages': 2, 'size': 1},
+            ],
+        }
+        calls = {'oa': 0}
+
+        def transport(source, params):
+            if source == 'dblp':
+                raise RuntimeError('bot_blocked')
+            if source == 's2':
+                raise RuntimeError('http_429')
+            calls['oa'] += 1
+            if calls['oa'] == 1:
+                return {'meta': {'count': 10}, 'results': [{'id': 'W1', 'display_name': 'Hit 1'}]}
+            raise RuntimeError('timeout')
+
+        def fake_search(query, sources, size, pages, **kwargs):
+            return search_papers.search(query, sources, size, pages, transport=transport, **kwargs)
+
+        out = module.run_campaign(plan, fake_search)
+        self.assertEqual(out['coverage']['bot_blocked_source_runs'],
+                         [{'query_id': 'q1', 'source': 'dblp', 'status': 'bot_blocked'}])
+        self.assertEqual(out['coverage']['rate_limited_source_runs'],
+                         [{'query_id': 'q1', 'source': 's2', 'status': 'rate_limited'}])
+        self.assertEqual(out['coverage']['failed_or_partial_source_runs'], [
+            {'query_id': 'q1', 'source': 'dblp', 'status': 'bot_blocked'},
+            {'query_id': 'q1', 'source': 's2', 'status': 'rate_limited'},
+            {'query_id': 'q1', 'source': 'openalex', 'status': 'bounded_partial'},
+        ])
 
 
 if __name__ == '__main__':

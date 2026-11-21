@@ -7,11 +7,14 @@ equivalence, correct extraction, or permission for uses beyond reading.
 from __future__ import annotations
 
 import argparse
+import email.utils
 import hashlib
 import json
 import os
 import re
 import sys
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -21,6 +24,46 @@ from urllib.request import Request, urlopen
 API = 'https://api.openalex.org/works/'
 MAX_METADATA_BYTES = 5_000_000
 MAX_PDF_BYTES = 30_000_000
+RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
+_HOST_LOCK = threading.Lock()
+_HOST_LAST_CALL: dict[str, float] = {}
+
+
+def _parse_retry_after(value, now=None):
+    if not value:
+        return None
+    text = str(value).strip()
+    try:
+        return max(0.0, min(float(text), 30.0))
+    except ValueError:
+        pass
+    try:
+        dt = email.utils.parsedate_to_datetime(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        ref = now if now is not None else datetime.now(timezone.utc)
+        return max(0.0, min((dt - ref).total_seconds(), 30.0))
+    except (TypeError, ValueError):
+        return None
+
+
+def _throttle_host(host, min_interval=0.25, sleep_fn=time.sleep):
+    if not host or min_interval <= 0:
+        return
+    with _HOST_LOCK:
+        now = time.monotonic()
+        last = _HOST_LAST_CALL.get(host)
+        wait = (last + min_interval - now) if last is not None else 0.0
+        if wait > 0:
+            sleep_fn(wait)
+        _HOST_LAST_CALL[host] = time.monotonic()
+
+
+def _normalize_pmcid(value):
+    if not isinstance(value, str):
+        return None
+    match = re.search(r'(PMC\d+)', value.strip(), re.I)
+    return match.group(1).upper() if match else None
 
 
 def _https_url(value):
@@ -46,27 +89,42 @@ def normalize_identifier(identifier):
     return 'https://doi.org/' + value.lower()
 
 
-def fetch_work(identifier, timeout=20):
+def fetch_work(identifier, timeout=20, max_retries=3, sleep_fn=time.sleep):
     normalized = normalize_identifier(identifier)
     url = API + quote(normalized, safe=':/')
-    headers = {'Accept': 'application/json', 'User-Agent': 'ResearchScientistSkill/2.6 (oa-resolution)'}
+    email_addr = os.environ.get('CONTACT_EMAIL', '').strip()
+    ua = 'ResearchScientistSkill/2.6 (oa-resolution)'
+    if email_addr:
+        ua = f'ResearchScientistSkill/2.6 (oa-resolution; mailto:{email_addr})'
+    headers = {'Accept': 'application/json', 'User-Agent': ua}
     if os.environ.get('OPENALEX_API_KEY'):
         headers['Authorization'] = 'Bearer ' + os.environ['OPENALEX_API_KEY']
-    try:
-        with urlopen(Request(url, headers=headers), timeout=timeout) as response:
-            body = response.read(MAX_METADATA_BYTES + 1)
-        if len(body) > MAX_METADATA_BYTES:
-            raise RuntimeError('metadata_response_too_large')
-        result = json.loads(body)
-        if not isinstance(result, dict) or not isinstance(result.get('id'), str):
-            raise RuntimeError('invalid_work_response')
-        return result
-    except HTTPError as exc:
-        raise RuntimeError(f'http_{exc.code}') from exc
-    except (URLError, TimeoutError) as exc:
-        raise RuntimeError('network_failure') from exc
-    except (UnicodeError, json.JSONDecodeError) as exc:
-        raise RuntimeError('invalid_json') from exc
+    host = (urlparse(url).hostname or '').lower()
+    for attempt in range(max_retries + 1):
+        _throttle_host(host, min_interval=0.25, sleep_fn=sleep_fn)
+        try:
+            with urlopen(Request(url, headers=headers), timeout=timeout) as response:
+                body = response.read(MAX_METADATA_BYTES + 1)
+            if len(body) > MAX_METADATA_BYTES:
+                raise RuntimeError('metadata_response_too_large')
+            result = json.loads(body)
+            if not isinstance(result, dict) or not isinstance(result.get('id'), str):
+                raise RuntimeError('invalid_work_response')
+            return result
+        except HTTPError as exc:
+            if exc.code in RETRYABLE_HTTP_CODES and attempt < max_retries:
+                ra = _parse_retry_after(exc.headers.get('Retry-After') if exc.headers else None)
+                sleep_fn(ra if ra is not None else min(30.0, 1.0 * (2 ** attempt)))
+                continue
+            raise RuntimeError(f'http_{exc.code}') from exc
+        except (URLError, TimeoutError, OSError) as exc:
+            if attempt < max_retries:
+                sleep_fn(min(30.0, 1.0 * (2 ** attempt)))
+                continue
+            raise RuntimeError('network_failure') from exc
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise RuntimeError('invalid_json') from exc
+    raise RuntimeError('network_failure')
 
 
 def resolve(identifier, transport=fetch_work):
@@ -74,6 +132,7 @@ def resolve(identifier, transport=fetch_work):
     result = {'requested_identifier': identifier, 'normalized_identifier': normalized,
               'checked_at_utc': datetime.now(timezone.utc).isoformat(),
               'status': 'unchecked', 'work': None, 'oa_pdf_candidates': [],
+              'jats_xml_url': None,
               'warning': ('OpenAlex OA locations are metadata leads. Check the returned version, licensing and actual '
                           'PDF body; a missing OA PDF does not mean the paper is unavailable or irrelevant.')}
     try:
@@ -81,9 +140,16 @@ def resolve(identifier, transport=fetch_work):
         if not isinstance(work, dict) or not isinstance(work.get('id'), str):
             raise RuntimeError('invalid_work_response')
         oa_status = work.get('open_access')
+        ids_obj = work.get('ids') if isinstance(work.get('ids'), dict) else {}
+        pmcid = _normalize_pmcid(ids_obj.get('pmcid'))
+        is_retracted = work.get('is_retracted') if isinstance(work.get('is_retracted'), bool) else None
         result['work'] = {'openalex_id': work['id'], 'doi': work.get('doi'), 'title': work.get('title'),
                           'publication_year': work.get('publication_year'),
-                          'open_access_status': oa_status.get('oa_status') if isinstance(oa_status, dict) else None}
+                          'open_access_status': oa_status.get('oa_status') if isinstance(oa_status, dict) else None,
+                          'pmcid': pmcid,
+                          'is_retracted': is_retracted}
+        if pmcid:
+            result['jats_xml_url'] = f'https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML'
         work_id = work['id']
         if not re.fullmatch(r'https://openalex\.org/W\d+', work_id, re.I):
             result['status'] = 'invalid_work_identity'
@@ -132,20 +198,31 @@ def download_pdf(candidate, destination, transport=None):
     if destination.exists():
         raise ValueError('destination already exists; choose a new path')
     if transport is None:
-        def transport(pdf_url):
+        def transport(pdf_url, max_retries=3, sleep_fn=time.sleep):
             request = Request(pdf_url, headers={'Accept': 'application/pdf',
                                                 'User-Agent': 'ResearchScientistSkill/2.6 (oa-pdf-download)'})
-            try:
-                with urlopen(request, timeout=30) as response:
-                    final_url = response.geturl()
-                    body = response.read(MAX_PDF_BYTES + 1)
-                    content_type = response.headers.get('Content-Type', '')
-                    status = response.status
-                return {'final_url': final_url, 'body': body, 'content_type': content_type, 'http_status': status}
-            except HTTPError as exc:
-                raise RuntimeError(f'http_{exc.code}') from exc
-            except (URLError, TimeoutError) as exc:
-                raise RuntimeError('network_failure') from exc
+            host = (urlparse(pdf_url).hostname or '').lower()
+            for attempt in range(max_retries + 1):
+                _throttle_host(host, min_interval=0.25, sleep_fn=sleep_fn)
+                try:
+                    with urlopen(request, timeout=30) as response:
+                        final_url = response.geturl()
+                        body = response.read(MAX_PDF_BYTES + 1)
+                        content_type = response.headers.get('Content-Type', '')
+                        status = response.status
+                    return {'final_url': final_url, 'body': body, 'content_type': content_type, 'http_status': status}
+                except HTTPError as exc:
+                    if exc.code in RETRYABLE_HTTP_CODES and attempt < max_retries:
+                        ra = _parse_retry_after(exc.headers.get('Retry-After') if exc.headers else None)
+                        sleep_fn(ra if ra is not None else min(30.0, 1.0 * (2 ** attempt)))
+                        continue
+                    raise RuntimeError(f'http_{exc.code}') from exc
+                except (URLError, TimeoutError, OSError) as exc:
+                    if attempt < max_retries:
+                        sleep_fn(min(30.0, 1.0 * (2 ** attempt)))
+                        continue
+                    raise RuntimeError('network_failure') from exc
+            raise RuntimeError('network_failure')
     response = transport(url)
     body = response.get('body')
     if response.get('http_status') != 200:

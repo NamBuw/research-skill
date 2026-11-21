@@ -1,37 +1,118 @@
 #!/usr/bin/env python3
 """Bounded OpenAlex backward/forward citation expansion for one work ID."""
+from __future__ import annotations
+
 import argparse
+import email.utils
 import json
 import os
 import re
 import sys
+import threading
+import time
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 BASE = 'https://api.openalex.org/works'
 ID_PATTERN = re.compile(r'^W[0-9]+$')
+WID_EXTRACT_RE = re.compile(r'(?:^|/)(W[0-9]+)(?:[/?#]|$)', re.I)
 
-def get(url, params=None, timeout=20):
-    headers = {'Accept': 'application/json', 'User-Agent': 'ResearchScientistSkill/2.0 (citation-trails)'}
+_HOST_LOCK = threading.Lock()
+_HOST_LAST_CALL: dict[str, float] = {}
+RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
+
+
+def oa_headers():
+    email_addr = os.environ.get('CONTACT_EMAIL', '').strip()
+    ua = 'ResearchScientistSkill/2.0 (citation-trails)'
+    if email_addr:
+        ua = f'ResearchScientistSkill/2.0 (citation-trails; mailto:{email_addr})'
+    headers = {'Accept': 'application/json', 'User-Agent': ua}
     key = os.environ.get('OPENALEX_API_KEY')
     if key:
         headers['Authorization'] = 'Bearer ' + key
-    if params:
-        url += '?' + urlencode(params)
+    return headers
+
+
+def extract_wid(url_or_id):
+    if not isinstance(url_or_id, str):
+        return None
+    m = WID_EXTRACT_RE.search(url_or_id.strip())
+    return m.group(1).upper() if m else None
+
+
+def parse_retry_after(value, now=None):
+    if not value:
+        return None
+    text = str(value).strip()
     try:
-        with urlopen(Request(url, headers=headers), timeout=timeout) as response:
-            data = json.load(response)
-    except HTTPError as exc:
-        raise RuntimeError(f'http_{exc.code}') from exc
-    except (URLError, TimeoutError) as exc:
-        raise RuntimeError('network_failure') from exc
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-        raise RuntimeError('invalid_json') from exc
-    if not isinstance(data, dict):
-        raise RuntimeError('unexpected_body')
-    return data
+        delay = float(text)
+        return max(0.0, min(delay, 30.0))
+    except ValueError:
+        pass
+    try:
+        dt = email.utils.parsedate_to_datetime(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        ref = now if now is not None else datetime.now(timezone.utc)
+        return max(0.0, min((dt - ref).total_seconds(), 30.0))
+    except (TypeError, ValueError):
+        return None
+
+
+def _throttle_host(host, min_interval, sleep_fn):
+    if not host or min_interval <= 0:
+        return
+    with _HOST_LOCK:
+        now = time.monotonic()
+        last = _HOST_LAST_CALL.get(host)
+        wait = (last + min_interval - now) if last is not None else 0.0
+        if wait > 0:
+            sleep_fn(wait)
+        _HOST_LAST_CALL[host] = time.monotonic()
+
+
+def polite_get(url, params=None, timeout=20, min_interval=0.25, max_retries=3, sleep_fn=time.sleep):
+    headers = oa_headers()
+    full_url = url
+    if params:
+        full_url = url + ('&' if '?' in url else '?') + urlencode(params)
+    host = (urlparse(full_url).hostname or '').lower()
+    last_exc = None
+    for attempt in range(max_retries + 1):
+        _throttle_host(host, min_interval, sleep_fn)
+        try:
+            with urlopen(Request(full_url, headers=headers), timeout=timeout) as response:
+                data = json.load(response)
+            if not isinstance(data, dict):
+                raise RuntimeError('unexpected_body')
+            return data
+        except HTTPError as exc:
+            last_exc = RuntimeError(f'http_{exc.code}')
+            if exc.code in RETRYABLE_HTTP_CODES and attempt < max_retries:
+                ra = parse_retry_after(exc.headers.get('Retry-After') if exc.headers else None)
+                backoff = ra if ra is not None else min(30.0, 1.0 * (2 ** attempt))
+                sleep_fn(backoff)
+                continue
+            raise last_exc from exc
+        except (URLError, TimeoutError, OSError) as exc:
+            last_exc = RuntimeError('network_failure')
+            if attempt < max_retries:
+                sleep_fn(min(30.0, 1.0 * (2 ** attempt)))
+                continue
+            raise last_exc from exc
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise RuntimeError('invalid_json') from exc
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError('network_failure')
+
+
+def get(url, params=None, timeout=20):
+    return polite_get(url, params=params, timeout=timeout)
 
 def expand(work_id, pages=1, page_size=25, transport=get):
     if not ID_PATTERN.fullmatch(work_id):
@@ -88,9 +169,16 @@ if __name__ == '__main__':
     parser.add_argument('work_id')
     parser.add_argument('--pages', type=int, default=1)
     parser.add_argument('--page-size', type=int, default=25)
+    parser.add_argument('--out', type=Path, help='Optional path to write JSON report')
     args = parser.parse_args()
     try:
-        print(json.dumps(expand(args.work_id, args.pages, args.page_size)))
-    except ValueError as exc:
+        report = expand(args.work_id, args.pages, args.page_size)
+        rendered = json.dumps(report, ensure_ascii=False)
+        if args.out is not None:
+            out_path = args.out.expanduser().resolve()
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(rendered, encoding='utf-8')
+        print(rendered)
+    except (ValueError, OSError) as exc:
         print(json.dumps({'error': str(exc)}), file=sys.stderr)
         sys.exit(2)
