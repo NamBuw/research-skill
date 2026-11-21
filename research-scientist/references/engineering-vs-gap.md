@@ -16,7 +16,7 @@ Freeze the failure before changing the implementation. Record:
 
 Then check, in this order:
 
-1. **Input and data integrity:** correct files, IDs, schema, units, labels, splits, and transformations.
+1. **Input and data integrity:** correct files, IDs, schema, units, labels, splits, and transformations. For compatible local CSVs, the optional [read-only alignment audit](../scripts/audit_alignment.py) counts unmatched, repeated, positionally mismatched, and cross-split IDs without printing identifiers. Review its flags against the study design; it cannot prove leakage or label correctness.
 2. **Implementation fidelity:** compare the code path, defaults, model variants, formulas, pseudocode, and appendix with the source. Treat undisclosed details as unknown.
 3. **Configuration and protocol:** match seeds or seed policy, optimizer, compute, stopping rules, evaluation population, metrics, baselines, and information available to each method.
 4. **Mechanical sanity:** run tiny hand-checkable cases, invariants, dimensional/unit checks, edge cases, and tests of the metric against known outputs.
