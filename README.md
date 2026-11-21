@@ -8,10 +8,10 @@ Version 1.4.0 includes complementary literature retrieval, prior-art and gap aud
 
 [Evaluation scope](research-scientist/references/quality-evaluation.md): structural checks and synthetic review scenarios are not evidence of parity or superiority to K-Dense or any research system.
 
-## Đánh giá và góp ý / Feedback
+## Evaluate and contribute
 
-Nếu đã thử skill, hãy [mở Issue](https://github.com/NamBuw/research-skill/issues) để chia sẻ kết quả hoặc lỗi. Ghi rõ phiên bản skill/commit, agent và model, nhiệm vụ, nguồn/tools có thể truy cập, đầu ra thực tế và điều bạn cho là đúng hoặc sai. Với lỗi tìm gap, gửi tiền lệ hoặc đoạn nguồn chứng minh; với điểm số/venue, nêu claim, tiêu chí hoặc thông tin chính thức bị đánh giá sai. Loại bỏ API key và dữ liệu nghiên cứu chưa được phép chia sẻ.
+If you have tried the skill, [open an issue](https://github.com/NamBuw/research-skill/issues) with the skill commit, agent/model, task, accessible sources and tools, actual output, and the specific conclusion you believe is right or wrong. For false gap claims, include the closest precedent and supporting passage. For scores or venues, identify the disputed claim, rubric item, or official date/fee source. Remove API keys and research data you cannot share.
 
-Hãy đánh giá tính đúng đắn của dẫn nguồn, khả năng phát hiện tiền lệ, phân biệt lỗi triển khai với research gap, mức hợp lý của điểm /10 và tính chính xác của CFP/deadline/chi phí. Câu trả lời dài hoặc nhiều paper không tự chứng minh chất lượng. Xem [phạm vi kiểm chứng](research-scientist/references/quality-evaluation.md) và [các lượt thử](evaluation/forward-checks.md).
+Assess source-to-claim accuracy, detection of prior art, separation of implementation errors from research gaps, defensibility of /10 scores, and accuracy of CFPs, deadlines, and costs. Answer length and paper count are not quality measures. See the [evaluation limits](research-scientist/references/quality-evaluation.md) and [development checks](evaluation/forward-checks.md).
 
-Nếu skill hữu ích, bạn có thể **[bấm Star cho repo](https://github.com/NamBuw/research-skill)** để theo dõi và ủng hộ dự án. Star hoàn toàn tự nguyện; không phải bằng chứng về chất lượng khoa học.
+If the skill is useful, you may [star the repository](https://github.com/NamBuw/research-skill). A star is voluntary support, not evidence of scientific quality.
