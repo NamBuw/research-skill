@@ -11,6 +11,7 @@ The package also has local helpers. Run these from `research-scientist/`:
 ```bash
 python scripts/search_papers.py "your topic and mechanism" --size 20 --pages 2
 python scripts/search_papers.py "your topic and mechanism" --known-doi 10.48550/arxiv.1609.02907 --known-source-id arxiv=1609.02907
+python scripts/search_campaign.py references/search-campaign.example.json > campaign.json
 python scripts/citation_trails.py W2741809807 --pages 2 --page-size 50
 python scripts/local_evidence.py "mechanism or outcome" /path/to/extracted/papers --limit 20
 python scripts/extract_pdf_blocks.py /path/to/paper.pdf --output /path/to/paper.blocks.json
@@ -27,7 +28,7 @@ python modules/researchradar/problem-statement-finder/scripts/radar.py check
 
 The example DOI and OpenAlex ID are only syntax examples. Replace them and every fictional JSON fixture with relevant, verified seeds before a real audit. An absent known seed means the executed query or source coverage needs repair; it does not mean the paper or idea is absent. Each checker enforces declared structure or arithmetic; the agent must still read the original papers, verify factual inputs, and make a reasoned scientific judgment.
 
-Version 2.4.0 includes six-source paper discovery, bounded citation and local PDF passage retrieval, public-review/limitation mining, evidence and gap records, operational research questions, experiment receipts, bundled scientific-writing and Humanizer components, scored comparisons, and venue planning. Supply your own `S2_API_KEY` through runtime configuration; no personal credentials are included.
+Version 2.5.0 includes six-source paper discovery with multi-query campaign and known-seed checks, bounded citation and local PDF passage retrieval, public-review/limitation mining, evidence and gap records, operational research questions, experiment receipts, bundled scientific-writing and Humanizer components, scored comparisons, and venue planning. Supply your own `S2_API_KEY` through runtime configuration; no personal credentials are included.
 
 [Evaluation scope](research-scientist/references/quality-evaluation.md): structural checks and synthetic review scenarios are not evidence of parity or superiority to K-Dense or any research system.
 
@@ -35,7 +36,7 @@ Version 2.4.0 includes six-source paper discovery, bounded citation and local PD
 
 | Capability in this repository | Built-in implementation | What still requires source or expert review |
 |---|---|---|
-| Literature discovery | Semantic Scholar, OpenAlex, Crossref, Europe PMC, arXiv and PubMed helper with query/page counts, DOI candidate groups and explicit API failure states; bounded OpenAlex citation trails, local PDF/text passage retrieval, and a structural evidence-map checker | OCR and complex PDF layout, broader field-specific indexes, cross-provider citation checks, original full-text reading, and recall assessment |
+| Literature discovery | Semantic Scholar, OpenAlex, Crossref, Europe PMC, arXiv and PubMed helper with query/page counts, DOI candidate groups and explicit API failure states; multi-query campaign runner with known-seed checks and source-record provenance; bounded OpenAlex citation trails, local PDF/text passage retrieval, and a structural evidence-map checker | OCR and complex PDF layout, broader field-specific indexes, cross-provider citation checks, original full-text reading, and recall assessment |
 | Gap and novelty audit | Own search, closest-precedent, counterevidence, and abstention protocols; linked gap-record checker; bundled ResearchRadar review/limitation/quote tools | Reading decisive prior work and domain judgment; no field-wide completeness guarantee |
 | Research questions | Own question-card workflow, field-specific validity checks and structural JSON checker | Whether constructs, causal assumptions, predictions, and scientific importance are valid |
 | Engineering failure diagnosis | Own failure protocol and local sample-ID/split diagnostic | Correctness of the implementation, benchmark, and causal explanation of a failure |

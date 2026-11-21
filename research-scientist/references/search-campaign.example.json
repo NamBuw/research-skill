@@ -1,0 +1,42 @@
+{
+  "question": "Has normalized-adjacency graph convolution already been used for semi-supervised node classification?",
+  "known_seeds": [
+    {"doi": "10.48550/arxiv.1609.02907"},
+    {"source": "arxiv", "source_id": "1609.02907"}
+  ],
+  "queries": [
+    {
+      "id": "direct-1",
+      "family": "direct",
+      "query": "semi supervised graph convolution normalized adjacency",
+      "sources": ["openalex", "arxiv"],
+      "size": 20,
+      "pages": 1
+    },
+    {
+      "id": "mechanism-1",
+      "family": "mechanism",
+      "query": "semi supervised graph convolution",
+      "sources": ["openalex", "arxiv"],
+      "query_for": {"arxiv": "ti:semi-supervised AND ti:graph AND ti:convolutional"},
+      "size": 20,
+      "pages": 1
+    },
+    {
+      "id": "history-1",
+      "family": "historical-terms",
+      "query": "spectral graph convolution node classification",
+      "sources": ["openalex", "arxiv"],
+      "size": 20,
+      "pages": 1
+    },
+    {
+      "id": "closure-1",
+      "family": "closure",
+      "query": "graph convolution renormalization semi supervised classification prior work",
+      "sources": ["openalex", "crossref"],
+      "size": 20,
+      "pages": 1
+    }
+  ]
+}
