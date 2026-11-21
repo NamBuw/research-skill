@@ -17,7 +17,7 @@ Version 2.0.0 includes a bundled four-source paper discovery helper and compleme
 | Research questions | Own question-card workflow and structural JSON checker | Whether constructs, causal assumptions, predictions, and scientific importance are valid |
 | Engineering failure diagnosis | Own failure protocol and local sample-ID/split diagnostic | Correctness of the implementation, benchmark, and causal explanation of a failure |
 | Paper comparison and scores | Own six-dimension rubric and guarded arithmetic helper | Evidence-based ratings, calibration, and human/domain disagreement resolution |
-| Submission planning | Own current-CFP, deadline, cost, fit, and backward-schedule protocol | Live official venue facts and the manuscript's actual readiness |
+| Submission planning | Own current-CFP, deadline, cost, fit, and backward-schedule protocol; local calendar/cost checker | Live official venue facts and the manuscript's actual readiness |
 | Scientific writing | Own evidence-first editing, method-lineage, and semantic-consistency rules | Author verification of methods, results, citations, and venue policy |
 
 The skill runs in Codex, Claude Code, and Gemini CLI using each host's available tools. External repositories cited in the source notes are not installation requirements. No single parser or search index is silently treated as comprehensive.

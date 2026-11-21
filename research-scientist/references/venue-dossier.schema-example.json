@@ -1,0 +1,25 @@
+{
+  "venue": "Fictional Conference Z — test fixture only",
+  "edition": "2027",
+  "track": "Fictional research track",
+  "official_cfp_url": "https://example.org/fictional-cfp",
+  "checked_at": "2026-11-21",
+  "user_timezone": "Asia/Saigon",
+  "milestones": {
+    "abstract_registration": "2027-01-28T23:59:00 AoE",
+    "full_paper": "2027-02-04T23:59:00 AoE",
+    "notification": null,
+    "camera_ready": null
+  },
+  "currency": "USD",
+  "budget_currency": "USD",
+  "budget": 500,
+  "presentation_mode": "online",
+  "fees": [
+    {"category": "submission", "name": "Submission fee", "mandatory": true, "amount": null},
+    {"category": "publication", "name": "Publication fee", "mandatory": true, "amount": null},
+    {"category": "author_registration", "name": "Author registration", "mandatory": true, "amount": null},
+    {"category": "overlength", "name": "Overlength charge", "mandatory": false, "amount": null},
+    {"category": "tax", "name": "Tax", "mandatory": true, "amount": null}
+  ]
+}

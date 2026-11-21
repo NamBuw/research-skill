@@ -58,3 +58,5 @@ On 2026-11-21, the bundled `scripts/search_papers.py` was run against the query 
 The OpenAlex helper initially placed an optional key in the query URL. The official API also supports bearer authorization, so the helper now sends `OPENALEX_API_KEY` in an `Authorization` header to keep it out of URLs. No real key was used in the probes.
 
 The structured RQ checker was tested on a complete synthetic card, identical focal/rival expectations, missing causal identification assumptions, and unchecked closest work. The full local test suite now has 17 passing cases. These checks verify input handling and selected structural invariants, not scientific validity.
+
+The venue dossier helper was tested on fictional AoE deadlines, unknown mandatory fees, complete fee schedules above/below budget, an omitted fee category, currency mismatch, and a timezone-free timestamp. The local suite has 21 passing tests. The helper does not verify a CFP, fee page, track policy, or paper fit.
