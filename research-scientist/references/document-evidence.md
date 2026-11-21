@@ -27,6 +27,8 @@ Use an **information table** with rows keyed by question ID and columns for sour
 
 ## Find passages in a local corpus
 
+For a paper identified by DOI or OpenAlex work ID, the optional [OA resolver](../scripts/resolve_fulltext.py) can query OpenAlex for reported open-access PDF locations. Run `python scripts/resolve_fulltext.py 10.48550/arxiv.1609.02907` to inspect metadata leads, or add `--download-dir /path/to/reading-workspace` to download the first working HTTPS OA PDF candidate. The resolver verifies that the returned work ID or DOI matches the request, records the source-reported version and license, rejects non-PDF responses, caps download size, does not overwrite an existing file, and returns a PDF hash. If one OA lead fails, it tries the next and records failed attempts. `no_oa_pdf_reported`, an API error and a failed download are different states; none makes the paper irrelevant or absent. OpenAlex metadata can be wrong or incomplete. Check the PDF title, authors, DOI, version, supplement and actual access rights against the original before treating it as the intended work. The downloaded file may be a submitted manuscript rather than the final published version; compare version-specific claims. A reported OA flag is not permission for unrestricted redistribution.
+
 For a local text-based PDF, create a page/block extraction without uploading the file. This optional route requires PyMuPDF in the host environment:
 
 ```bash

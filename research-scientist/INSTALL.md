@@ -23,6 +23,7 @@ Start a new session or refresh the skill list. On the locally checked Gemini CLI
 - `references/repository-landscape.md` — source-reading provenance, outside the runtime workflow.
 - `scripts/search_papers.py` — bounded six-source scholarly discovery with source-status logging.
 - `scripts/search_campaign.py` — sequential multi-query discovery campaign with query-family and known-seed provenance; see `references/search-campaign.example.json`.
+- `scripts/resolve_fulltext.py` — OpenAlex OA PDF leads and optional bounded download receipt; source identity and version still need original-document review.
 - `scripts/citation_trails.py` — bounded OpenAlex one-hop backward/forward citation leads for a verified work ID.
 - `scripts/local_evidence.py` — local lexical passage leads from text and MinerU Content List V2 exports.
 - `scripts/extract_pdf_blocks.py` — optional local text-based PDF block/page extraction using PyMuPDF; no OCR.

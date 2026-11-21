@@ -106,6 +106,8 @@ Run expansion in documented rounds. For each round report new records, unique sc
 
 The output should include a broad screened bibliography and a smaller, fully read set of decisive papers. Prioritize that set by threat to the novelty claim and evidentiary relevance, not citation count. Never invent paper counts or pad the corpus with irrelevant hits.
 
+For DOI or OpenAlex-ID leads, `python scripts/resolve_fulltext.py IDENTIFIER --download-dir /path/to/reading-workspace` can resolve reported OA PDF locations, verify returned metadata identity, and record download failures, source-reported version, PDF URL and file hash. The resolver does not decide paper relevance or method equivalence; use [document-grounded reading](document-evidence.md) to extract and inspect decisive pages. An unavailable OA URL is an access state, not a negative prior-art result. Search publisher and repository alternatives for close unresolved work.
+
 ## Resolve records before comparing ideas
 
 1. Confirm each close record's bibliographic identity from a stable identifier or official source.
