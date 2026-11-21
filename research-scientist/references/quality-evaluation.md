@@ -54,3 +54,7 @@ Until that comparison is performed, describe concrete workflow improvements and 
 ## Integration follow-up
 
 After this review, the coordinator added operationalization/indeterminate-outcome/prior-data-exposure guidance to research-workflow and the RQ template; corrected the general /10 endpoint; added calibration, reporting-versus-conduct distinctions and sensitivity handling to scoring-and-venue-fit; and linked the agent orchestration protocol. These are documented fixes, not a second behavioral benchmark. The seven synthetic cases remain a development exercise, not held-out evidence of parity.
+
+## Deterministic arithmetic check
+
+The optional `scripts/score_math.py` was run on 2026-11-21 with equal seven scores, a missing novelty dimension, weights summing to 99, and an out-of-range weight. It returned 7 for the valid case, refused an overall for the missing dimension, and rejected both invalid weights. This checks calculation and missing-data handling only. It does not test rating reliability, paper appraisal, novelty, venue accuracy, or agent compliance.
