@@ -80,6 +80,10 @@ def _text_segments(source):
 
 def _json_segments(source):
     payload = json.loads(source.read_text(encoding='utf-8'))
+    source_pdf_hash = None
+    if isinstance(payload, dict) and payload.get('format') == 'research_scientist_pdf_blocks_v1':
+        source_pdf_hash = payload.get('source_pdf_sha256')
+        payload = payload.get('pages')
     if not isinstance(payload, list):
         raise ValueError('MinerU Content List V2 must be a list of pages or a flat item list')
     if payload and all(isinstance(x, dict) for x in payload):
@@ -99,8 +103,8 @@ def _json_segments(source):
                 continue
             page_idx = item.get('page_idx') if flat else page_number - 1
             locator = {'kind': item.get('type'), 'item_index': item_number - 1,
-                       'text': value, 'visual_check_required': item.get('type') in
-                       {'table', 'image', 'chart', 'equation_interline', 'algorithm', 'code'}}
+                       'text': value, 'visual_check_required': item.get('visual_check_required') is True or
+                       item.get('type') in {'table', 'image', 'chart', 'equation_interline', 'algorithm', 'code'}}
             if isinstance(page_idx, int) and page_idx >= 0:
                 locator['page_index_zero_based'] = page_idx
             bbox = item.get('bbox')
@@ -108,6 +112,8 @@ def _json_segments(source):
                 locator['bbox_as_provided'] = bbox
             if isinstance(item.get('anchor'), str):
                 locator['anchor'] = item['anchor']
+            if source_pdf_hash:
+                locator['source_pdf_sha256_as_declared'] = source_pdf_hash
             yield locator
 
 

@@ -24,6 +24,7 @@ Start a new session or refresh the skill list. Gemini CLI supports `/skills list
 - `scripts/search_papers.py` — bounded six-source scholarly discovery with source-status logging.
 - `scripts/citation_trails.py` — bounded OpenAlex one-hop backward/forward citation leads for a verified work ID.
 - `scripts/local_evidence.py` — local lexical passage leads from text and MinerU Content List V2 exports.
+- `scripts/extract_pdf_blocks.py` — optional local text-based PDF block/page extraction using PyMuPDF; no OCR.
 - `scripts/check_evidence_map.py` — structural question, passage, claim, and outline links.
 - `scripts/check_gap_record.py` — structural evidence/source/kill-search checks for a proposed gap.
 - `scripts/check_experiment_manifest.py` — structural run-receipt and baseline/candidate comparison checks.
@@ -40,6 +41,8 @@ Start a new session or refresh the skill list. Gemini CLI supports `/skills list
 - `agents/openai.yaml` — optional Codex UI metadata.
 
 The folder is self-contained and has no hard dependency on a specific external service. The paper-writing toolkit is a bundled copy of the named upstream MIT module with its license and source notice; the rest of the skill's scripts are written for this repository.
+
+The core checkers use Python's standard library. `scripts/extract_pdf_blocks.py` additionally needs PyMuPDF for local text-based PDF extraction; if it is unavailable, use an authorized extractor and pass its text or MinerU Content List V2 export to `scripts/local_evidence.py`. OCR or reliable table/formula parsing requires an appropriate parser and visual verification; this package does not bundle MinerU model weights.
 
 ## Credentials and capability checks
 

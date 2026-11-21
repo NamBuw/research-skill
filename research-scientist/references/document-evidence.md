@@ -27,13 +27,22 @@ Use an **information table** with rows keyed by question ID and columns for sour
 
 ## Find passages in a local corpus
 
+For a local text-based PDF, create a page/block extraction without uploading the file. This optional route requires PyMuPDF in the host environment:
+
+```bash
+python scripts/extract_pdf_blocks.py /path/to/paper.pdf --output /path/to/paper.blocks.json
+python scripts/local_evidence.py "specific mechanism or outcome" /path/to/paper.blocks.json --limit 20
+```
+
+The extractor records a SHA-256 of the source PDF, page counts, text-block bounding boxes, pages with little extracted text, image-block counts and truncation at `--max-pages`. Its JSON is this skill's own `research_scientist_pdf_blocks_v1` format, **not MinerU output**. Empty or image-heavy pages may require OCR; tables, formulas, reading order and footnotes may be distorted. Inspect the original rendered page before using any decisive passage. Do not call an extraction full text if the reported page limit truncated it.
+
 Run the bundled standard-library helper from the skill folder:
 
 ```bash
 python scripts/local_evidence.py "specific mechanism or outcome" /path/to/papers --limit 20
 ```
 
-It reads `.md` and `.txt` paragraphs and MinerU **Content List V2** `.json` (page lists or a flat item list). Its lexical BM25-style ranking returns file SHA-256, segment ID, matched terms, a bounded excerpt, source lines for text files, and page index/bounding box when present in Content List V2. Explicitly supplied invalid JSON fails; when scanning a directory, unrelated or malformed JSON is listed under `skipped_files` with the error. Review this list: a skipped relevant extraction is missing coverage. The helper does not parse PDF itself, use embeddings, fetch online sources, or infer semantic entailment. For a PDF, first obtain an authorized local text extraction or Content List V2 export; do not upload a confidential document to a remote parser without permission. Record the parser/version, source PDF hash and extraction date beside the output. The helper hashes the extracted file, which does **not** prove it matches a particular PDF.
+It reads `.md` and `.txt` paragraphs, MinerU **Content List V2** `.json` (page lists or a flat item list), and this skill's PDF block JSON. Its lexical BM25-style ranking returns file SHA-256, segment ID, matched terms, a bounded excerpt, source lines for text files, and page index/bounding box when present. Explicitly supplied invalid JSON fails; when scanning a directory, unrelated or malformed JSON is listed under `skipped_files` with the error. Review this list: a skipped relevant extraction is missing coverage. The helper does not itself parse PDF, use embeddings, fetch online sources, or infer semantic entailment. Do not upload a confidential document to a remote parser without permission. Record the parser/version, source PDF hash and extraction date beside the output. The helper hashes the extracted file, which does **not** prove it matches a particular PDF; an exported `source_pdf_sha256` is a declaration to check against the original file.
 
 Search separately for method terms, outcome phrases, alternative names, negations, limitations, table captions and rival explanations. Inspect more than the highest-ranked paragraph when an assertion depends on nearby qualifiers, a table, an equation, or a supplement. Missing lexical hits are `no match in this local extraction`, not evidence that the original paper or field lacks the idea. A failed parser, unsupported JSON shape, OCR error, omitted figure, or missing full text is unchecked source coverage.
 
