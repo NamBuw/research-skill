@@ -22,13 +22,15 @@ python scripts/check_manuscript_ledger.py /path/to/manuscript-ledger.json
 python scripts/compare_scorecards.py /path/to/scorecards.json
 python scripts/venue_leads.py "specific contribution and field" --page-size 50 --pages 2
 python scripts/check_venue_plan.py /path/to/venue-dossier.json
+python scripts/capture_venue_sources.py /path/to/venue-dossier.json > venue-sources.json
+python scripts/check_venue_sources.py /path/to/venue-dossier.json venue-sources.json
 python modules/kdense-scientific-writing/scripts/scaffold_manuscript.py --output-dir ./draft-workspace --document-id local-draft --study-design observational
 python modules/researchradar/problem-statement-finder/scripts/radar.py check
 ```
 
 The example DOI and OpenAlex ID are only syntax examples. Replace them and every fictional JSON fixture with relevant, verified seeds before a real audit. An absent known seed means the executed query or source coverage needs repair; it does not mean the paper or idea is absent. Each checker enforces declared structure or arithmetic; the agent must still read the original papers, verify factual inputs, and make a reasoned scientific judgment.
 
-Version 2.5.0 includes six-source paper discovery with multi-query campaign and known-seed checks, bounded citation and local PDF passage retrieval, public-review/limitation mining, evidence and gap records, operational research questions, experiment receipts, bundled scientific-writing and Humanizer components, scored comparisons, and venue planning. Supply your own `S2_API_KEY` through runtime configuration; no personal credentials are included.
+Version 2.6.0 includes six-source paper discovery with multi-query campaign and known-seed checks, bounded citation and local PDF passage retrieval, public-review/limitation mining, evidence and gap records, operational research questions, experiment receipts, bundled scientific-writing and Humanizer components, scored comparisons, and venue planning with dated source snapshots. Supply your own `S2_API_KEY` through runtime configuration; no personal credentials are included.
 
 [Evaluation scope](research-scientist/references/quality-evaluation.md): structural checks and synthetic review scenarios are not evidence of parity or superiority to K-Dense or any research system.
 
@@ -42,7 +44,7 @@ Version 2.5.0 includes six-source paper discovery with multi-query campaign and 
 | Engineering failure diagnosis | Own failure protocol and local sample-ID/split diagnostic | Correctness of the implementation, benchmark, and causal explanation of a failure |
 | Experiment lifecycle | Own frozen-protocol, apparatus, run-receipt, matched-comparison, analysis and review procedure; structural receipt checker | Execution, reproduction, statistical validity and domain review |
 | Paper comparison and scores | Own six-dimension rubric, guarded arithmetic helper, declared-evidence comparator and weight-sensitivity check | Evidence-based ratings, calibration, and human/domain disagreement resolution |
-| Submission planning | Related-paper publication-source leads, current-CFP/deadline/cost/fit protocol, and local calendar/cost checker | Live official venue facts, track eligibility, and the manuscript's actual readiness |
+| Submission planning | Related-paper publication-source leads, current-CFP/deadline/cost/fit protocol, local HTML/PDF source snapshots, exact quote-to-dossier provenance checks, and calendar/cost checker | Official status, correct track and fee interpretation, fit judgment, and the manuscript's actual readiness |
 | Scientific writing | Own evidence-first paper and Humanizer workflow, method-lineage ledger, and bundled MIT offline toolkit for manuscript scaffolding, claim hashes, references, consistency, reporting, authorship and lint | Author verification of methods, results, citations, current policy, and final approval |
 
 The skill runs in Codex, Claude Code, and Gemini CLI using each host's available tools. External repositories cited in the source notes are not installation requirements. No single parser or search index is silently treated as comprehensive.

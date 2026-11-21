@@ -15,6 +15,13 @@
   "budget_currency": "USD",
   "budget": 500,
   "presentation_mode": "online",
+  "evidence_claims": [
+    {"field": "venue", "source_url": "https://example.org/fictional-cfp", "quote": "Fictional Conference Z"},
+    {"field": "edition", "source_url": "https://example.org/fictional-cfp", "quote": "Fictional Conference Z 2027"},
+    {"field": "track", "source_url": "https://example.org/fictional-cfp", "quote": "Fictional research track"},
+    {"field": "milestones.abstract_registration", "source_url": "https://example.org/fictional-cfp", "quote": "Abstract registration January 28, 2027 AoE"},
+    {"field": "milestones.full_paper", "source_url": "https://example.org/fictional-cfp", "quote": "Full paper February 4, 2027 AoE"}
+  ],
   "work_plan": {
     "buffer_days": 2,
     "tasks": [
