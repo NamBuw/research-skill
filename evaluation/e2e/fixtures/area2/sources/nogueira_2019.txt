@@ -1,0 +1,2 @@
+Nogueira, R., & Cho, K. (2019). Passage Re-ranking with BERT (monoBERT Cross-Encoder). arXiv:1901.04085.
+Section 3: A BERT cross-encoder scores query-passage pairs jointly for top-k neural reranking.

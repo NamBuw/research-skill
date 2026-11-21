@@ -1,0 +1,62 @@
+{
+  "schema": "research_scientist_executive_report_v1",
+  "report_type": "parsimony_audit",
+  "lang": "en",
+  "title": "Parsimony and Ablation Audit for Graph Classifier",
+  "verdict": {
+    "status": "supported",
+    "summary": "KEEP SIMPLE BASELINE: 1-layer linear head matches the 4-module stack within 0.003 macro-F1 [run_logs/ablation_5seeds.json]. Ablating three added modules shows 0.741 vs 0.744 (+0.003, p=0.62).",
+    "evidence_refs": ["K1", "K2"]
+  },
+  "parsimony_check": {
+    "simplest_alternative": "1-layer linear head (0 extra attention or contrastive losses)",
+    "rationale": "0.741 (1-layer linear head) vs 0.744 (4-module stack), +0.003 across 5 seeds",
+    "verdict": "KEEP SIMPLE BASELINE",
+    "locator": "run_logs/ablation_5seeds.json"
+  },
+  "key_evidence": [
+    {
+      "id": "K1",
+      "claim": "1-layer linear head achieves 0.741 macro-F1 across 5 fixed seeds.",
+      "value": "0.741",
+      "status": "verified",
+      "locator": "run_logs/ablation_5seeds.json"
+    },
+    {
+      "id": "K2",
+      "claim": "Full 4-module stack reaches 0.744 macro-F1 (+0.003 gain, 3.2x latency).",
+      "value": "+0.003 (0.744 vs 0.741)",
+      "status": "verified",
+      "locator": "run_logs/ablation_5seeds.json"
+    }
+  ],
+  "flaws_and_risks": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "summary": "Three added modules add 3.2x inference latency with no measurable gain (+0.003, p=0.62).",
+      "locator": "run_logs/ablation_5seeds.json"
+    }
+  ],
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Drop the three unverified modules and deploy the 1-layer linear head.",
+      "target": "run_logs/ablation_5seeds.json",
+      "locator": "run_logs/ablation_5seeds.json"
+    },
+    {
+      "step": 2,
+      "action": "Archive run_logs/ablation_5seeds.json with SHA-256 checksums.",
+      "target": "run_logs/ablation_5seeds.json",
+      "locator": "run_logs/ablation_5seeds.json"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "5-seed ablation log",
+      "locator": "run_logs/ablation_5seeds.json"
+    }
+  ]
+}

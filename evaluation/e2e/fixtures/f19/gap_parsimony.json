@@ -1,0 +1,67 @@
+{
+  "scope": "Degree-shift node classification on citation graphs comparing single-parameter scaling against multi-stage architectures",
+  "search_date": "2026-11-21",
+  "coverage_limits": "Bounded offline verification campaign covering OpenAlex and arXiv query families.",
+  "next_check": "Confirm held-out degree-shift split results across 5 fixed random seeds before publication claims.",
+  "queries": [
+    {
+      "id": "Q1",
+      "campaign_query_id": "direct-1",
+      "source": "openalex",
+      "query": "graph degree shift normalization baseline",
+      "family": "direct_problem",
+      "status": "complete",
+      "retrieved": 4,
+      "inspected": 4
+    },
+    {
+      "id": "Q2",
+      "campaign_query_id": "closure-1",
+      "source": "arxiv",
+      "query": "ti:graph AND ti:degree-shift AND ti:normalization",
+      "family": "closure",
+      "status": "complete",
+      "retrieved": 3,
+      "inspected": 3
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E1",
+      "source_id": "W-DEG-01",
+      "study_id": "S-DEG-01",
+      "locator": "Section 4.2, Table 2",
+      "claim": "Standard 2-layer GCN loses 6.8 macro-F1 points under tail-degree shift while multi-stage attention stacks are not ablated against single-parameter degree scaling.",
+      "role": "result",
+      "access": "full_text"
+    }
+  ],
+  "closest_works": [
+    {
+      "id": "W1",
+      "source_id": "W-DEG-01",
+      "relation": "partial_precedent",
+      "access": "full_text",
+      "difference": "Prior work evaluates a 4-module pipeline without ablating single-parameter degree-aware L2 scaling.",
+      "evidence_ids": ["E1"]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "G1",
+      "claim": "Whether a single degree-aware L2 scaling factor closes the tail-degree shift gap without multi-stage attention or auxiliary losses remains untested.",
+      "type": "method",
+      "disposition": "supported_candidate",
+      "rationale": "Full-text inspection shows prior multi-module proposals omit single-parameter degree-scaling ablations on fixed degree-shift splits.",
+      "trigger": "literature_synthesis",
+      "engineering_status": "implementation_checked",
+      "support_evidence_ids": ["E1"],
+      "counter_evidence_ids": [],
+      "closest_work_ids": ["W1"],
+      "search_query_ids": ["Q1", "Q2"],
+      "kill_query_ids": ["Q2"],
+      "consequence": "If a single scaling parameter matches the 4-module stack, the extra 3 modules can be removed.",
+      "answer_path": "Matched 5-seed ablation comparing tuned 2-layer GCN, 1-parameter degree scaling, and stacked modules."
+    }
+  ]
+}

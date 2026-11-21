@@ -1,0 +1,2 @@
+Robertson, S., & Zaragoza, H. (2009). The Probabilistic Relevance Framework: BM25 and Beyond. Foundations and Trends in Information Retrieval, 3(4), 333-389.
+Section 3: BM25 scores documents via term-frequency saturation and document-length normalization.

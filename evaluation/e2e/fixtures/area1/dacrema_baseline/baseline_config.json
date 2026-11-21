@@ -1,0 +1,25 @@
+{
+  "experiment_name": "recsys_movielens_1m_comparison",
+  "baselines": {
+    "neural_recommender": {
+      "tuning_trials": 50,
+      "early_stopping": true,
+      "tuned": true,
+      "reported_ndcg10": 0.312
+    },
+    "ItemKNN": {
+      "tuning_trials": 1,
+      "k": 5,
+      "similarity": "cosine_default",
+      "tuned": false,
+      "reported_ndcg10": 0.241
+    },
+    "ItemKNN_tuned_reference": {
+      "tuning_trials": 50,
+      "k": 100,
+      "similarity": "shrinkage_cosine",
+      "tuned": true,
+      "reported_ndcg10": 0.338
+    }
+  }
+}

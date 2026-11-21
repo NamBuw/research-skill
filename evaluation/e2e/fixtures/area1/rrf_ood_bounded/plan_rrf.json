@@ -1,0 +1,110 @@
+{
+  "gap_candidate_id": "G1",
+  "question_id": "RQ-RRF-OOD-1",
+  "claim_mode": "confirmatory",
+  "claim_type": "boundary",
+  "contribution_delta": "Bounded OOD rank-fusion vs linear score-fusion comparison on BEIR-OOD-Subset-v1",
+  "decision_if_resolved": "Recommend RRF over uncalibrated min-max fusion under zero-shot domain shift",
+  "closest_work_ids": [
+    "W1"
+  ],
+  "unresolved_close_work_ids": [],
+  "benchmark": {
+    "task": "Zero-shot hybrid BM25 + dense retrieval on BEIR OOD subset",
+    "dataset_version": "BEIR-OOD-Subset-v1",
+    "split_manifest_sha256": "99a30d7bb9d8397d1d6e523e397d448acccb83c403e096f905445ddd9781989b",
+    "metric_id": "ndcg_at_10",
+    "metric_direction": "higher",
+    "unit_of_analysis": "Dataset-level macro NDCG@10 across the 5 frozen BEIR OOD splits",
+    "contamination_check": "Zero-shot evaluation; no BEIR test queries used in retriever training",
+    "test_set_access_policy": "Frozen split_manifest.json and eval_ndcg.py verified by SHA-256",
+    "benchmark_limitations": "Covers 5 English BEIR datasets; non-English OOD shift not tested"
+  },
+  "engineering_checks": {
+    "data_identity": {
+      "status": "passed",
+      "evidence_or_action": "Verified BEIR-OOD-Subset-v1 manifest hash"
+    },
+    "split_integrity": {
+      "status": "passed",
+      "evidence_or_action": "Disjoint test-only BEIR splits verified"
+    },
+    "preprocessing": {
+      "status": "passed",
+      "evidence_or_action": "Identical tokenization and top-1000 candidate pools"
+    },
+    "metric_sanity": {
+      "status": "passed",
+      "evidence_or_action": "Unit-checked eval_ndcg.py on synthetic rankings"
+    },
+    "baseline_fidelity": {
+      "status": "passed",
+      "evidence_or_action": "Cormack 2009 k=60 RRF matched exactly"
+    },
+    "reference_reproduction": {
+      "status": "passed",
+      "evidence_or_action": "Reproduced BEIR BM25+Contriever baseline"
+    }
+  },
+  "comparison_fairness": {
+    "baseline_source": "Cormack et al. SIGIR 2009 RRF (k=60)",
+    "baseline_implementation": "Same candidate pools and eval_ndcg.py script",
+    "training_data_budget": "Zero-shot (no training on BEIR)",
+    "compute_budget": "Identical CPU ranking pass",
+    "tuning_budget": "Fixed k=60 vs fixed alpha=0.5 (zero OOD tuning)",
+    "information_access": "Identical BM25 and dense retrieval scores"
+  },
+  "analysis": {
+    "effect_measure": "Macro NDCG@10 difference (RRF minus linear fusion)",
+    "decision_threshold": "0.02 NDCG@10",
+    "uncertainty_method": "Paired query bootstrap across 5 BEIR OOD datasets",
+    "aggregation_unit": "Dataset-level macro NDCG@10 across the 5 frozen BEIR OOD splits",
+    "seed_policy": "Deterministic ranking seed 20261120",
+    "multiple_testing_policy": "Single primary confirmatory comparison",
+    "failed_run_policy": "All attempted runs logged in manifest_rrf.json",
+    "holdout_policy": "Zero OOD test leakage"
+  },
+  "experiments": [
+    {
+      "id": "EXP-PRIMARY",
+      "role": "primary",
+      "purpose": "Compare RRF (k=60) against linear score fusion on frozen BEIR OOD",
+      "focal_condition": "Reciprocal Rank Fusion (k=60)",
+      "comparator_condition": "Min-Max Linear Score Fusion (alpha=0.5)",
+      "variable_changed": "Rank-based vs min-max score aggregation",
+      "outcome": "Macro NDCG@10",
+      "predicted_if_focal": "RRF >= linear fusion + 0.02",
+      "predicted_if_rival": "Linear fusion >= RRF",
+      "falsifying_result": "Linear fusion beats or ties RRF on verified BEIR OOD",
+      "indeterminate_result": "Hash mismatch or evaluator failure",
+      "analysis_action": "Compute paired NDCG@10 delta",
+      "tuning_data_role": "none",
+      "evaluation_data_role": "test",
+      "controls": [
+        "same candidate pool",
+        "same eval_ndcg.py",
+        "same split_manifest.json"
+      ]
+    },
+    {
+      "id": "EXP-ABLATION",
+      "role": "ablation",
+      "purpose": "Verify score-scale sensitivity across OOD corpora",
+      "focal_condition": "RRF without score normalization",
+      "comparator_condition": "Linear fusion with per-query min-max normalization",
+      "variable_changed": "Score normalization sensitivity",
+      "outcome": "Macro NDCG@10",
+      "predicted_if_focal": "Score variance degrades linear fusion on OOD",
+      "predicted_if_rival": "Per-query normalization eliminates OOD gap",
+      "falsifying_result": "No sensitivity difference across datasets",
+      "indeterminate_result": "Missing candidate scores",
+      "analysis_action": "Inspect per-dataset variance",
+      "tuning_data_role": "none",
+      "evaluation_data_role": "test",
+      "controls": [
+        "same top-1000 depth",
+        "same eval_ndcg.py"
+      ]
+    }
+  ]
+}

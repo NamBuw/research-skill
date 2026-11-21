@@ -1,0 +1,68 @@
+{
+  "schema": "research_scientist_executive_report_v1",
+  "report_type": "gap_audit",
+  "lang": "en",
+  "title": "Special Character Escaping Audit: Issue #42 & Split Checks",
+  "verdict": {
+    "status": "fail",
+    "summary": "FAIL: Found +3.4% inflated accuracy due to split_leakage_rate in config {seed=42, lr=1e-3} [logs/run_42.json].",
+    "evidence_refs": ["K1", "K2"]
+  },
+  "key_evidence": [
+    {
+      "id": "K1",
+      "claim": "Metric split_leakage_rate inflates test_auc_roc by +3.4% under config {seed=42, lr=1e-3}.",
+      "value": "+3.4%",
+      "status": "verified",
+      "locator": "Issue #42 in logs/run_42.json"
+    },
+    {
+      "id": "K2",
+      "claim": "Registration fee $750 listed at https://example.org/cfp?track=main_track&year=2026#fees%20info.",
+      "value": "$750",
+      "status": "verified",
+      "locator": "Official CFP fees section",
+      "source_url": "https://example.org/cfp?track=main_track&year=2026#fees%20info"
+    }
+  ],
+  "flaws_and_risks": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "summary": "Kapoor & Narayanan (2023) checklist flags #42 scaling before train/test split.",
+      "locator": "logs/run_42.json"
+    },
+    {
+      "id": "R2",
+      "severity": "medium",
+      "summary": "Variable names raw_feature_matrix and norm_param_{mu,sigma} leak test statistics.",
+      "locator": "logs/run_42.json"
+    }
+  ],
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Fix split_leakage_rate in train_eval.py and verify fee $750 against official CFP.",
+      "target": "train_eval.py",
+      "locator": "https://example.org/cfp?track=main_track&year=2026#fees%20info"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Audit run #42",
+      "locator": "logs/run_42.json"
+    },
+    {
+      "id": "S2",
+      "title": "CFP Fees Page",
+      "locator": "https://example.org/cfp?track=main_track&year=2026#fees%20info",
+      "url": "https://example.org/cfp?track=main_track&year=2026#fees%20info"
+    },
+    {
+      "id": "S3",
+      "title": "Kapoor & Narayanan (2023) Leakage and the Reproducibility Crisis",
+      "locator": "Patterns, 10.1016/j.patter.2023.100804, Section 2"
+    }
+  ]
+}

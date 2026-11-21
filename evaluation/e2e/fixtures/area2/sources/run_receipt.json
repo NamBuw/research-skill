@@ -1,0 +1,11 @@
+{
+  "experiment_id": "beir_ood_rrf_vs_linear_v1",
+  "dataset_suite": "BEIR-OOD-Subset-v1",
+  "metric": "NDCG@10",
+  "runs": {
+    "baseline_rrf": 0.482,
+    "candidate_linear": 0.449
+  },
+  "delta": 0.033,
+  "verified_at": "2026-11-21"
+}

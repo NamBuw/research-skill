@@ -1,0 +1,93 @@
+{
+  "format": "research_scientist_search_campaign_v1",
+  "question": "Is the observed high benchmark accuracy on tabular classification due to a novel feature interaction or preprocessing/split leakage?",
+  "checked_at_utc": "2026-11-21T10:00:00+00:00",
+  "query_runs": [
+    {
+      "id": "direct-1",
+      "family": "direct_problem",
+      "query": "preprocessing leakage tabular train test split reproducibility",
+      "checked_at_utc": "2026-11-21T10:00:01+00:00",
+      "sources": {
+        "openalex": {
+          "status": "bounded_partial",
+          "pages_requested": 1,
+          "pages_read": 1,
+          "returned": 1,
+          "reported_total": 120,
+          "access": "keyless",
+          "executed_query": "preprocessing leakage tabular train test split reproducibility"
+        },
+        "arxiv": {
+          "status": "bounded_partial",
+          "pages_requested": 1,
+          "pages_read": 1,
+          "returned": 1,
+          "reported_total": 25,
+          "access": "keyless",
+          "executed_query": "all:preprocessing AND all:leakage AND all:split"
+        }
+      },
+      "returned_records": 2,
+      "known_seed_checks": [
+        {"kind": "doi", "requested": "10.1016/j.patter.2023.100804", "status": "retrieved", "matched_source_ids": ["https://openalex.org/W4385576721"]},
+        {"kind": "source_id", "source": "arxiv", "requested": "2207.07048", "source_status": "bounded_partial", "status": "retrieved", "matched_source_ids": ["arxiv:2207.07048v2"]}
+      ]
+    },
+    {
+      "id": "closure-1",
+      "family": "closure",
+      "query": "Kapoor Narayanan leakage and the reproducibility crisis in machine-learning-based science",
+      "checked_at_utc": "2026-11-21T10:00:02+00:00",
+      "sources": {
+        "arxiv": {
+          "status": "bounded_partial",
+          "pages_requested": 1,
+          "pages_read": 1,
+          "returned": 1,
+          "reported_total": 5,
+          "access": "keyless",
+          "executed_query": "ti:leakage AND ti:reproducibility"
+        }
+      },
+      "returned_records": 1,
+      "known_seed_checks": [
+        {"kind": "doi", "requested": "10.1016/j.patter.2023.100804", "status": "not_retrieved_in_this_run", "matched_source_ids": []},
+        {"kind": "source_id", "source": "arxiv", "requested": "2207.07048", "source_status": "bounded_partial", "status": "retrieved", "matched_source_ids": ["arxiv:2207.07048v2"]}
+      ]
+    }
+  ],
+  "source_records": [
+    {
+      "source": "openalex",
+      "source_id": "https://openalex.org/W4385576721",
+      "title": "Leakage and the reproducibility crisis in machine-learning-based science",
+      "year": 2023,
+      "doi": "10.1016/j.patter.2023.100804",
+      "discovered_by": ["direct-1"],
+      "metadata_conflicts": []
+    },
+    {
+      "source": "arxiv",
+      "source_id": "arxiv:2207.07048v2",
+      "title": "Leakage and the reproducibility crisis in machine-learning-based science",
+      "year": 2023,
+      "doi": null,
+      "discovered_by": ["direct-1", "closure-1"],
+      "metadata_conflicts": []
+    }
+  ],
+  "doi_candidate_groups": {},
+  "known_seed_checks": [
+    {"seed": {"doi": "10.1016/j.patter.2023.100804"}, "status": "retrieved", "retrieved_in_query_ids": ["direct-1"]},
+    {"seed": {"source": "arxiv", "source_id": "2207.07048"}, "status": "retrieved", "retrieved_in_query_ids": ["direct-1", "closure-1"]}
+  ],
+  "coverage": {
+    "query_count": 2,
+    "query_families": ["closure", "direct_problem"],
+    "raw_record_count": 3,
+    "distinct_source_record_count": 2,
+    "failed_or_partial_source_runs": []
+  },
+  "warning": "Campaign manifest for Kapoor & Narayanan 2023 leakage precedent verification."
+}

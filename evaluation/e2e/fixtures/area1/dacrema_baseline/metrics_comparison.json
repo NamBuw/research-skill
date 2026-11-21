@@ -1,0 +1,28 @@
+{
+  "dataset": "MovieLens-1M",
+  "metric": "ndcg@10",
+  "models": [
+    {
+      "name": "neural_recommender",
+      "role": "candidate",
+      "ndcg@10": 0.312,
+      "tuning_trials": 50,
+      "seed_count": 5
+    },
+    {
+      "name": "ItemKNN_untuned",
+      "role": "baseline",
+      "ndcg@10": 0.241,
+      "tuning_trials": 1,
+      "seed_count": 1
+    },
+    {
+      "name": "ItemKNN_tuned_ref",
+      "role": "reference_baseline",
+      "ndcg@10": 0.338,
+      "tuning_trials": 50,
+      "seed_count": 5
+    }
+  ],
+  "notes": "Unequal tuning budget (50 vs 1) and fewer seeds on baseline (5 vs 1); tuned ItemKNN reference (0.338) outperforms neural candidate (0.312)."
+}

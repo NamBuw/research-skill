@@ -1,0 +1,88 @@
+{
+  "schema": "research_scientist_executive_report_v1",
+  "report_type": "gap_audit",
+  "lang": "en",
+  "title": "Precedent and Split-Leakage Audit for Neural Recommender",
+  "verdict": {
+    "status": "rejected",
+    "summary": "REJECT GAP: Observed gain comes from preprocessing leakage and untuned baselines, not a new method [run_logs/split_audit_2026.json]. Auditing four splits shows the claimed 12.4% lift vanishes once scaler leakage is fixed.",
+    "evidence_refs": ["K1", "K2", "K3"]
+  },
+  "key_evidence": [
+    {
+      "id": "K1",
+      "claim": "Fixing pre-split normalization drops test NDCG@10 from 0.418 to 0.311.",
+      "value": "0.311 (vs 0.418 leaky)",
+      "status": "verified",
+      "locator": "run_logs/split_audit_2026.json"
+    },
+    {
+      "id": "K2",
+      "claim": "Tuned ItemKNN reaches 0.314 NDCG@10 on the same clean split.",
+      "value": "0.314",
+      "status": "verified",
+      "locator": "arXiv:1907.06902, Table 2"
+    },
+    {
+      "id": "K3",
+      "claim": "124 duplicate user-item pairs appear in both train and test folds.",
+      "value": "124 / 2500",
+      "status": "verified",
+      "locator": "splits/fold_check.csv"
+    }
+  ],
+  "flaws_and_risks": [
+    {
+      "id": "R1",
+      "severity": "critical",
+      "summary": "StandardScaler runs on the full matrix before train-test splitting.",
+      "locator": "run_logs/split_audit_2026.json"
+    },
+    {
+      "id": "R2",
+      "severity": "high",
+      "summary": "Baseline ItemKNN uses default k=5 instead of tuned grid k in [50, 400].",
+      "locator": "arXiv:1907.06902, Table 2"
+    },
+    {
+      "id": "R3",
+      "severity": "medium",
+      "summary": "Only 1 random seed is reported without variance bounds.",
+      "locator": "run_logs/split_audit_2026.json"
+    }
+  ],
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Move feature scaling strictly inside the training fold pipeline.",
+      "target": "train_eval.py"
+    },
+    {
+      "step": 2,
+      "action": "Re-run tuned ItemKNN across 5 fixed seeds and log SHA-256 receipts.",
+      "target": "run_logs/itemknn_5seeds.json"
+    },
+    {
+      "step": 3,
+      "action": "Drop the novelty claim unless the new model beats tuned ItemKNN on clean folds.",
+      "target": "clean split benchmark"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Split leakage audit log",
+      "locator": "run_logs/split_audit_2026.json"
+    },
+    {
+      "id": "S2",
+      "title": "Dacrema et al. (2019)",
+      "locator": "arXiv:1907.06902"
+    },
+    {
+      "id": "S3",
+      "title": "Fold duplicate pair check",
+      "locator": "splits/fold_check.csv"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "schema": "research_scientist_executive_report_v1",
+  "report_type": "parsimony_audit",
+  "lang": "vi",
+  "title": "Kiểm định tính tối giản và cắt bỏ thành phần mô hình",
+  "verdict": {
+    "status": "supported",
+    "summary": "GIỮ BASELINE ĐƠN GIẢN: Mô hình 1 tầng đạt 0.742 macro-F1, tương đương mô hình 4 tầng (0.740, p = 0.61) [run_logs/ablation_vi_5seeds.json]. Thử nghiệm trên 5 hạt giống cho thấy 3 tầng thêm không cải thiện kết quả.",
+    "evidence_refs": ["K1", "K2"]
+  },
+  "parsimony_check": {
+    "simplest_alternative": "Bộ phân loại tuyến tính 1 tầng",
+    "rationale": "0.742 so với 0.740 qua 5 hạt giống",
+    "verdict": "GIỮ BASELINE ĐƠN GIẢN",
+    "locator": "run_logs/ablation_vi_5seeds.json"
+  },
+  "key_evidence": [
+    {
+      "id": "K1",
+      "claim": "Mô hình 1 tầng đạt 0.742 macro-F1 trên tập kiểm tra sạch.",
+      "value": "0.742",
+      "status": "verified",
+      "locator": "run_logs/ablation_vi_5seeds.json"
+    },
+    {
+      "id": "K2",
+      "claim": "Cấu hình 4 tầng đạt 0.740 macro-F1 (kém hơn 0.002, p = 0.61).",
+      "value": "0.740",
+      "status": "verified",
+      "locator": "run_logs/ablation_vi_5seeds.json"
+    }
+  ],
+  "flaws_and_risks": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "summary": "Ba mô-đun cộng thêm tăng độ trễ 3 lần mà không cải thiện điểm số.",
+      "locator": "run_logs/ablation_vi_5seeds.json"
+    }
+  ],
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Loại bỏ ba mô-đun dư thừa và giữ nguyên mô hình 1 tầng.",
+      "target": "run_logs/ablation_vi_5seeds.json",
+      "locator": "run_logs/ablation_vi_5seeds.json"
+    },
+    {
+      "step": 2,
+      "action": "Lưu nhật ký chạy và mã băm SHA-256 cho 5 hạt giống cố định.",
+      "target": "run_logs/ablation_vi_5seeds.json",
+      "locator": "run_logs/ablation_vi_5seeds.json"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Nhật ký cắt bỏ 5 hạt giống",
+      "locator": "run_logs/ablation_vi_5seeds.json"
+    }
+  ]
+}

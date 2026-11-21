@@ -1,0 +1,125 @@
+{
+  "openalex_gcn": {
+    "meta": {"count": 1, "db_response_time_ms": 5, "page": 1, "per_page": 25},
+    "results": [
+      {
+        "id": "https://openalex.org/W2519887557",
+        "doi": "https://doi.org/10.48550/arxiv.1609.02907",
+        "title": "Semi-Supervised Classification with Graph Convolutional Networks",
+        "display_name": "Semi-Supervised Classification with Graph Convolutional Networks",
+        "publication_year": 2016,
+        "cited_by_count": 12000,
+        "primary_location": {"source": {"display_name": "arXiv (Cornell University)"}},
+        "abstract_inverted_index": {
+          "We": [0],
+          "introduce": [1],
+          "renormalized": [2],
+          "adjacency": [3],
+          "graph": [4],
+          "convolution": [5],
+          "for": [6],
+          "semi-supervised": [7],
+          "classification.": [8]
+        }
+      }
+    ]
+  },
+  "arxiv_gcn_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<feed xmlns=\"http://www.w3.org/2005/Atom\" xmlns:opensearch=\"http://a9.com/-/spec/opensearch/1.1/\">\n  <opensearch:totalResults>1</opensearch:totalResults>\n  <entry>\n    <id>http://arxiv.org/abs/1609.02907v4</id>\n    <published>2016-09-09T14:29:00Z</published>\n    <title>Semi-Supervised Classification with Graph Convolutional Networks</title>\n    <summary>We present a scalable approach for semi-supervised learning on graph-structured data using renormalized adjacency propagation.</summary>\n  </entry>\n</feed>",
+  "s2_gcn": {
+    "total": 1,
+    "offset": 0,
+    "data": [
+      {
+        "paperId": "S2_GCN_1609",
+        "title": "Semi-Supervised Classification with Graph Convolutional Networks!",
+        "year": 2016,
+        "abstract": "Scalable semi-supervised node classification via localized first-order approximation of spectral graph convolutions.",
+        "externalIds": {"DOI": "10.48550/arXiv.1609.02907", "ArXiv": "1609.02907"},
+        "url": "https://www.semanticscholar.org/paper/S2_GCN_1609",
+        "publicationDate": "2016-09-09",
+        "authors": [{"name": "Thomas N. Kipf"}, {"name": "Max Welling"}]
+      }
+    ]
+  },
+  "crossref_gcn": {
+    "status": "ok",
+    "message": {
+      "total-results": 1,
+      "items": [
+        {
+          "DOI": "10.48550/arxiv.1609.02907",
+          "title": ["Semi-Supervised Classification with Graph Convolutional Networks"],
+          "published": {"date-parts": [[2016, 9, 9]]},
+          "abstract": "We present a scalable approach for semi-supervised learning on graph-structured data."
+        }
+      ]
+    }
+  },
+  "europepmc_gcn": {
+    "hitCount": 1,
+    "nextCursorMark": "cursor_end_1",
+    "resultList": {
+      "result": [
+        {
+          "id": "PMC999001",
+          "source": "PMC",
+          "pmcid": "PMC999001",
+          "title": "Semi-Supervised Classification with Graph Convolutional Networks",
+          "pubYear": "2016",
+          "doi": "10.48550/arxiv.1609.02907",
+          "abstractText": "Renormalized adjacency graph convolution for semi-supervised node classification."
+        }
+      ]
+    }
+  },
+  "pubmed_esearch": {
+    "esearchresult": {
+      "count": "1",
+      "idlist": ["31234567"],
+      "querytranslation": "graph convolution[All Fields]"
+    }
+  },
+  "pubmed_esummary": {
+    "result": {
+      "uids": ["31234567"],
+      "31234567": {
+        "uid": "31234567",
+        "title": "Graph convolutional networks for molecular graphs.",
+        "pubdate": "2020 Jan",
+        "articleids": [{"idtype": "doi", "value": "10.1093/bioinformatics/btz001"}]
+      }
+    }
+  },
+  "acl_gcn_html": "<html><body><div class='card'><h5 class='card-title'><a href='/2025.acl-long.10/'>Graph Convolution for Discourse Parsing</a></h5><span class='badge'>2025</span><div class='abstract'>We apply graph convolution to discourse dependency trees.</div></div></body></html>",
+  "hf_gcn_json": [
+    {
+      "paper": {
+        "id": "1609.02907",
+        "title": "Semi-Supervised Classification with Graph Convolutional Networks",
+        "summary": "Localized first-order spectral graph convolution.",
+        "publishedAt": "2016-09-09T00:00:00.000Z"
+      }
+    }
+  ],
+  "dblp_gcn_json": {
+    "result": {
+      "hits": {
+        "@total": "1",
+        "hit": [
+          {
+            "@id": "conf/iclr/KipfW17",
+            "info": {
+              "key": "conf/iclr/KipfW17",
+              "title": "Semi-Supervised Classification with Graph Convolutional Networks.",
+              "year": "2017",
+              "doi": "10.48550/arxiv.1609.02907",
+              "url": "https://dblp.org/rec/conf/iclr/KipfW17"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "epmc_jats_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<article>\n  <front><article-meta><article-id pub-id-type=\"pmc\">PMC999001</article-id><title-group><article-title>Graph Convolution Evaluation</article-title></title-group></article-meta></front>\n  <body>\n    <sec><title>Discussion</title><p>Renormalized adjacency stabilizes deep propagation across sparse graphs.</p></sec>\n    <sec><title>Limitations</title><p>We did not evaluate graphs exceeding ten million edges or dynamic heterophily.</p></sec>\n    <sec><title>Future Work</title><p>Future work should benchmark adaptive edge rewiring under degree shift.</p></sec>\n  </body>\n</article>",
+  "pmlr_v235_html": "<html><body><h1>Proceedings of Machine Learning Research Volume 235 (ICML 2024)</h1>\n<div class='paper'><p class='title'>Contrastive Graph Normalization under Degree Shift</p><p class='details'><span class='authors'>Alice Smith, Bob Lee</span>; <span class='info'>Proceedings of Machine Learning Research 235:100-115, 2024</span></p><p class='links'>[<a href='https://proceedings.mlr.press/v235/smith24a.html'>abs</a>][<a href='https://proceedings.mlr.press/v235/smith24a/smith24a.pdf'>Download PDF</a>]</p></div>\n<div class='paper'><p class='title'>Spectral Calibration for Out-of-Distribution Retrieval</p><p class='details'><span class='authors'>Carol Wu</span>; <span class='info'>Proceedings of Machine Learning Research 235:200-214, 2024</span></p><p class='links'>[<a href='https://proceedings.mlr.press/v235/wu24a.html'>abs</a>][<a href='https://proceedings.mlr.press/v235/wu24a/wu24a.pdf'>Download PDF</a>]</p></div>\n<div class='paper'><p class='title'>Bounded Variance Estimators for Reciprocal Rank Fusion</p><p class='details'><span class='authors'>Dan Patel</span>; <span class='info'>Proceedings of Machine Learning Research 235:300-312, 2024</span></p><p class='links'>[<a href='https://proceedings.mlr.press/v235/patel24a.html'>abs</a>][<a href='https://proceedings.mlr.press/v235/patel24a/patel24a.pdf'>Download PDF</a>]</p></div>\n<div class='paper'><p class='title'>Causal Identifiability in Sparse Message Passing</p><p class='details'><span class='authors'>Eva Kim</span>; <span class='info'>Proceedings of Machine Learning Research 235:400-418, 2024</span></p><p class='links'>[<a href='https://proceedings.mlr.press/v235/kim24a.html'>abs</a>][<a href='https://proceedings.mlr.press/v235/kim24a/kim24a.pdf'>Download PDF</a>]</p></div>\n<div class='paper'><p class='title'>Tuned Baselines in Recommender Evaluation</p><p class='details'><span class='authors'>Frank Chen</span>; <span class='info'>Proceedings of Machine Learning Research 235:500-519, 2024</span></p><p class='links'>[<a href='https://proceedings.mlr.press/v235/chen24a.html'>abs</a>][<a href='https://proceedings.mlr.press/v235/chen24a/chen24a.pdf'>Download PDF</a>]</p></div>\n<div class='paper'><p class='title'>Adversarial Negative Controls for Graph Benchmarks</p><p class='details'><span class='authors'>Grace Park</span>; <span class='info'>Proceedings of Machine Learning Research 235:600-614, 2024</span></p><p class='links'>[<a href='https://proceedings.mlr.press/v235/park24a.html'>abs</a>][<a href='https://proceedings.mlr.press/v235/park24a/park24a.pdf'>Download PDF</a>]</p></div>\n</body></html>"
+}

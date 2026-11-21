@@ -1,0 +1,3 @@
+We combine four existing retrieval components in a two-stage pipeline: BM25 sparse retrieval (Robertson and Zaragoza, 2009), Contriever unsupervised dense retrieval (Izacard et al., 2022), Reciprocal Rank Fusion with k = 60 (Cormack et al., 2009), and a BERT cross-encoder reranker (Nogueira and Cho, 2019).
+
+On the frozen BEIR-OOD-Subset-v1 benchmark, fixed-k Reciprocal Rank Fusion achieves 0.482 macro NDCG@10, while min-max linear score combination achieves 0.449 macro NDCG@10. We make no claim of a new retrieval architecture; the empirical contribution is limited to measuring rank-fusion stability against uncalibrated linear combination on five out-of-distribution datasets.

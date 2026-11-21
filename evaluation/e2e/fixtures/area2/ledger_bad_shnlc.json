@@ -1,0 +1,71 @@
+{
+  "sources": [
+    {
+      "id": "E1",
+      "type": "prior_paper",
+      "locator": "robertson_2009.txt: Section 3",
+      "verified": true,
+      "verified_by": "author",
+      "verified_at": "2026-11-21"
+    },
+    {
+      "id": "E2",
+      "type": "prior_paper",
+      "locator": "izacard_2022.txt: Section 2",
+      "verified": true,
+      "verified_by": "author",
+      "verified_at": "2026-11-21"
+    },
+    {
+      "id": "E3",
+      "type": "prior_paper",
+      "locator": "cormack_2009.txt: Section 2",
+      "verified": true,
+      "verified_by": "author",
+      "verified_at": "2026-11-21"
+    },
+    {
+      "id": "E4",
+      "type": "prior_paper",
+      "locator": "nogueira_2019.txt: Section 3",
+      "verified": true,
+      "verified_by": "author",
+      "verified_at": "2026-11-21"
+    },
+    {
+      "id": "E5",
+      "type": "fabricated_claim",
+      "locator": "nonexistent_run_log_for_14_2_percent.json",
+      "verified": false,
+      "verified_by": "unverified",
+      "verified_at": "2026-11-21"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "kind": "reported",
+      "material": true,
+      "source_ids": ["E5"]
+    }
+  ],
+  "methods": [
+    {
+      "id": "M1",
+      "name": "SHNLC",
+      "origin": "combined",
+      "source_ids": ["E1", "E2", "E3", "E4"],
+      "exact_change": "Combines BM25, Contriever, RRF, and a Cross-Encoder in sequence",
+      "novelty_claimed": false,
+      "grand_name": false
+    }
+  ],
+  "numeric_facts": [
+    {
+      "id": "N1",
+      "occurrences": [
+        {"location": "draft_bad_shnlc.md", "value": 14.2, "unit": "% SOTA gain"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "schema": "research_scientist_executive_report_v1",
+  "report_type": "parsimony_audit",
+  "lang": "en",
+  "title": "Approved Minimal Design: Single-Parameter Degree Scaling",
+  "verdict": {
+    "status": "pass",
+    "summary": "PASS PARSIMONY GATE: Single degree-aware scaling parameter beats tuned 2-layer GCN by +0.034 macro-F1 over the 0.718 baseline [run_logs/t3_13_minimal.json].",
+    "evidence_refs": ["K1", "K2"]
+  },
+  "parsimony_check": {
+    "simplest_alternative": "Tuned 2-layer GCN baseline (0.718 macro-F1 across 5 seeds)",
+    "rationale": "0.752 vs 0.718 (+0.034 macro-F1 across 5 fixed seeds)",
+    "verdict": "MINIMAL DESIGN VERIFIED",
+    "locator": "run_logs/t3_13_minimal.json"
+  },
+  "key_evidence": [
+    {
+      "id": "K1",
+      "claim": "Tuned 2-layer GCN baseline scores 0.718 macro-F1 under degree shift.",
+      "value": "0.718",
+      "status": "verified",
+      "locator": "run_logs/t3_13_minimal.json"
+    },
+    {
+      "id": "K2",
+      "claim": "Adding 1 degree-scaling parameter raises macro-F1 to 0.752 (+0.034).",
+      "value": "0.752 (+0.034)",
+      "status": "verified",
+      "locator": "run_logs/t3_13_minimal.json"
+    }
+  ],
+  "flaws_and_risks": [
+    {
+      "id": "R1",
+      "severity": "medium",
+      "summary": "Evaluation covers citation graphs only; external industrial graphs remain untested.",
+      "locator": "run_logs/t3_13_minimal.json"
+    }
+  ],
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Run frozen 5-seed evaluation on held-out split and verify SHA-256 receipts.",
+      "target": "run_logs/t3_13_minimal.json",
+      "locator": "run_logs/t3_13_minimal.json"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Minimal design verification log",
+      "locator": "run_logs/t3_13_minimal.json"
+    }
+  ]
+}

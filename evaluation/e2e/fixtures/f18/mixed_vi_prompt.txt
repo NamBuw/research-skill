@@ -1,0 +1,1 @@
+Hãy tóm tắt ngắn gọn kết quả kiểm định NDCG@10 với ItemKNN và tiền lệ arXiv:1609.02907 bằng tiếng Việt.

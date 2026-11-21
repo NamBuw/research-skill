@@ -1,0 +1,76 @@
+{
+  "scope": "Adversarial fixture: preprocessing and split leakage disguised under benchmark_observation trigger",
+  "search_date": "2026-11-21",
+  "coverage_limits": "Focused search on Kapoor & Narayanan (2023) data leakage taxonomy.",
+  "next_check": "Run engineering diagnostics on leaky_pipeline.py and splits.csv before promoting any gap.",
+  "queries": [
+    {
+      "id": "Q1",
+      "campaign_query_id": "direct-1",
+      "source": "openalex",
+      "query": "preprocessing leakage tabular train test split reproducibility",
+      "family": "direct_problem",
+      "status": "bounded_partial",
+      "retrieved": 1,
+      "inspected": 1
+    },
+    {
+      "id": "Q2",
+      "campaign_query_id": "closure-1",
+      "source": "arxiv",
+      "query": "ti:leakage AND ti:reproducibility",
+      "family": "closure",
+      "status": "bounded_partial",
+      "retrieved": 1,
+      "inspected": 1
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E1",
+      "source_id": "https://openalex.org/W4385576721",
+      "study_id": "KAPOOR-2023",
+      "locator": "Patterns 2023, Section 2 Taxonomy L1/L2 (pre-split normalization and duplicate IDs)",
+      "claim": "Fitting StandardScaler on full features prior to train/test split and repeating sample IDs across splits inflates held-out accuracy via leakage.",
+      "role": "limitation",
+      "access": "full_text"
+    },
+    {
+      "id": "E2",
+      "source_id": "arxiv:2207.07048v2",
+      "study_id": "KAPOOR-2023",
+      "locator": "arXiv:2207.07048v2, Section 3",
+      "claim": "No feature-interaction novelty can be claimed until preprocessing and split leakage are ruled out.",
+      "role": "method",
+      "access": "full_text"
+    }
+  ],
+  "closest_works": [
+    {
+      "id": "W1",
+      "source_id": "https://openalex.org/W4385576721",
+      "relation": "partial_precedent",
+      "access": "full_text",
+      "difference": "Kapoor & Narayanan document the exact leakage mechanism present in leaky_pipeline.py; claimant treats benchmark gap as algorithmic.",
+      "evidence_ids": ["E1"]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "G1",
+      "claim": "Global feature normalization yields an apparent 12-point accuracy jump on tabular benchmarks",
+      "type": "empirical_observation",
+      "disposition": "supported_candidate",
+      "rationale": "Disguised under benchmark_observation trigger to attempt bypassing failed_implementation gate",
+      "trigger": "benchmark_observation",
+      "engineering_status": "unchecked",
+      "support_evidence_ids": ["E2"],
+      "counter_evidence_ids": ["E1"],
+      "closest_work_ids": ["W1"],
+      "search_query_ids": ["Q1", "Q2"],
+      "kill_query_ids": ["Q2"],
+      "consequence": "Would misattribute test-distribution leakage to model architecture",
+      "answer_path": "Re-run with train-only StandardScaler and disjoint split IDs"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "question_id": "RQ-SHNLC-FAKE-1",
+  "protocol_version": "v1",
+  "protocol_frozen_at_utc": "2026-11-20T00:00:00Z",
+  "runs": [
+    {
+      "run_id": "shnlc-sota-claim",
+      "role": "candidate",
+      "protocol_version": "v1",
+      "code_commit": "unverified-local",
+      "data_version": "BEIR-OOD-Subset-v1",
+      "split_manifest_path": "nonexistent_split_manifest.json",
+      "split_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "metric_id": "sota_gain_pct",
+      "metric_script_path": "nonexistent_eval.py",
+      "metric_script_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "command": "python3 run_shnlc.py --claim 14.2",
+      "started_at_utc": "2026-11-21T09:00:00Z",
+      "ended_at_utc": "2026-11-21T09:05:00Z",
+      "exit_code": 0,
+      "result_artifact_path": "sources/run_receipt.json",
+      "result_artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "result_value": 14.2,
+      "deviations": [],
+      "decision_timing": "prespecified"
+    }
+  ]
+}

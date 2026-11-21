@@ -1,0 +1,21 @@
+{
+  "id": "RQ-RRF-OOD-1",
+  "question": "On the frozen BEIR-OOD-Subset-v1 benchmark, does fixed-k Reciprocal Rank Fusion (k=60) achieve higher macro NDCG@10 than min-max linear score fusion (alpha=0.5)?",
+  "question_type": "boundary",
+  "target_scope": "Zero-shot hybrid BM25 + dense retrieval across 5 BEIR OOD datasets",
+  "unit_of_observation": "Per-query ranked document list",
+  "unit_of_analysis": "Dataset-level macro NDCG@10 across the 5 frozen BEIR OOD splits",
+  "construct_or_estimand": "Macro NDCG@10 difference (RRF minus linear score fusion)",
+  "measurement": "NDCG@10 computed by eval_ndcg.py on frozen split_manifest.json",
+  "closest_work": "Cormack et al. SIGIR 2009 (W2148972377), Section 2 & Section 3",
+  "prior_art_boundary": "Cormack 2009 tested in-distribution TREC collections only",
+  "rival_explanation": "Min-max score normalization preserves magnitude information lost by ranks and outperforms RRF OOD",
+  "expected_if_focal": "RRF macro NDCG@10 exceeds linear fusion macro NDCG@10 by >= 0.02",
+  "expected_if_rival": "Linear fusion matches or exceeds RRF on macro NDCG@10",
+  "discriminating_test": "Paired evaluation of baseline_rrf vs candidate_linear on identical frozen BM25+Contriever candidate lists",
+  "falsifying_result": "Linear fusion achieves >= RRF NDCG@10 under verified split and metric hashes",
+  "indeterminate_result": "Metric script or split manifest hash mismatch",
+  "pilot": "Check split_manifest.json and eval_ndcg.py hashes via check_experiment_manifest.py --verify-files",
+  "engineering_diagnosis": "All 6 engineering checks passed on frozen evaluator and candidate lists",
+  "prior_outcome_exposure": "Protocol frozen prior to BEIR OOD test evaluation"
+}

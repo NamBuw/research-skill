@@ -1,0 +1,44 @@
+{
+  "recsys_cutoff_2018": {
+    "cutoff_date": "2018-12-31",
+    "candidates": [
+      {
+        "id": "C-REC-LEAK",
+        "claim": "Pre-2019 neural recommenders beat ItemKNN, though post-cutoff Dacrema (2019-07-16) questioned this",
+        "cited_paper_ids": ["he_2017_ncf", "dacrema_2019_progress"],
+        "cutoff_date": "2018-12-31",
+        "trigger": "literature_synthesis"
+      },
+      {
+        "id": "C-REC-PRE2019",
+        "claim": "Benchmarking neural collaborative filtering against systematically tuned ItemKNN baselines remains open",
+        "cited_paper_ids": ["he_2017_ncf"],
+        "evidence_role": "author_future_work",
+        "cutoff_date": "2018-12-31",
+        "hindsight_eval_date": "2026-11-21",
+        "trigger": "literature_synthesis"
+      }
+    ]
+  },
+  "cot_cutoff_2022": {
+    "cutoff_date": "2022-02-01",
+    "candidates": [
+      {
+        "id": "C-COT-LEAK",
+        "claim": "Single-path greedy CoT decoding drift motivates marginalizing sampled paths as in Wang et al. (2022-03-21)",
+        "cited_paper_ids": ["wei_2022_cot", "wang_2022_selfconsistency"],
+        "cutoff_date": "2022-02-01",
+        "trigger": "literature_synthesis"
+      },
+      {
+        "id": "C-COT-PRE2022",
+        "claim": "Replacing single-path greedy chain-of-thought decoding with multi-path majority aggregation remains unaddressed",
+        "cited_paper_ids": ["wei_2022_cot"],
+        "evidence_role": "limitation",
+        "cutoff_date": "2022-02-01",
+        "hindsight_eval_date": "2026-11-21",
+        "trigger": "literature_synthesis"
+      }
+    ]
+  }
+}

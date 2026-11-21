@@ -1,0 +1,21 @@
+{
+  "id": "RQ-F19-PARSIMONY-1",
+  "question": "Under tail-degree shift on citation graphs, does adding a single degree-aware L2 scaling parameter to a tuned 2-layer GCN improve macro-F1 over the unmodified baseline and match or beat a 4-module stack?",
+  "question_type": "method",
+  "target_scope": "Semi-supervised node classification under prespecified degree-shift splits",
+  "unit_of_observation": "Held-out node prediction",
+  "unit_of_analysis": "Fixed training-seed run over the held-out degree-shift test fold",
+  "construct_or_estimand": "Macro-F1 difference between tuned 2-layer GCN, 1-parameter degree scaling, and 4-module stack across 5 seeds",
+  "measurement": "Macro-F1 on frozen degree-shift test split with SHA-256 verified split manifest",
+  "closest_work": "W-DEG-01, Section 4.2, Table 2 (full text inspected)",
+  "prior_art_boundary": "Prior work stacks 4 modules without reporting the 1-parameter degree-scaling ablation",
+  "rival_explanation": "Extra attention and contrastive modules are unnecessary; either the 2-layer baseline matches them or 1-parameter scaling suffices",
+  "expected_if_focal": "Single-parameter degree scaling improves macro-F1 by >=0.030 over tuned 2-layer GCN and matches or beats the 4-module stack",
+  "expected_if_rival": "Tuned 2-layer GCN matches both single-parameter scaling and the 4-module stack within 0.005 macro-F1",
+  "discriminating_test": "5-seed matched-budget comparison of tuned 2-layer GCN, 1-parameter degree scaling, and 4-module stack",
+  "falsifying_result": "Single-parameter scaling fails to beat tuned 2-layer GCN by >=0.015 macro-F1 under matched tuning budget",
+  "indeterminate_result": "Engineering checks fail or seed variance interval spans both >=0.015 gain and 0 gain",
+  "pilot": "Verify split disjointness, deterministic seed hashes, and 1-seed baseline parity before full 5-seed run",
+  "engineering_diagnosis": "All 6 data-identity, split, preprocessing, metric, baseline-fidelity, and reference-reproduction checks passed",
+  "prior_outcome_exposure": "No held-out outcomes inspected prior to frozen protocol"
+}

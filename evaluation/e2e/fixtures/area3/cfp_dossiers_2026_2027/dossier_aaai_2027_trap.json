@@ -1,0 +1,29 @@
+{
+  "venue": "AAAI 2027",
+  "edition": "2027",
+  "track": "Main Technical Track",
+  "official_cfp_url": "https://aaai.org/conference/aaai/aaai-27/registration/",
+  "checked_at": "2026-11-21T10:00:00+00:00",
+  "user_timezone": "Asia/Saigon",
+  "milestones": {
+    "abstract_registration": null,
+    "full_paper": null,
+    "notification": null,
+    "camera_ready": null
+  },
+  "currency": "USD",
+  "budget_currency": "USD",
+  "budget": 1000,
+  "presentation_mode": "online",
+  "evidence_claims": [
+    {"field": "venue", "source_url": "https://aaai.org/conference/aaai/aaai-27/registration/", "quote": "AAAI-25 Registration"},
+    {"field": "fees.author_registration", "source_url": "https://aaai.org/conference/aaai/aaai-27/registration/", "quote": "AAAI-25 Author Registration Fee: $850 USD"}
+  ],
+  "fees": [
+    {"category": "submission", "name": "Submission fee", "mandatory": true, "amount": 0, "source_url": "https://aaai.org/conference/aaai/aaai-27/registration/", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "publication", "name": "Publication fee", "mandatory": true, "amount": 0, "source_url": "https://aaai.org/conference/aaai/aaai-27/registration/", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "author_registration", "name": "Author registration", "mandatory": true, "amount": 850, "source_url": "https://aaai.org/conference/aaai/aaai-27/registration/", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "overlength", "name": "Overlength charge", "mandatory": false, "amount": 0},
+    {"category": "tax", "name": "Tax", "mandatory": true, "amount": 0, "source_url": "https://aaai.org/conference/aaai/aaai-27/registration/", "checked_at": "2026-11-21T10:00:00+00:00"}
+  ]
+}

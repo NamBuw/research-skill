@@ -1,0 +1,61 @@
+{
+  "schema": "research_scientist_executive_report_v1",
+  "report_type": "gap_audit",
+  "lang": "vi",
+  "title": "Đối chiếu ItemKNN và arXiv:1609.02907 theo chỉ số NDCG@10",
+  "verdict": {
+    "status": "fail",
+    "summary": "KHÔNG ĐẠT: Điểm NDCG@10 của mô hình mới (0.298) thấp hơn ItemKNN đã tinh chỉnh (0.314) [arXiv:1907.06902].",
+    "evidence_refs": ["K1", "K2"]
+  },
+  "key_evidence": [
+    {
+      "id": "K1",
+      "claim": "ItemKNN đạt NDCG@10 = 0.314 sau khi tinh chỉnh k = 200.",
+      "value": "0.314",
+      "status": "verified",
+      "locator": "arXiv:1907.06902"
+    },
+    {
+      "id": "K2",
+      "claim": "Kiểm tra tiền lệ arXiv:1609.02907 xác nhận phép lọc đồ thị hai bậc đã được công bố năm 2016.",
+      "value": "Direct match",
+      "status": "verified",
+      "locator": "arXiv:1609.02907, Eq. 8-9"
+    }
+  ],
+  "flaws_and_risks": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "summary": "Mô hình đề xuất lặp lại cơ chế truyền tin từ arXiv:1609.02907.",
+      "locator": "arXiv:1609.02907, Eq. 8-9"
+    },
+    {
+      "id": "R2",
+      "severity": "high",
+      "summary": "Chưa tối ưu baseline ItemKNN trước khi so sánh.",
+      "locator": "arXiv:1907.06902"
+    }
+  ],
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Giữ ItemKNN làm mốc chuẩn và tìm cách cải tiến thực chất ngoài arXiv:1609.02907.",
+      "target": "arXiv:1907.06902",
+      "locator": "arXiv:1907.06902"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Kipf & Welling (2016)",
+      "locator": "arXiv:1609.02907"
+    },
+    {
+      "id": "S2",
+      "title": "Dacrema et al. (2019)",
+      "locator": "arXiv:1907.06902"
+    }
+  ]
+}

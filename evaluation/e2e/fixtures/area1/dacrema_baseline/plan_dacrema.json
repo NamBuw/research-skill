@@ -1,0 +1,83 @@
+{
+  "gap_candidate_id": "G1",
+  "question_id": "RQ-DACREMA-BASELINE-1",
+  "claim_mode": "confirmatory",
+  "claim_type": "method",
+  "contribution_delta": "Purported neural gain over untuned ItemKNN (0.312 vs 0.241)",
+  "decision_if_resolved": "Abandon claim if 50-trial ItemKNN (0.338) beats neural model",
+  "closest_work_ids": ["W1"],
+  "unresolved_close_work_ids": [],
+  "benchmark": {
+    "task": "MovieLens-1M top-10 recommendation",
+    "dataset_version": "ml-1m-v1",
+    "split_manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "metric_id": "ndcg@10",
+    "metric_direction": "higher",
+    "unit_of_analysis": "User-level NDCG@10 averaged across held-out users",
+    "contamination_check": "Verified temporal user split",
+    "test_set_access_policy": "Frozen test interactions",
+    "benchmark_limitations": "Single dataset diagnostic"
+  },
+  "engineering_checks": {
+    "data_identity": {"status": "passed", "evidence_or_action": "Verified MovieLens-1M checksum"},
+    "split_integrity": {"status": "passed", "evidence_or_action": "Verified disjoint temporal split"},
+    "preprocessing": {"status": "passed", "evidence_or_action": "Identical interaction filtering"},
+    "metric_sanity": {"status": "passed", "evidence_or_action": "Verified NDCG@10 evaluator"},
+    "baseline_fidelity": {"status": "failed", "evidence_or_action": "ItemKNN only ran 1 default trial (0.241) vs 50 neural trials (0.312); tuned ItemKNN reference reaches 0.338"},
+    "reference_reproduction": {"status": "failed", "evidence_or_action": "Did not reproduce Dacrema et al. tuned ItemKNN baseline"}
+  },
+  "comparison_fairness": {
+    "baseline_source": "Dacrema et al. RecSys 2019 ItemKNN",
+    "baseline_implementation": "Same evaluator, currently mismatched tuning budget",
+    "training_data_budget": "Identical training interactions",
+    "compute_budget": "Mismatched HPO wall-clock",
+    "tuning_budget": "50 trials neural vs 1 trial ItemKNN (UNFAIR)",
+    "information_access": "Identical validation fold"
+  },
+  "analysis": {
+    "effect_measure": "NDCG@10 paired difference",
+    "decision_threshold": "0.01 NDCG@10",
+    "uncertainty_method": "User-level paired bootstrap",
+    "aggregation_unit": "User-level NDCG@10 averaged across held-out users",
+    "seed_policy": "5 matched random seeds",
+    "multiple_testing_policy": "Single primary comparison",
+    "failed_run_policy": "Retain all trials",
+    "holdout_policy": "Strict test holdout"
+  },
+  "experiments": [
+    {
+      "id": "EXP-PRIMARY",
+      "role": "primary",
+      "purpose": "Compare 50-trial neural model vs 50-trial tuned ItemKNN",
+      "focal_condition": "Neural recommender (50 trials)",
+      "comparator_condition": "ItemKNN (50 trials)",
+      "variable_changed": "Model family under equal HPO budget",
+      "outcome": "Held-out NDCG@10",
+      "predicted_if_focal": "Neural beats tuned ItemKNN",
+      "predicted_if_rival": "Tuned ItemKNN matches or exceeds neural",
+      "falsifying_result": "ItemKNN >= neural NDCG@10",
+      "indeterminate_result": "Evaluator discrepancy",
+      "analysis_action": "Paired user bootstrap",
+      "tuning_data_role": "validation",
+      "evaluation_data_role": "test",
+      "controls": ["equal 50 HPO trials", "identical evaluator"]
+    },
+    {
+      "id": "EXP-ABLATION",
+      "role": "ablation",
+      "purpose": "Measure effect of ItemKNN tuning trials (1 vs 50)",
+      "focal_condition": "ItemKNN 50 trials",
+      "comparator_condition": "ItemKNN 1 default trial",
+      "variable_changed": "HPO trial budget",
+      "outcome": "Held-out NDCG@10",
+      "predicted_if_focal": "Tuning closes gap",
+      "predicted_if_rival": "Tuning does not change ItemKNN",
+      "falsifying_result": "No change from tuning",
+      "indeterminate_result": "Search failure",
+      "analysis_action": "Compare 1-trial vs 50-trial ItemKNN",
+      "tuning_data_role": "validation",
+      "evaluation_data_role": "test",
+      "controls": ["same split", "same similarity metric family"]
+    }
+  ]
+}

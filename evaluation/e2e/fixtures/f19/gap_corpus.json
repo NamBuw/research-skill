@@ -1,0 +1,20 @@
+[
+  {
+    "id": "P1",
+    "source": "openalex",
+    "family": "same_problem",
+    "year": 2024,
+    "title": "Degree-Shift Evaluation of Graph Neural Baselines",
+    "abstract": "Reports degree-shift drop on citation graphs and shows tuned 2-layer baselines recover most variance.",
+    "access": "full_text"
+  },
+  {
+    "id": "P2",
+    "source": "arxiv",
+    "family": "cross_setting_analogy",
+    "year": 2025,
+    "title": "Single-Parameter Calibration Under Distribution Shift",
+    "abstract": "Demonstrates single-parameter scaling matches multi-module calibration pipelines on tabular and graph benchmarks.",
+    "access": "full_text"
+  }
+]

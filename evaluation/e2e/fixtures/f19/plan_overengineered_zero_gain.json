@@ -1,0 +1,117 @@
+{
+  "gap_candidate_id": "G1",
+  "question_id": "RQ-F19-PARSIMONY-1",
+  "claim_mode": "confirmatory",
+  "claim_type": "method",
+  "contribution_delta": "A 3-module stack (GraphEncoder + HyperbolicAdapter + DualContrastiveLoss) claiming superiority despite non-positive ablation gain.",
+  "decision_if_resolved": "Deploy the 3-module stack on citation graphs.",
+  "closest_work_ids": ["W1"],
+  "unresolved_close_work_ids": [],
+  "components": [
+    "GraphEncoder",
+    "HyperbolicAdapter",
+    "DualContrastiveLoss"
+  ],
+  "simplest_alternative": "Tuned 2-layer GCN baseline reaches 0.745 macro-F1 across 5 seeds on the exact same frozen split.",
+  "parsimony_audit": {
+    "simplest_alternative": "Tuned 2-layer GCN baseline reaches 0.745 macro-F1 across 5 seeds on the exact same frozen split.",
+    "problem_inflation_check": "Observed 0.068 drop under degree shift.",
+    "ablation_over_simplest_baseline": {
+      "baseline_name": "Tuned 2-layer GCN",
+      "baseline_score": 0.745,
+      "proposed_score": 0.742,
+      "marginal_gain": -0.003,
+      "metric": "macro_f1",
+      "seeds": 5
+    },
+    "component_justifications": [
+      {
+        "component": "HyperbolicAdapter",
+        "marginal_gain": -0.002,
+        "ablation_experiment_id": "EXP-ABLATION",
+        "retained": true,
+        "rationale": "Included for architectural completeness despite -0.002 drop."
+      },
+      {
+        "component": "DualContrastiveLoss",
+        "marginal_gain": 0.0,
+        "ablation_experiment_id": "EXP-ABLATION",
+        "retained": true,
+        "rationale": "Zero marginal gain over single-module baseline."
+      }
+    ]
+  },
+  "benchmark": {
+    "task": "Citation graph node classification under tail-degree shift",
+    "dataset_version": "cora-degshift-v1",
+    "split_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "metric_id": "macro_f1_v1",
+    "metric_direction": "higher",
+    "unit_of_analysis": "Fixed seed run on held-out degree-shift test fold",
+    "contamination_check": "Verified zero node-ID or edge overlap between train and held-out test folds",
+    "test_set_access_policy": "Freeze model before opening held-out test fold",
+    "benchmark_limitations": "Citation graphs only"
+  },
+  "engineering_checks": {
+    "data_identity": {"status": "passed", "evidence_or_action": "Verified dataset SHA-256"},
+    "split_integrity": {"status": "passed", "evidence_or_action": "Confirmed 0 duplicate IDs across splits"},
+    "preprocessing": {"status": "passed", "evidence_or_action": "Fit feature normalizer strictly on training split"},
+    "metric_sanity": {"status": "passed", "evidence_or_action": "Verified macro-F1 evaluator"},
+    "baseline_fidelity": {"status": "passed", "evidence_or_action": "Tuned 2-layer GCN baseline"},
+    "reference_reproduction": {"status": "passed", "evidence_or_action": "Reproduced reference baseline"}
+  },
+  "comparison_fairness": {
+    "baseline_source": "Official 2-layer GCN implementation",
+    "baseline_implementation": "Same dataset split",
+    "training_data_budget": "Identical training nodes",
+    "compute_budget": "Identical 200-epoch GPU budget per seed",
+    "tuning_budget": "Identical 20-trial validation grid search",
+    "information_access": "Identical graph features"
+  },
+  "analysis": {
+    "effect_measure": "Macro-F1 difference on held-out degree-shift split",
+    "decision_threshold": "Minimum +0.025 macro-F1 gain across 5 fixed seeds",
+    "uncertainty_method": "Paired seed mean and 95% bootstrap interval across 5 seeds",
+    "aggregation_unit": "Fixed seed run on held-out degree-shift test fold",
+    "seed_policy": "Five fixed seeds locked before test evaluation",
+    "multiple_testing_policy": "Single primary contrast",
+    "failed_run_policy": "Retain all 5 seeds",
+    "holdout_policy": "Held-out fold evaluated once after freeze"
+  },
+  "experiments": [
+    {
+      "id": "EXP-PRIMARY",
+      "role": "primary",
+      "purpose": "Compare 3-module stack against tuned baseline",
+      "focal_condition": "3-module stack",
+      "comparator_condition": "Tuned 2-layer GCN",
+      "variable_changed": "Added HyperbolicAdapter and DualContrastiveLoss",
+      "outcome": "Held-out macro-F1",
+      "predicted_if_focal": "3-module stack beats baseline",
+      "predicted_if_rival": "Tuned 2-layer GCN equals or beats 3-module stack",
+      "falsifying_result": "3-module stack achieves <=0 marginal gain over tuned 2-layer GCN",
+      "indeterminate_result": "Engineering checks fail",
+      "analysis_action": "Compare 3-module stack vs baseline",
+      "tuning_data_role": "validation",
+      "evaluation_data_role": "test",
+      "controls": ["identical training nodes", "identical seed list"]
+    },
+    {
+      "id": "EXP-ABLATION",
+      "role": "ablation",
+      "purpose": "Test removal of HyperbolicAdapter and DualContrastiveLoss",
+      "focal_condition": "Remove HyperbolicAdapter and DualContrastiveLoss",
+      "comparator_condition": "Full 3-module stack",
+      "variable_changed": "Presence of extra adapter and contrastive loss",
+      "outcome": "Held-out macro-F1",
+      "predicted_if_focal": "Removing modules leaves macro-F1 >= 3-module stack (0.745 vs 0.742)",
+      "predicted_if_rival": "Removing modules drops macro-F1",
+      "falsifying_result": "Removing modules drops macro-F1 by >=0.020",
+      "indeterminate_result": "Training fails",
+      "analysis_action": "Measure marginal gain of each extra module",
+      "tuning_data_role": "validation",
+      "evaluation_data_role": "test",
+      "controls": ["fixed 5 seeds", "identical split manifest"]
+    }
+  ]
+}

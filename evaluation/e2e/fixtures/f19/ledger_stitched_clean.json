@@ -1,0 +1,79 @@
+{
+  "sources": [
+    {
+      "id": "E1",
+      "type": "prior_paper",
+      "locator": "source_evidence.txt",
+      "quote": "Two-layer graph convolution with symmetric normalization reaches 0.718 macro-F1 under degree shift.",
+      "verified": true,
+      "verified_by": "independent_auditor",
+      "verified_at": "2026-11-21"
+    },
+    {
+      "id": "E2",
+      "type": "run_log",
+      "locator": "source_evidence.txt",
+      "quote": "Observed macro-F1 is 0.752 for the scaled two-layer model and 0.718 for the baseline across 5 fixed seeds.",
+      "verified": true,
+      "verified_by": "independent_auditor",
+      "verified_at": "2026-11-21"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "kind": "reported",
+      "material": true,
+      "source_ids": ["E2"]
+    }
+  ],
+  "methods": [
+    {
+      "id": "M1",
+      "name": "Two-layer GCN with degree scaling",
+      "origin": "combined",
+      "source_ids": ["E1", "E2"],
+      "exact_change": "Combines a standard two-layer GCN with one degree-aware L2 scaling parameter.",
+      "components": [
+        "Two-layer GCN",
+        "Degree-aware L2 scaling"
+      ],
+      "simplest_alternative": "Two-layer GCN with symmetric normalization (0.718 macro-F1 across 5 fixed seeds).",
+      "ablation_evidence": "Removing degree-aware L2 scaling drops macro-F1 from 0.752 to 0.718 (-0.034) on identical splits.",
+      "component_justifications": {
+        "Two-layer GCN": "Base message-passing encoder reaching 0.718 macro-F1.",
+        "Degree-aware L2 scaling": "Adds +0.034 macro-F1 (0.718 to 0.752) across 5 fixed seeds."
+      },
+      "parsimony_audit": {
+        "simplest_alternative": "Two-layer GCN with symmetric normalization (0.718 macro-F1 across 5 fixed seeds).",
+        "ablation_evidence": "Removing degree-aware L2 scaling drops macro-F1 from 0.752 to 0.718 (-0.034) on identical splits.",
+        "simpler_equal_or_better": false,
+        "passed": true
+      },
+      "novelty_claimed": false,
+      "grand_name": false
+    }
+  ],
+  "numeric_facts": [
+    {
+      "id": "N1",
+      "occurrences": [
+        {"location": "abstract", "value": 0.752, "unit": "macro-F1"},
+        {"location": "results", "value": 0.752, "unit": "macro-F1"}
+      ]
+    },
+    {
+      "id": "N2",
+      "occurrences": [
+        {"location": "abstract", "value": 0.718, "unit": "macro-F1"},
+        {"location": "results", "value": 0.718, "unit": "macro-F1"}
+      ]
+    },
+    {
+      "id": "N3",
+      "occurrences": [
+        {"location": "results", "value": 0.034, "unit": "macro-F1 gain"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "format": "research_scientist_search_campaign_v1",
+  "question": "Does a single-parameter degree-aware L2 normalization outperform a multi-stage stacked GNN pipeline under degree shift?",
+  "checked_at_utc": "2026-11-21T12:00:00+00:00",
+  "query_runs": [
+    {
+      "id": "direct-1",
+      "family": "direct_problem",
+      "query": "graph degree shift normalization baseline",
+      "checked_at_utc": "2026-11-21T12:00:01+00:00",
+      "sources": {
+        "openalex": {
+          "status": "complete",
+          "pages_requested": 1,
+          "pages_read": 1,
+          "returned": 4,
+          "reported_total": 4,
+          "access": "keyless",
+          "executed_query": "graph degree shift normalization baseline"
+        }
+      },
+      "returned_records": 4,
+      "known_seed_checks": [
+        {
+          "kind": "doi",
+          "requested": "10.48550/arxiv.1609.02907",
+          "status": "retrieved",
+          "matched_source_ids": ["https://openalex.org/W2519887557"]
+        }
+      ]
+    },
+    {
+      "id": "closure-1",
+      "family": "closure",
+      "query": "ti:graph AND ti:degree-shift AND ti:normalization",
+      "checked_at_utc": "2026-11-21T12:00:02+00:00",
+      "sources": {
+        "arxiv": {
+          "status": "complete",
+          "pages_requested": 1,
+          "pages_read": 1,
+          "returned": 3,
+          "reported_total": 3,
+          "access": "keyless",
+          "executed_query": "ti:graph AND ti:degree-shift AND ti:normalization"
+        }
+      },
+      "returned_records": 3,
+      "known_seed_checks": [
+        {
+          "kind": "doi",
+          "requested": "10.48550/arxiv.1609.02907",
+          "status": "retrieved",
+          "matched_source_ids": ["arxiv:1609.02907v4"]
+        }
+      ]
+    }
+  ],
+  "source_records": [
+    {
+      "source": "openalex",
+      "source_id": "https://openalex.org/W2519887557",
+      "title": "Semi-Supervised Classification with Graph Convolutional Networks",
+      "year": 2016,
+      "doi": "10.48550/arxiv.1609.02907",
+      "discovered_by": ["direct-1"],
+      "metadata_conflicts": []
+    }
+  ],
+  "doi_candidate_groups": {},
+  "known_seed_checks": [
+    {
+      "seed": {"doi": "10.48550/arxiv.1609.02907"},
+      "status": "retrieved",
+      "retrieved_in_query_ids": ["direct-1", "closure-1"]
+    }
+  ],
+  "coverage": {
+    "query_count": 2,
+    "query_families": ["closure", "direct_problem"],
+    "raw_record_count": 7,
+    "distinct_source_record_count": 7,
+    "failed_or_partial_source_runs": []
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "P1": {
+    "source_id": "P1",
+    "access": "full_text",
+    "digest": "Full-text read confirms tuned 2-layer GCN scores 0.718 macro-F1 under degree shift while 4-module stacks are unablated."
+  },
+  "P2": {
+    "source_id": "P2",
+    "access": "full_text",
+    "digest": "Full-text read shows single-parameter scaling achieves parity with multi-stage architectures across 5 seeds."
+  }
+}

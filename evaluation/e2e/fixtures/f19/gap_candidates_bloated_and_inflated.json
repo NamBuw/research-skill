@@ -1,0 +1,36 @@
+[
+  {
+    "id": "C_BLOATED",
+    "claim": "Propose a 4-module stacked pipeline (GraphEncoder + HyperbolicAdapter + DualContrastiveLoss + MetaGateRefiner) to close citation classification gaps without testing a 1-module baseline.",
+    "trigger": "literature_synthesis",
+    "cited_ids": ["P1", "P2"],
+    "support_ids": ["P1", "P2"],
+    "cutoff_year": 2026,
+    "sgha_critics_passed": true,
+    "engineering_checked": true,
+    "proposed_modules": [
+      "GraphEncoder",
+      "HyperbolicAdapter",
+      "DualContrastiveLoss",
+      "MetaGateRefiner"
+    ],
+    "simplest_alternative": "",
+    "ablation_evidence": ""
+  },
+  {
+    "id": "C_INFLATED",
+    "claim": "A 0.2% noisy accuracy fluctuation across 2 random seeds exposes a catastrophic failure of all prior work and a fundamental crisis requiring an end-to-end hierarchical meta-framework.",
+    "trigger": "benchmark_observation",
+    "cited_ids": ["P1", "P2"],
+    "support_ids": ["P1", "P2"],
+    "cutoff_year": 2026,
+    "sgha_critics_passed": true,
+    "engineering_checked": true,
+    "proposed_modules": [
+      "HierarchicalMetaEncoder",
+      "AdaptiveCrisisGate",
+      "MultiScaleRefiner",
+      "ResidualLoss"
+    ]
+  }
+]

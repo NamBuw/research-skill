@@ -1,0 +1,109 @@
+{
+  "gap_candidate_id": "G1",
+  "question_id": "RQ-F19-PARSIMONY-1",
+  "claim_mode": "confirmatory",
+  "claim_type": "method",
+  "contribution_delta": "A single degree-aware L2 scaling parameter added to a tuned 2-layer GCN under degree shift, avoiding multi-stage encoders and auxiliary losses.",
+  "decision_if_resolved": "Adopt the minimal 1-parameter scaling if it beats the tuned 2-layer baseline by >=0.030 macro-F1; otherwise retain the unmodified 2-layer baseline.",
+  "closest_work_ids": ["W1"],
+  "unresolved_close_work_ids": [],
+  "simplest_alternative": "Tuned 2-layer GCN with standard symmetric normalization (0 extra modules, 0 extra losses), scoring 0.718 macro-F1 across 5 seeds on the fixed degree-shift split.",
+  "parsimony_audit": {
+    "simplest_alternative": "Tuned 2-layer GCN with standard symmetric normalization (0 extra modules, 0 extra losses), scoring 0.718 macro-F1 across 5 seeds on the fixed degree-shift split.",
+    "problem_inflation_check": "In-domain macro-F1 is 0.786 vs 0.718 under degree shift (-0.068 drop, 95% CI [0.054, 0.082] over 5 seeds), establishing a measured deficit rather than seed noise.",
+    "minimal_sufficient_design": "One degree-aware L2 scaling coefficient added to standard 2-layer GCN propagation without extra encoders or auxiliary losses.",
+    "ablation_over_simplest_baseline": {
+      "baseline_name": "Tuned 2-layer GCN (simplest strong baseline)",
+      "baseline_score": 0.718,
+      "proposed_score": 0.752,
+      "marginal_gain": 0.034,
+      "metric": "macro_f1",
+      "seeds": 5
+    },
+    "component_justifications": [
+      {
+        "component": "degree_aware_l2_scaling",
+        "marginal_gain": "+0.034 macro-F1 (0.718 -> 0.752 across 5 seeds)",
+        "ablation_experiment_id": "EXP-ABLATION",
+        "retained": true,
+        "rationale": "Single parameter resolves tail-degree norm shrinkage without additional layers or losses."
+      }
+    ]
+  },
+  "components": [
+    "degree_aware_l2_scaling"
+  ],
+  "benchmark": {
+    "task": "Citation graph node classification under tail-degree shift",
+    "dataset_version": "cora-degshift-v1",
+    "split_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "metric_id": "macro_f1_v1",
+    "metric_direction": "higher",
+    "unit_of_analysis": "Fixed seed run on held-out degree-shift test fold",
+    "contamination_check": "Verified zero node-ID or edge overlap between train and held-out test folds",
+    "test_set_access_policy": "Freeze model and scaling coefficient before opening held-out test fold",
+    "benchmark_limitations": "Citation graphs may not reflect dense industrial heterogeneous graphs"
+  },
+  "engineering_checks": {
+    "data_identity": {"status": "passed", "evidence_or_action": "Verified dataset SHA-256 and node-label alignment"},
+    "split_integrity": {"status": "passed", "evidence_or_action": "Confirmed 0 duplicate IDs across train/val/test splits"},
+    "preprocessing": {"status": "passed", "evidence_or_action": "Fit feature normalizer strictly on training split"},
+    "metric_sanity": {"status": "passed", "evidence_or_action": "Verified macro-F1 evaluator on synthetic unit fixtures"},
+    "baseline_fidelity": {"status": "passed", "evidence_or_action": "Tuned 2-layer GCN baseline across full lr/dropout grid"},
+    "reference_reproduction": {"status": "passed", "evidence_or_action": "Reproduced published 2-layer GCN in-domain score 0.786"}
+  },
+  "comparison_fairness": {
+    "baseline_source": "Official 2-layer GCN implementation with grid-tuned hyperparameters",
+    "baseline_implementation": "Identical codebase differing only in the single degree-aware scaling parameter",
+    "training_data_budget": "Identical training nodes and labels across conditions",
+    "compute_budget": "Identical 200-epoch GPU budget per seed",
+    "tuning_budget": "Identical 20-trial validation grid search per method",
+    "information_access": "Identical graph features and validation feedback"
+  },
+  "analysis": {
+    "effect_measure": "Macro-F1 difference on held-out degree-shift split",
+    "decision_threshold": "Minimum +0.025 macro-F1 gain over tuned 2-layer GCN across 5 fixed seeds",
+    "uncertainty_method": "Paired seed mean and 95% bootstrap interval across 5 seeds",
+    "aggregation_unit": "Fixed seed run on held-out degree-shift test fold",
+    "seed_policy": "Five fixed seeds [11, 22, 33, 44, 55] locked before test evaluation",
+    "multiple_testing_policy": "One primary contrast against simplest baseline; ablation confirms single component",
+    "failed_run_policy": "Retain all 5 seeds and report any divergence before exclusion",
+    "holdout_policy": "Held-out fold evaluated once after validation freeze"
+  },
+  "experiments": [
+    {
+      "id": "EXP-PRIMARY",
+      "role": "primary",
+      "purpose": "Compare 1-parameter degree-aware scaling against tuned 2-layer GCN baseline",
+      "focal_condition": "2-layer GCN + degree_aware_l2_scaling",
+      "comparator_condition": "Tuned 2-layer GCN (simplest strong baseline)",
+      "variable_changed": "Presence of single degree_aware_l2_scaling parameter",
+      "outcome": "Held-out degree-shift macro-F1 across 5 fixed seeds",
+      "predicted_if_focal": "1-parameter scaling improves macro-F1 by >=0.030 over baseline",
+      "predicted_if_rival": "Tuned 2-layer GCN matches 1-parameter scaling within 0.005 macro-F1",
+      "falsifying_result": "Gain over tuned 2-layer GCN is <0.015 macro-F1",
+      "indeterminate_result": "95% CI overlaps both 0 and +0.015 or engineering checks fail",
+      "analysis_action": "Compute paired 5-seed macro-F1 contrast and confidence interval",
+      "tuning_data_role": "validation",
+      "evaluation_data_role": "test",
+      "controls": ["identical training nodes", "identical 20-trial tuning grid", "identical 200-epoch budget"]
+    },
+    {
+      "id": "EXP-ABLATION",
+      "role": "ablation",
+      "purpose": "Ablate degree_aware_l2_scaling down to the simplest strong 2-layer baseline",
+      "focal_condition": "Remove degree_aware_l2_scaling (reverts to tuned 2-layer GCN)",
+      "comparator_condition": "Retain degree_aware_l2_scaling",
+      "variable_changed": "Single degree_aware_l2_scaling parameter only",
+      "outcome": "Held-out degree-shift macro-F1 across 5 fixed seeds",
+      "predicted_if_focal": "Removing degree_aware_l2_scaling drops macro-F1 by >=0.030",
+      "predicted_if_rival": "Removing degree_aware_l2_scaling leaves macro-F1 unchanged",
+      "falsifying_result": "No >=0.015 drop when removing the component",
+      "indeterminate_result": "Training instability invalidates matched runs",
+      "analysis_action": "Verify marginal gain of single component over simplest baseline",
+      "tuning_data_role": "validation",
+      "evaluation_data_role": "test",
+      "controls": ["fixed 5 seeds", "identical optimizer", "identical split manifest"]
+    }
+  ]
+}

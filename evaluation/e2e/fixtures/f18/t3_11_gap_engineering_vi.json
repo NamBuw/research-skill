@@ -1,0 +1,54 @@
+{
+  "schema": "research_scientist_gap_record_v1",
+  "lang": "vi",
+  "scope": "Kiểm định rò rỉ dữ liệu và trùng lặp ID",
+  "verdict": "ENGINEERING_BUG_DETECTED",
+  "search_date": "2026-11-21",
+  "coverage_limits": "Giới hạn trong log kiểm định và tiền lệ arXiv:1907.06902.",
+  "evidence": [
+    {
+      "id": "E1",
+      "claim": "AUC giảm từ 0.796 xuống 0.612 khi sửa rò rỉ trên tập sạch (chênh 0.184).",
+      "role": "0.612 vs 0.796",
+      "access": "verified",
+      "source_id": "diagnostics/engineering_check.json",
+      "locator": "diagnostics/engineering_check.json#auc"
+    },
+    {
+      "id": "E2",
+      "claim": "Phát hiện 84 bản ghi trùng ID giữa tập huấn luyện và tập kiểm tra.",
+      "role": "84 trùng ID",
+      "access": "verified",
+      "source_id": "diagnostics/splits_check.csv",
+      "locator": "diagnostics/splits_check.csv#duplicates"
+    },
+    {
+      "id": "E3",
+      "claim": "Tiền lệ arXiv:1907.06902 đã giải quyết cùng cơ chế trên tập sạch.",
+      "role": "đã giải quyết",
+      "access": "full_text",
+      "source_id": "arXiv:1907.06902",
+      "locator": "arXiv:1907.06902, Bảng 2"
+    }
+  ],
+  "surviving_gaps": [],
+  "rejected_gaps": [
+    {
+      "id": "gap_01",
+      "drop_code": "DROP_ENGINEERING_BUG",
+      "status": "ENGINEERING_BUG_DETECTED",
+      "engineering_status": "failed",
+      "claim": "DROP_ENGINEERING_BUG: Phát hiện lỗi kỹ thuật rò rỉ chuẩn hóa và trùng ID",
+      "reason": "Hiệu năng giảm từ 0.796 xuống 0.612 (chênh 0.184) khi loại 84 ID trùng trên tập sạch.",
+      "support_evidence_ids": ["E1", "E2"],
+      "reading_basis": "full_text"
+    },
+    {
+      "id": "gap_02",
+      "drop_code": "DROP_ALREADY_SOLVED",
+      "reason": "Cơ chế đề xuất đã có trong arXiv:1907.06902.",
+      "support_evidence_ids": ["E3"]
+    }
+  ],
+  "next_check": "Loại bỏ các ID trùng lặp, dời chuẩn hóa vào tập huấn luyện và chạy lại trên tập sạch."
+}

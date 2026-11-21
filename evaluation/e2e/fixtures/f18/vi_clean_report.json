@@ -1,0 +1,91 @@
+{
+  "schema": "research_scientist_executive_report_v1",
+  "report_type": "gap_audit",
+  "lang": "vi",
+  "title": "Báo cáo kiểm định lỗ hổng nghiên cứu và rò rỉ dữ liệu",
+  "verdict": {
+    "status": "rejected",
+    "summary": "LOẠI BỎ LỖ HỔNG: Mức tăng 12.4% đến từ lỗi rò rỉ chuẩn hóa trước khi chia tập và baseline chưa tinh chỉnh [run_logs/audit_vi_2024.json]. Kiểm tra trên 1,250 mẫu năm 2024 xác nhận lỗi tiền xử lý.",
+    "evidence_refs": ["K1", "K2", "K3"]
+  },
+  "key_evidence": [
+    {
+      "id": "K1",
+      "claim": "Khi dời chuẩn hóa vào trong tập huấn luyện, NDCG@10 giảm từ 0.412 xuống 0.308.",
+      "value": "0.308 (trước đó 0.412)",
+      "status": "verified",
+      "locator": "run_logs/audit_vi_2024.json"
+    },
+    {
+      "id": "K2",
+      "claim": "Baseline ItemKNN sau tinh chỉnh đạt 0.315 NDCG@10 trên cùng tập sạch.",
+      "value": "0.315",
+      "status": "verified",
+      "locator": "arXiv:1907.06902, Bảng 2"
+    },
+    {
+      "id": "K3",
+      "claim": "Tỷ lệ mẫu trùng lặp giữa tập huấn luyện và tập kiểm tra là 38.5%.",
+      "value": "38.5%",
+      "status": "verified",
+      "locator": "splits/kiem_tra_trung_lap.csv"
+    }
+  ],
+  "flaws_and_risks": [
+    {
+      "id": "R1",
+      "severity": "critical",
+      "summary": "Hàm chuẩn hóa chạy trên toàn bộ bảng dữ liệu trước khi chia tập.",
+      "locator": "run_logs/audit_vi_2024.json"
+    },
+    {
+      "id": "R2",
+      "severity": "high",
+      "summary": "Baseline chỉ chạy 1 hạt giống ngẫu nhiên và chưa tinh chỉnh siêu tham số.",
+      "locator": "run_logs/audit_vi_2024.json"
+    },
+    {
+      "id": "R3",
+      "severity": "medium",
+      "summary": "Thiếu tệp nhật ký băm SHA-256 cho lần chạy đối chứng.",
+      "locator": "run_logs/audit_vi_2024.json"
+    }
+  ],
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Khớp bộ chuẩn hóa chỉ trên tập huấn luyện rồi mới biến đổi tập kiểm tra.",
+      "target": "train_eval.py",
+      "locator": "run_logs/audit_vi_2024.json"
+    },
+    {
+      "step": 2,
+      "action": "Loại bỏ 38.5% bản ghi trùng lặp và chạy lại với 5 hạt giống cố định.",
+      "target": "splits/kiem_tra_trung_lap.csv",
+      "locator": "splits/kiem_tra_trung_lap.csv"
+    },
+    {
+      "step": 3,
+      "action": "Chỉ giữ lại giả thuyết mới nếu vượt baseline sau tinh chỉnh với p < 0.05.",
+      "target": "arXiv:1907.06902",
+      "locator": "arXiv:1907.06902"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Nhật ký kiểm tra rò rỉ",
+      "locator": "run_logs/audit_vi_2024.json"
+    },
+    {
+      "id": "S2",
+      "title": "Dacrema et al. (2019)",
+      "locator": "arXiv:1907.06902"
+    },
+    {
+      "id": "S3",
+      "title": "Kiểm tra trùng lặp tập chia",
+      "locator": "splits/kiem_tra_trung_lap.csv"
+    }
+  ]
+}

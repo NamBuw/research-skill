@@ -1,0 +1,2 @@
+dataset,split,ndcg_at_10
+beir_ood_macro,test,0.482

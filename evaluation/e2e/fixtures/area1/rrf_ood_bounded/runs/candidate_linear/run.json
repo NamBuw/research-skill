@@ -1,0 +1,10 @@
+{
+  "run_id": "candidate-linear",
+  "role": "candidate",
+  "method": "Min-Max Linear Score Fusion (alpha=0.5)",
+  "dataset_suite": "BEIR-OOD-Subset-v1",
+  "metric_id": "ndcg_at_10",
+  "result_value": 0.449,
+  "seed": 20261120,
+  "exit_code": 0
+}

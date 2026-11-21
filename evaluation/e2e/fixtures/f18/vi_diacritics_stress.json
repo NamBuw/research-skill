@@ -1,0 +1,64 @@
+{
+  "schema": "research_scientist_executive_report_v1",
+  "report_type": "gap_audit",
+  "lang": "vi",
+  "title": "Đánh giá độc lập đầy đủ dấu thanh tiếng Việt",
+  "verdict": {
+    "status": "supported",
+    "summary": "Đạt yêu cầu kiểm chứng: Dữ liệu sạch giữ nguyên độ chính xác 0.842 qua 5 thử nghiệm [logs/kiem_tra_dau_thanh.json].",
+    "evidence_refs": ["K1", "K2", "K3", "K4"]
+  },
+  "key_evidence": [
+    {
+      "id": "K1",
+      "claim": "Độ chính xác trên tập giữ lại đạt 0.842; tỷ lệ lỗi ở ngưỡng 2.4%.",
+      "value": "0.842",
+      "status": "verified",
+      "locator": "logs/kiem_tra_dau_thanh.json"
+    },
+    {
+      "id": "K2",
+      "claim": "Kiểm tra sáu thanh: ngang (băng), huyền (bằng), sắc (bắng), hỏi (bẳng), ngã (bẵng), nặng (bặng).",
+      "value": "6/6",
+      "status": "verified",
+      "locator": "logs/kiem_tra_dau_thanh.json"
+    },
+    {
+      "id": "K3",
+      "claim": "Kiểm tra nguyên âm mũ và móc: Ăn năn, Ấm áp, Ếch ộp, Ổn định, Ờ hờ, Ứng xử, Đổi mới, Đi đầu.",
+      "value": "đạt",
+      "status": "verified",
+      "locator": "logs/kiem_tra_dau_thanh.json"
+    },
+    {
+      "id": "K4",
+      "claim": "Tổ hợp chữ hoa và thường: Đại học, Đường dẫn, Mẫu thử, Lỗi kỹ thuật, Rủi ro rò rỉ, Mở rộng vừa đủ.",
+      "value": "đạt",
+      "status": "verified",
+      "locator": "logs/kiem_tra_dau_thanh.json"
+    }
+  ],
+  "flaws_and_risks": [
+    {
+      "id": "R1",
+      "severity": "medium",
+      "summary": "Cỡ mẫu thử nghiệm mới dừng ở 640 bản ghi; cần mở rộng thêm dữ liệu thực tế.",
+      "locator": "logs/kiem_tra_dau_thanh.json"
+    }
+  ],
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Giữ nguyên quy trình tách tập và chạy thêm kiểm tra trên 2,000 mẫu mới.",
+      "target": "logs/kiem_tra_dau_thanh.json",
+      "locator": "logs/kiem_tra_dau_thanh.json"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Nhật ký kiểm tra dấu thanh",
+      "locator": "logs/kiem_tra_dau_thanh.json"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "https://icml.cc/Conferences/2027/CallForPapers": {
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "body": "<!DOCTYPE html><html><head><title>ICML 2027 Call For Papers</title></head><body><h1>ICML 2027</h1><p>Forty-fourth International Conference on Machine Learning</p><p>Track: Main Conference Track</p><p>Abstract Submission Deadline: January 14, 2027 23:59 AoE</p><p>Full Paper Submission Deadline: January 22, 2027 23:59 AoE</p><p>Main body page limit: 8 pages excluding references and appendices.</p></body></html>"
+  },
+  "https://icml.cc/Conferences/2026/Pricing": {
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "body": "<!DOCTYPE html><html><head><title>ICML Registration Pricing</title></head><body><div id=\"app\"></div><script src=\"/static/js/pricing.bundle.js\"></script><noscript>Please enable JavaScript to view the ICML registration pricing table.</noscript></body></html>"
+  },
+  "https://2027.aclweb.org/": {
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "body": "<!DOCTYPE html><html><head><title>ACL 2027</title></head><body><h1>ACL 2027</h1><p>65th Annual Meeting of the Association for Computational Linguistics</p><p>Track: Main Conference (via ACL Rolling Review)</p><p>ACL Rolling Review Submission Deadline: January 4, 2027 23:59 AoE</p><p>Conference Dates: August 20-22, 2027</p></body></html>"
+  },
+  "https://www.jmlr.org/author-info.html": {
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "body": "<!DOCTYPE html><html><head><title>JMLR Information for Authors</title></head><body><h1>Journal of Machine Learning Research (JMLR)</h1><p>Edition: 2026-2027 Rolling</p><p>Track: Regular Articles</p><p>Submissions are accepted on a rolling basis with no fixed deadline.</p><p>There are no publication fees associated with this journal. Submission, publication, author registration, overlength, and tax fees are $0 USD.</p></body></html>"
+  },
+  "https://cvpr.thecvf.com/Conferences/2027/CallForPapers": {
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "body": "<!DOCTYPE html><html><head><title>CVPR 2027 Call For Papers</title></head><body><h1>CVPR 2027</h1><p>IEEE/CVF Conference on Computer Vision and Pattern Recognition 2027</p><p>Track: Main Conference</p><p>Paper Registration Deadline: November 11, 2026 23:59 AoE</p><p>Full Paper Submission Deadline: November 16, 2026 23:59 AoE</p><p>Supplementary Material Deadline: November 23, 2026 23:59 AoE</p></body></html>"
+  },
+  "https://aaai.org/conference/aaai/aaai-27/registration/": {
+    "status": 302,
+    "location": "https://aaai.org/conference/aaai/aaai-25/registration/",
+    "content_type": "text/html; charset=utf-8",
+    "body": "<html><body>Redirecting to AAAI-25 registration.</body></html>"
+  },
+  "https://aaai.org/conference/aaai/aaai-25/registration/": {
+    "status": 200,
+    "content_type": "text/html; charset=utf-8",
+    "body": "<!DOCTYPE html><html><head><title>AAAI-25 Registration</title></head><body><h1>AAAI-25 Registration</h1><p>AAAI-25 Author Registration Fee: $850 USD (2025 archive page).</p></body></html>"
+  }
+}

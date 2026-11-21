@@ -1,0 +1,24 @@
+{
+  "domain": "Chain-of-Thought Reasoning (Pre-2022 Hindsight Closure)",
+  "cutoff_date": "2022-02-01",
+  "papers": [
+    {
+      "paper_id": "wei_2022_cot",
+      "title": "Chain-of-Thought Prompting Elicits Reasoning in Large Language Models",
+      "year": 2022,
+      "published_date": "2022-01-28",
+      "arxiv_id": "2201.11903",
+      "abstract": "Generating a chain of thought improves complex reasoning in large language models using greedy decoding.",
+      "full_text_excerpt": "Section 6 Limitations: Single-path greedy chain-of-thought decoding can still fail when one intermediate arithmetic step drifts."
+    },
+    {
+      "paper_id": "wang_2022_selfconsistency",
+      "title": "Self-Consistency Improves Chain of Thought Reasoning in Language Models",
+      "year": 2022,
+      "published_date": "2022-03-21",
+      "arxiv_id": "2203.11171",
+      "abstract": "We propose self-consistency, a new decoding strategy replacing greedy decoding in chain-of-thought prompting by sampling diverse reasoning paths and marginalizing.",
+      "full_text_excerpt": "Section 2 & Table 1: Self-consistency samples diverse reasoning paths and selects the majority answer, improving GSM8K by +17.9% over greedy CoT."
+    }
+  ]
+}

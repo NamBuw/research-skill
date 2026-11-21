@@ -1,0 +1,49 @@
+{
+  "schema": "research_scientist_executive_report_v1",
+  "report_type": "gap_audit",
+  "lang": "en",
+  "title": "Problem Framing Audit for Graph Classification",
+  "verdict": {
+    "status": "rejected",
+    "summary": "A 0.2% seed fluctuation exposes a fundamental crisis and catastrophic failure of all prior work [run_logs/lr_check.json].",
+    "evidence_refs": ["K1"]
+  },
+  "parsimony_check": {
+    "simplest_alternative": "Re-tune learning rate on standard 2-layer baseline",
+    "rationale": "0.2% noisy fluctuation disappears under matched lr=1e-3",
+    "verdict": "PROBLEM INFLATION DETECTED",
+    "locator": "run_logs/lr_check.json"
+  },
+  "key_evidence": [
+    {
+      "id": "K1",
+      "claim": "Measured difference is 0.2% across 2 seeds under mismatched learning rates.",
+      "value": "0.2%",
+      "status": "verified",
+      "locator": "run_logs/lr_check.json"
+    }
+  ],
+  "flaws_and_risks": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "summary": "Draft exaggerates a 0.2% noisy fluctuation into a fundamental crisis and catastrophic failure of all prior work.",
+      "locator": "run_logs/lr_check.json"
+    }
+  ],
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Remove crisis framing and re-run baseline with matched hyperparameters.",
+      "target": "run_logs/lr_check.json",
+      "locator": "run_logs/lr_check.json"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Learning rate check log",
+      "locator": "run_logs/lr_check.json"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "RQ-DACREMA-BASELINE-1",
+  "question": "Does the neural recommender still outperform ItemKNN on MovieLens-1M NDCG@10 when ItemKNN receives the same 50-trial hyperparameter tuning budget?",
+  "question_type": "comparative",
+  "target_scope": "MovieLens-1M top-10 recommendation benchmark",
+  "unit_of_observation": "User test ranking",
+  "unit_of_analysis": "User-level NDCG@10 averaged across held-out users",
+  "construct_or_estimand": "NDCG@10 difference under matched 50-trial HPO budgets",
+  "measurement": "Held-out NDCG@10 using identical cutoff and evaluation script",
+  "closest_work": "Dacrema et al. RecSys 2019 (arXiv:1907.06902), Section 4, Table 2",
+  "prior_art_boundary": "Dacrema et al. 2019 established that tuned ItemKNN beats untuned baselines",
+  "rival_explanation": "The neural gain is caused by asymmetric tuning budgets (50 neural trials vs 1 ItemKNN trial)",
+  "expected_if_focal": "Neural recommender beats 50-trial tuned ItemKNN",
+  "expected_if_rival": "50-trial tuned ItemKNN matches or exceeds the neural recommender",
+  "discriminating_test": "Run 50-trial HPO for ItemKNN and compare against 50-trial neural recommender",
+  "falsifying_result": "Tuned ItemKNN >= neural recommender on held-out NDCG@10",
+  "indeterminate_result": "Evaluation protocol or random split differs between models",
+  "pilot": "Verify baseline_config.json and metrics_comparison.json with check_engineering_diagnostics.py",
+  "engineering_diagnosis": "Baseline fidelity failed: 1 trial vs 50 trials",
+  "prior_outcome_exposure": "Pre-run diagnostic audit of baseline_config.json"
+}

@@ -1,0 +1,91 @@
+{
+  "sources": [
+    {
+      "id": "E1",
+      "type": "prior_paper",
+      "locator": "robertson_2009.txt",
+      "quote": "BM25 scores documents via term-frequency saturation and document-length normalization",
+      "verified": true,
+      "verified_by": "audit_reviewer",
+      "verified_at": "2026-11-21"
+    },
+    {
+      "id": "E2",
+      "type": "prior_paper",
+      "locator": "izacard_2022.txt",
+      "quote": "Contriever trains bi-encoder dense passage representations via contrastive learning",
+      "verified": true,
+      "verified_by": "audit_reviewer",
+      "verified_at": "2026-11-21"
+    },
+    {
+      "id": "E3",
+      "type": "prior_paper",
+      "locator": "cormack_2009.txt",
+      "quote": "RRFscore(d) = sum 1 / (k + r(d)) with k = 60 fixed across retrieval rankings",
+      "verified": true,
+      "verified_by": "audit_reviewer",
+      "verified_at": "2026-11-21"
+    },
+    {
+      "id": "E4",
+      "type": "prior_paper",
+      "locator": "nogueira_2019.txt",
+      "quote": "A BERT cross-encoder scores query-passage pairs jointly for top-k neural reranking",
+      "verified": true,
+      "verified_by": "audit_reviewer",
+      "verified_at": "2026-11-21"
+    },
+    {
+      "id": "E5",
+      "type": "run_receipt",
+      "locator": "run_receipt.json",
+      "quote": "0.482",
+      "verified": true,
+      "verified_by": "audit_reviewer",
+      "verified_at": "2026-11-21"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "kind": "reported",
+      "material": true,
+      "source_ids": ["E5"]
+    }
+  ],
+  "methods": [
+    {
+      "id": "M1",
+      "origin": "combined",
+      "source_ids": ["E1", "E2", "E3", "E4"],
+      "exact_change": "Sequential composition of BM25, Contriever, RRF (k=60), and monoBERT reranking with no new architecture claimed",
+      "simplest_alternative": "BM25-only (or Contriever-only) single-stage retrieval and uncalibrated min-max linear score fusion (0.449 NDCG@10)",
+      "ablation_evidence": "Single-retriever baselines and min-max linear fusion (0.449) vs rank-only RRF (0.482) on BEIR-OOD-Subset-v1",
+      "parsimony_audit": {
+        "simplest_alternative": "Min-max linear score fusion (0.449 NDCG@10)",
+        "ablation_evidence": "Evaluated RRF (0.482) vs linear score fusion (0.449) on fixed candidate pools",
+        "simpler_equal_or_better": false,
+        "passed": true
+      },
+      "novelty_claimed": false,
+      "grand_name": false
+    }
+  ],
+  "numeric_facts": [
+    {
+      "id": "N1",
+      "occurrences": [
+        {"location": "draft_clean_humanized.md", "value": 0.482, "unit": "NDCG@10"},
+        {"location": "run_receipt.json", "value": 0.482, "unit": "NDCG@10"}
+      ]
+    },
+    {
+      "id": "N2",
+      "occurrences": [
+        {"location": "draft_clean_humanized.md", "value": 0.449, "unit": "NDCG@10"},
+        {"location": "run_receipt.json", "value": 0.449, "unit": "NDCG@10"}
+      ]
+    }
+  ]
+}

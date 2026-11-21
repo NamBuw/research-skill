@@ -1,0 +1,34 @@
+{
+  "venue": "Journal of Machine Learning Research (JMLR)",
+  "edition": "2026-2027 Rolling",
+  "track": "Regular Articles",
+  "official_cfp_url": "https://www.jmlr.org/author-info.html",
+  "checked_at": "2026-11-21T10:00:00+00:00",
+  "user_timezone": "Asia/Saigon",
+  "milestones": {
+    "abstract_registration": null,
+    "full_paper": null,
+    "notification": null,
+    "camera_ready": null
+  },
+  "currency": "USD",
+  "budget_currency": "USD",
+  "budget": 500,
+  "presentation_mode": "not_applicable",
+  "evidence_claims": [
+    {"field": "venue", "source_url": "https://www.jmlr.org/author-info.html", "quote": "Journal of Machine Learning Research (JMLR)"},
+    {"field": "edition", "source_url": "https://www.jmlr.org/author-info.html", "quote": "2026-2027 Rolling"},
+    {"field": "track", "source_url": "https://www.jmlr.org/author-info.html", "quote": "Regular Articles"},
+    {"field": "fees.submission", "source_url": "https://www.jmlr.org/author-info.html", "quote": "There are no publication fees associated with this journal"},
+    {"field": "fees.publication", "source_url": "https://www.jmlr.org/author-info.html", "quote": "There are no publication fees associated with this journal"},
+    {"field": "fees.author_registration", "source_url": "https://www.jmlr.org/author-info.html", "quote": "Submission, publication, author registration, overlength, and tax fees are $0 USD"},
+    {"field": "fees.tax", "source_url": "https://www.jmlr.org/author-info.html", "quote": "Submission, publication, author registration, overlength, and tax fees are $0 USD"}
+  ],
+  "fees": [
+    {"category": "submission", "name": "Submission fee", "mandatory": true, "amount": 0, "source_url": "https://www.jmlr.org/author-info.html", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "publication", "name": "Publication fee", "mandatory": true, "amount": 0, "source_url": "https://www.jmlr.org/author-info.html", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "author_registration", "name": "Author registration", "mandatory": true, "amount": 0, "source_url": "https://www.jmlr.org/author-info.html", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "overlength", "name": "Overlength charge", "mandatory": false, "amount": 0},
+    {"category": "tax", "name": "Tax", "mandatory": true, "amount": 0, "source_url": "https://www.jmlr.org/author-info.html", "checked_at": "2026-11-21T10:00:00+00:00"}
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "digests": {
+    "he_2017_ncf": {
+      "paper_id": "he_2017_ncf",
+      "read_status": "full_text",
+      "published_date": "2017-04-03",
+      "locator": "Section 5 Conclusion",
+      "quote": "systematic hyperparameter sweeps across tuned neighborhood models remain future work"
+    },
+    "liang_2018_multvae": {
+      "paper_id": "liang_2018_multvae",
+      "read_status": "full_text",
+      "published_date": "2018-04-23",
+      "locator": "Section 4 Results",
+      "quote": "Mult-VAE outperforms matrix factorization baselines on MovieLens-20M and Netflix"
+    },
+    "dacrema_2019_progress": {
+      "paper_id": "dacrema_2019_progress",
+      "read_status": "full_text",
+      "published_date": "2019-07-16",
+      "locator": "Section 4 Table 2",
+      "quote": "Tuned ItemKNN reaches 0.338 NDCG@10 vs 0.312 for neural baselines"
+    },
+    "wei_2022_cot": {
+      "paper_id": "wei_2022_cot",
+      "read_status": "full_text",
+      "published_date": "2022-01-28",
+      "locator": "Section 6 Limitations",
+      "quote": "Single-path greedy chain-of-thought decoding can still fail when one intermediate arithmetic step drifts"
+    },
+    "wang_2022_selfconsistency": {
+      "paper_id": "wang_2022_selfconsistency",
+      "read_status": "full_text",
+      "published_date": "2022-03-21",
+      "locator": "Section 2 & Table 1",
+      "quote": "Self-consistency samples diverse reasoning paths and selects the majority answer, improving GSM8K by +17.9% over greedy CoT"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "profiles": [
+    {
+      "id": "target_paper",
+      "reading_basis": "full_text",
+      "closest_work": ["cormack_2009_excerpt.pdf Section 2 Equation (1)"],
+      "ratings": {"importance": 7, "novelty": 6, "soundness": 8, "evidence": 7, "transparency": 9, "clarity": 8},
+      "evidence_locators": {
+        "importance": ["target_paper.pdf: Section 1 Introduction and Outcome Definition"],
+        "novelty": ["target_paper.pdf: Section 2 Method"],
+        "soundness": ["target_paper.pdf: Section 2 Method"],
+        "evidence": ["target_paper.pdf: Section 3 Empirical Results Table 1"],
+        "transparency": ["target_paper.pdf: Appendix A Reproducibility Details"],
+        "clarity": ["target_paper.pdf: Section 1 Introduction and Outcome Definition"]
+      }
+    },
+    {
+      "id": "v235_p1",
+      "reading_basis": "full_text",
+      "closest_work": ["Foret et al. ICLR 2021 SAM"],
+      "ratings": {"importance": 8, "novelty": 7, "soundness": 8, "evidence": 8, "transparency": 7, "clarity": 8},
+      "evidence_locators": {
+        "importance": ["v235_p1.pdf: Section 1 Introduction"],
+        "novelty": ["v235_p1.pdf: Section 2 Method"],
+        "soundness": ["v235_p1.pdf: Section 2 Method"],
+        "evidence": ["v235_p1.pdf: Section 3 Empirical Results Table 1"],
+        "transparency": ["v235_p1.pdf: Appendix"],
+        "clarity": ["v235_p1.pdf: Section 1 Introduction"]
+      }
+    }
+  ],
+  "weight_scenarios": [
+    {"importance": 15, "novelty": 20, "soundness": 20, "evidence": 20, "transparency": 15, "clarity": 10},
+    {"importance": 20, "novelty": 10, "soundness": 20, "evidence": 15, "transparency": 25, "clarity": 10}
+  ]
+}

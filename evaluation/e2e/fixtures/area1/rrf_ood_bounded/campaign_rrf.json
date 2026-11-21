@@ -1,0 +1,95 @@
+{
+  "format": "research_scientist_search_campaign_v1",
+  "question": "Does Reciprocal Rank Fusion out-of-distribution robustness hold over calibrated linear score combination on BEIR OOD hybrid retrieval?",
+  "checked_at_utc": "2026-11-21T10:00:00+00:00",
+  "query_runs": [
+    {
+      "id": "direct-1",
+      "family": "direct_problem",
+      "query": "reciprocal rank fusion out of distribution BEIR hybrid retrieval",
+      "checked_at_utc": "2026-11-21T10:00:01+00:00",
+      "sources": {
+        "openalex": {
+          "status": "bounded_partial",
+          "pages_requested": 1,
+          "pages_read": 1,
+          "returned": 2,
+          "reported_total": 45,
+          "access": "keyless",
+          "executed_query": "reciprocal rank fusion out of distribution BEIR hybrid retrieval"
+        }
+      },
+      "returned_records": 2,
+      "known_seed_checks": [
+        {"kind": "doi", "requested": "10.1145/1571941.1572114", "status": "retrieved", "matched_source_ids": ["https://openalex.org/W2148972377"]}
+      ]
+    },
+    {
+      "id": "closure-1",
+      "family": "closure",
+      "query": "Reciprocal Rank Fusion outperforms Condorcet score calibration domain shift",
+      "checked_at_utc": "2026-11-21T10:00:02+00:00",
+      "sources": {
+        "crossref": {
+          "status": "bounded_partial",
+          "pages_requested": 1,
+          "pages_read": 1,
+          "returned": 1,
+          "reported_total": 12,
+          "access": "keyless",
+          "executed_query": "Reciprocal Rank Fusion outperforms Condorcet score calibration domain shift"
+        }
+      },
+      "returned_records": 1,
+      "known_seed_checks": [
+        {"kind": "doi", "requested": "10.1145/1571941.1572114", "status": "retrieved", "matched_source_ids": ["https://doi.org/10.1145/1571941.1572114"]}
+      ]
+    }
+  ],
+  "source_records": [
+    {
+      "source": "openalex",
+      "source_id": "https://openalex.org/W2148972377",
+      "title": "Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods",
+      "year": 2009,
+      "doi": "10.1145/1571941.1572114",
+      "discovered_by": ["direct-1"],
+      "metadata_conflicts": []
+    },
+    {
+      "source": "openalex",
+      "source_id": "https://openalex.org/W3152891000",
+      "title": "BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models",
+      "year": 2021,
+      "doi": "10.48550/arxiv.2104.08663",
+      "discovered_by": ["direct-1"],
+      "metadata_conflicts": []
+    },
+    {
+      "source": "crossref",
+      "source_id": "https://doi.org/10.1145/1571941.1572114",
+      "title": "Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods",
+      "year": 2009,
+      "doi": "10.1145/1571941.1572114",
+      "discovered_by": ["closure-1"],
+      "metadata_conflicts": []
+    }
+  ],
+  "doi_candidate_groups": {
+    "10.1145/1571941.1572114": [
+      {"source": "openalex", "source_id": "https://openalex.org/W2148972377"},
+      {"source": "crossref", "source_id": "https://doi.org/10.1145/1571941.1572114"}
+    ]
+  },
+  "known_seed_checks": [
+    {"seed": {"doi": "10.1145/1571941.1572114"}, "status": "retrieved", "retrieved_in_query_ids": ["direct-1", "closure-1"]}
+  ],
+  "coverage": {
+    "query_count": 2,
+    "query_families": ["closure", "direct_problem"],
+    "raw_record_count": 3,
+    "distinct_source_record_count": 3,
+    "failed_or_partial_source_runs": []
+  },
+  "warning": "Dual-regime IR + ML domain-shift campaign for RRF OOD boundary."
+}

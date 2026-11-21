@@ -1,0 +1,72 @@
+{
+  "gap_candidate_id": "G1",
+  "question_id": "RQ-F19-PARSIMONY-1",
+  "claim_mode": "confirmatory",
+  "claim_type": "method",
+  "contribution_delta": "A 4-stage pipeline stacking GraphEncoder, HyperbolicAdapter, DualContrastiveLoss, and MetaGateRefiner.",
+  "decision_if_resolved": "Deploy the 4-stage stacked architecture on citation graphs.",
+  "closest_work_ids": ["W1"],
+  "unresolved_close_work_ids": [],
+  "components": [
+    "GraphEncoder",
+    "HyperbolicAdapter",
+    "DualContrastiveLoss",
+    "MetaGateRefiner"
+  ],
+  "benchmark": {
+    "task": "Citation graph node classification under tail-degree shift",
+    "dataset_version": "cora-degshift-v1",
+    "split_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "metric_id": "macro_f1_v1",
+    "metric_direction": "higher",
+    "unit_of_analysis": "Fixed seed run on held-out degree-shift test fold",
+    "contamination_check": "Verified zero node-ID or edge overlap between train and held-out test folds",
+    "test_set_access_policy": "Freeze model before opening held-out test fold",
+    "benchmark_limitations": "Citation graphs only"
+  },
+  "engineering_checks": {
+    "data_identity": {"status": "passed", "evidence_or_action": "Verified dataset SHA-256"},
+    "split_integrity": {"status": "passed", "evidence_or_action": "Confirmed 0 duplicate IDs across splits"},
+    "preprocessing": {"status": "passed", "evidence_or_action": "Fit feature normalizer strictly on training split"},
+    "metric_sanity": {"status": "passed", "evidence_or_action": "Verified macro-F1 evaluator on synthetic fixtures"},
+    "baseline_fidelity": {"status": "passed", "evidence_or_action": "Ran reference baseline"},
+    "reference_reproduction": {"status": "passed", "evidence_or_action": "Reproduced reference baseline"}
+  },
+  "comparison_fairness": {
+    "baseline_source": "Official 2-layer GCN implementation",
+    "baseline_implementation": "Same dataset split",
+    "training_data_budget": "Identical training nodes",
+    "compute_budget": "Identical 200-epoch GPU budget per seed",
+    "tuning_budget": "Identical 20-trial validation grid search",
+    "information_access": "Identical graph features"
+  },
+  "analysis": {
+    "effect_measure": "Macro-F1 difference on held-out degree-shift split",
+    "decision_threshold": "Minimum +0.025 macro-F1 gain across 5 fixed seeds",
+    "uncertainty_method": "Paired seed mean and 95% bootstrap interval across 5 seeds",
+    "aggregation_unit": "Fixed seed run on held-out degree-shift test fold",
+    "seed_policy": "Five fixed seeds locked before test evaluation",
+    "multiple_testing_policy": "Single primary contrast",
+    "failed_run_policy": "Retain all 5 seeds",
+    "holdout_policy": "Held-out fold evaluated once after freeze"
+  },
+  "experiments": [
+    {
+      "id": "EXP-PRIMARY",
+      "role": "primary",
+      "purpose": "Evaluate full 4-module stack against default un-tuned baseline",
+      "focal_condition": "4-module stack (GraphEncoder + HyperbolicAdapter + DualContrastiveLoss + MetaGateRefiner)",
+      "comparator_condition": "Default un-tuned baseline",
+      "variable_changed": "All 4 modules added simultaneously",
+      "outcome": "Held-out degree-shift macro-F1",
+      "predicted_if_focal": "4-module stack outperforms default baseline",
+      "predicted_if_rival": "4-module stack matches default baseline",
+      "falsifying_result": "4-module stack fails to exceed default baseline",
+      "indeterminate_result": "Engineering checks fail",
+      "analysis_action": "Compare full 4-module stack vs baseline",
+      "tuning_data_role": "validation",
+      "evaluation_data_role": "test",
+      "controls": ["identical training nodes", "identical seed list"]
+    }
+  ]
+}

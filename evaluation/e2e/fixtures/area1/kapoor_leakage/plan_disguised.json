@@ -1,0 +1,83 @@
+{
+  "gap_candidate_id": "G1",
+  "question_id": "RQ-KAPOOR-LEAK-1",
+  "claim_mode": "confirmatory",
+  "claim_type": "mechanism",
+  "contribution_delta": "Purported global-normalization performance gain (adversarially bypassing failed engineering checks)",
+  "decision_if_resolved": "Reject claim if gain vanishes under clean split and train-only scaling",
+  "closest_work_ids": ["W1"],
+  "unresolved_close_work_ids": [],
+  "benchmark": {
+    "task": "Tabular classification diagnostic",
+    "dataset_version": "kapoor-diag-v1",
+    "split_manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "metric_id": "accuracy",
+    "metric_direction": "higher",
+    "unit_of_analysis": "Disjoint test split",
+    "contamination_check": "audit_alignment.py revealed 3 duplicate IDs across splits",
+    "test_set_access_policy": "Test split accidentally leaked via pre-split StandardScaler",
+    "benchmark_limitations": "Diagnostic 30-row dataset"
+  },
+  "engineering_checks": {
+    "data_identity": {"status": "passed", "evidence_or_action": "Verified feature and label CSV schemas"},
+    "split_integrity": {"status": "failed", "evidence_or_action": "audit_alignment.py found S004, S011, S019 in both train and test splits"},
+    "preprocessing": {"status": "failed", "evidence_or_action": "leaky_pipeline.py runs StandardScaler().fit_transform(X) before train_test_split"},
+    "metric_sanity": {"status": "passed", "evidence_or_action": "Checked accuracy evaluator on constant predictions"},
+    "baseline_fidelity": {"status": "passed", "evidence_or_action": "Reference logistic regression verified"},
+    "reference_reproduction": {"status": "passed", "evidence_or_action": "Baseline reproduced cleanly"}
+  },
+  "comparison_fairness": {
+    "baseline_source": "clean_pipeline.py",
+    "baseline_implementation": "Same LogisticRegression model with train-only scaler",
+    "training_data_budget": "Same 20 training rows",
+    "compute_budget": "CPU single thread",
+    "tuning_budget": "Fixed C=1.0",
+    "information_access": "Clean baseline excludes test statistics"
+  },
+  "analysis": {
+    "effect_measure": "Test accuracy difference",
+    "decision_threshold": "5 percentage points",
+    "uncertainty_method": "Paired bootstrap across test instances",
+    "aggregation_unit": "Disjoint test split",
+    "seed_policy": "Fixed seeds [42, 43, 44]",
+    "multiple_testing_policy": "Single primary comparison",
+    "failed_run_policy": "Retain all runs",
+    "holdout_policy": "Strict holdout required"
+  },
+  "experiments": [
+    {
+      "id": "EXP-PRIMARY",
+      "role": "primary",
+      "purpose": "Separate leakage artifact from genuine modeling gain",
+      "focal_condition": "clean_pipeline.py on disjoint splits",
+      "comparator_condition": "leaky_pipeline.py on leaked splits",
+      "variable_changed": "Fit scope of StandardScaler and split disjointness",
+      "outcome": "Held-out accuracy",
+      "predicted_if_focal": "Gain persists after removing leakage",
+      "predicted_if_rival": "Gain disappears once leakage is removed",
+      "falsifying_result": "Clean accuracy matches baseline",
+      "indeterminate_result": "Evaluator or split hash invalid",
+      "analysis_action": "Compare clean vs leaky accuracy",
+      "tuning_data_role": "validation",
+      "evaluation_data_role": "test",
+      "controls": ["identical classifier", "matched random seed"]
+    },
+    {
+      "id": "EXP-ABLATION",
+      "role": "ablation",
+      "purpose": "Isolate pre-split scaling from duplicate IDs",
+      "focal_condition": "Clean split with pre-split scaling",
+      "comparator_condition": "Clean split with train-only scaling",
+      "variable_changed": "Scaler fit scope only",
+      "outcome": "Held-out accuracy",
+      "predicted_if_focal": "Pre-split scaling does not inflate accuracy",
+      "predicted_if_rival": "Pre-split scaling inflates accuracy",
+      "falsifying_result": "Difference is zero",
+      "indeterminate_result": "Insufficient variance",
+      "analysis_action": "Measure scaling-only delta",
+      "tuning_data_role": "validation",
+      "evaluation_data_role": "test",
+      "controls": ["disjoint split", "fixed seed"]
+    }
+  ]
+}

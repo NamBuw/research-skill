@@ -1,0 +1,2 @@
+Izacard, G., Caron, M., Hosseini, L., Riedel, S., Bojanowski, P., Joulin, A., & Grave, E. (2022). Unsupervised Dense Information Retrieval with Contrastive Learning (Contriever). TMLR 2022.
+Section 2: Contriever trains bi-encoder dense passage representations via contrastive learning on unlabelled text pairs.

@@ -1,0 +1,7 @@
+{
+  "dataset_suite": "BEIR-OOD-Subset-v1",
+  "frozen_at_utc": "2026-11-20T00:00:00Z",
+  "datasets": ["scifact", "nfcorpus", "arguana", "fiqa", "trec-covid"],
+  "split": "test",
+  "seed": 20261120
+}

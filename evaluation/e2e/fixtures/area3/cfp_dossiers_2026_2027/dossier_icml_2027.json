@@ -1,0 +1,42 @@
+{
+  "venue": "ICML 2027",
+  "edition": "2027",
+  "track": "Main Conference Track",
+  "official_cfp_url": "https://icml.cc/Conferences/2027/CallForPapers",
+  "checked_at": "2026-11-21T10:00:00+00:00",
+  "user_timezone": "Asia/Saigon",
+  "milestones": {
+    "abstract_registration": "2027-01-14T23:59:00 AoE",
+    "full_paper": "2027-01-22T23:59:00 AoE",
+    "notification": null,
+    "camera_ready": null
+  },
+  "currency": "USD",
+  "budget_currency": "USD",
+  "budget": 1000,
+  "presentation_mode": "online",
+  "evidence_claims": [
+    {"field": "venue", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "ICML 2027"},
+    {"field": "edition", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "ICML 2027"},
+    {"field": "track", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "Main Conference Track"},
+    {"field": "milestones.abstract_registration", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "Abstract Submission Deadline: January 14, 2027 23:59 AoE"},
+    {"field": "milestones.full_paper", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "Full Paper Submission Deadline: January 22, 2027 23:59 AoE"}
+  ],
+  "additional_source_urls": [
+    "https://icml.cc/Conferences/2026/Pricing"
+  ],
+  "work_plan": {
+    "buffer_days": 3,
+    "tasks": [
+      {"name": "Run final BEIR OOD ablations", "days": 7},
+      {"name": "Draft and ledger-audit manuscript", "days": 10}
+    ]
+  },
+  "fees": [
+    {"category": "submission", "name": "Submission fee", "mandatory": true, "amount": 0, "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "publication", "name": "Publication fee", "mandatory": true, "amount": 0, "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "author_registration", "name": "Author registration", "mandatory": true, "amount": null, "source_url": "https://icml.cc/Conferences/2026/Pricing", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "overlength", "name": "Overlength charge", "mandatory": false, "amount": null},
+    {"category": "tax", "name": "Tax", "mandatory": true, "amount": null, "source_url": "https://icml.cc/Conferences/2026/Pricing", "checked_at": "2026-11-21T10:00:00+00:00"}
+  ]
+}

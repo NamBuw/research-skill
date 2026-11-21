@@ -1,0 +1,13 @@
+[
+  {
+    "id": "C_INFLATION_TRAP",
+    "claim": "Standard hyperparameter mismatch producing a 0.2% noisy fluctuation demonstrates a fundamental crisis and catastrophic failure of all prior work across graph benchmarks.",
+    "trigger": "benchmark_observation",
+    "cited_ids": ["P1", "P2"],
+    "support_ids": ["P1", "P2"],
+    "cutoff_year": 2026,
+    "sgha_critics_passed": true,
+    "engineering_checked": true,
+    "measured_delta": 0.002
+  }
+]

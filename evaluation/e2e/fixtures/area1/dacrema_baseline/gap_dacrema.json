@@ -1,0 +1,76 @@
+{
+  "scope": "Adversarial fixture: untuned ItemKNN baseline (1 trial) compared against 50-trial neural recommender",
+  "search_date": "2026-11-21",
+  "coverage_limits": "Focused check against Dacrema et al. RecSys 2019 (arXiv:1907.06902).",
+  "next_check": "Re-tune ItemKNN with 50 validation trials before claiming neural superiority.",
+  "queries": [
+    {
+      "id": "Q1",
+      "campaign_query_id": "direct-1",
+      "source": "openalex",
+      "query": "neural recommendation baseline tuning ItemKNN reproducibility",
+      "family": "direct_problem",
+      "status": "bounded_partial",
+      "retrieved": 1,
+      "inspected": 1
+    },
+    {
+      "id": "Q2",
+      "campaign_query_id": "closure-1",
+      "source": "arxiv",
+      "query": "ti:Are AND ti:We AND ti:Really AND ti:Making AND ti:Much AND ti:Progress",
+      "family": "closure",
+      "status": "bounded_partial",
+      "retrieved": 1,
+      "inspected": 1
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E1",
+      "source_id": "arxiv:1907.06902v2",
+      "study_id": "DACREMA-2019",
+      "locator": "arXiv:1907.06902v2, Section 4, Table 2",
+      "claim": "Under matched 50-trial budgets, tuned ItemKNN achieves 0.338 NDCG@10, beating the 0.312 neural model.",
+      "role": "limitation",
+      "access": "full_text"
+    },
+    {
+      "id": "E2",
+      "source_id": "https://openalex.org/W2957191877",
+      "study_id": "DACREMA-2019",
+      "locator": "RecSys 2019, Section 4",
+      "claim": "Comparing a tuned neural model against an untuned k=5 ItemKNN baseline creates an illusory gain.",
+      "role": "method",
+      "access": "full_text"
+    }
+  ],
+  "closest_works": [
+    {
+      "id": "W1",
+      "source_id": "arxiv:1907.06902v2",
+      "relation": "partial_precedent",
+      "access": "full_text",
+      "difference": "Claimant reports neural gain over untuned ItemKNN (0.241) without matching the 50-trial budget documented by Dacrema et al.",
+      "evidence_ids": ["E1"]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "G1",
+      "claim": "Neural collaborative filter outperforms ItemKNN by 0.071 NDCG@10 on MovieLens-1M",
+      "type": "algorithmic_novelty",
+      "disposition": "supported_candidate",
+      "rationale": "Candidate attempts confirmatory promotion despite failed baseline_fidelity check",
+      "trigger": "failed_implementation",
+      "engineering_status": "unchecked",
+      "support_evidence_ids": ["E2"],
+      "counter_evidence_ids": ["E1"],
+      "closest_work_ids": ["W1"],
+      "search_query_ids": ["Q1", "Q2"],
+      "kill_query_ids": ["Q2"],
+      "consequence": "Would publish a spurious neural SOTA claim caused by weak baseline tuning",
+      "answer_path": "Match 50 hyperparameter tuning trials across ItemKNN and neural model"
+    }
+  ]
+}

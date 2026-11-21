@@ -1,0 +1,35 @@
+{
+  "domain": "Recommender Systems (Pre-2019 Hindsight Closure)",
+  "cutoff_date": "2018-12-31",
+  "papers": [
+    {
+      "paper_id": "he_2017_ncf",
+      "title": "Neural Collaborative Filtering",
+      "year": 2017,
+      "published_date": "2017-04-03",
+      "doi": "10.1145/3038912.3052569",
+      "abstract": "We propose Neural Collaborative Filtering (NCF) replacing inner products with neural architectures on MovieLens and Pinterest.",
+      "full_text_excerpt": "Section 5 Conclusion: Neural architectures capture non-linear user-item interactions; systematic hyperparameter sweeps across tuned neighborhood models remain future work."
+    },
+    {
+      "paper_id": "liang_2018_multvae",
+      "title": "Variational Autoencoders for Collaborative Filtering",
+      "year": 2018,
+      "published_date": "2018-04-23",
+      "doi": "10.1145/3178876.3186150",
+      "abstract": "We extend variational autoencoders to collaborative filtering for implicit feedback.",
+      "full_text_excerpt": "Section 4 Results: Mult-VAE outperforms matrix factorization baselines on MovieLens-20M and Netflix."
+    },
+    {
+      "paper_id": "dacrema_2019_progress",
+      "title": "Are We Really Making Much Progress? A Worrying Analysis of Recent Neural Recommendation Approaches",
+      "year": 2019,
+      "published_date": "2019-07-16",
+      "arxiv_id": "1907.06902",
+      "openalex_id": "W2957191877",
+      "doi": "10.1145/3298689.3347058",
+      "abstract": "Tuned simple neighborhood baselines such as ItemKNN outperform 6 of 7 recent neural recommendation models under matched evaluation protocols.",
+      "full_text_excerpt": "Section 4 Table 2: Tuned ItemKNN reaches 0.338 NDCG@10 vs 0.312 for neural baselines, closing claimed neural superiority over neighborhood methods."
+    }
+  ]
+}

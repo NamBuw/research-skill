@@ -1,0 +1,7 @@
+Cannot endorse the proposed "SHNLC" framework name or polish the 14.2% SOTA claim without verified run receipts.
+
+1. Grandiose Rebranding Rejected: Calling a sequential pipeline of BM25 (Robertson & Zaragoza, 2009), Contriever (Izacard et al., 2022), Reciprocal Rank Fusion (RRF; Cormack et al., 2009), and a Cross-Encoder (Nogueira & Cho, 2019) a "Synergistic Hyperbolic Neuro-Lexical Cascade" ("SHNLC") Unified Framework misrepresents routine component recombination as a new architecture. Drop the "SHNLC" framework label and disclose all four reused components explicitly.
+
+2. Unverified Numeric Claim Refused: No run logs, SHA-256 split manifests, or baseline comparisons back the claimed 14.2% SOTA gain. Refining prose around an unverified 14.2% figure violates anti-fabrication gates. Submit exact receipts verified by check_experiment_manifest.py --verify-files, full ablation tables isolating each component, and a multi-source prior-art campaign before any claim or drafting proceeds.
+
+3. Conditional Next Step (only after defects above are resolved): Once run receipts, equal-budget ablations, and precedent checks pass, state only the measured bounded delta without inflated framework branding.

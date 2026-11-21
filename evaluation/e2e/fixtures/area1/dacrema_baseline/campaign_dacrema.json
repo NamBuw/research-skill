@@ -1,0 +1,93 @@
+{
+  "format": "research_scientist_search_campaign_v1",
+  "question": "Does a proposed neural recommender genuinely outperform classical neighborhood baselines under equal tuning budgets?",
+  "checked_at_utc": "2026-11-21T10:00:00+00:00",
+  "query_runs": [
+    {
+      "id": "direct-1",
+      "family": "direct_problem",
+      "query": "neural recommendation baseline tuning ItemKNN reproducibility",
+      "checked_at_utc": "2026-11-21T10:00:01+00:00",
+      "sources": {
+        "openalex": {
+          "status": "bounded_partial",
+          "pages_requested": 1,
+          "pages_read": 1,
+          "returned": 1,
+          "reported_total": 85,
+          "access": "keyless",
+          "executed_query": "neural recommendation baseline tuning ItemKNN reproducibility"
+        },
+        "arxiv": {
+          "status": "bounded_partial",
+          "pages_requested": 1,
+          "pages_read": 1,
+          "returned": 1,
+          "reported_total": 12,
+          "access": "keyless",
+          "executed_query": "all:neural AND all:recommendation AND all:ItemKNN"
+        }
+      },
+      "returned_records": 2,
+      "known_seed_checks": [
+        {"kind": "doi", "requested": "10.1145/3298689.3347058", "status": "retrieved", "matched_source_ids": ["https://openalex.org/W2957191877"]},
+        {"kind": "source_id", "source": "arxiv", "requested": "1907.06902", "source_status": "bounded_partial", "status": "retrieved", "matched_source_ids": ["arxiv:1907.06902v2"]}
+      ]
+    },
+    {
+      "id": "closure-1",
+      "family": "closure",
+      "query": "Are We Really Making Much Progress neural recommendation",
+      "checked_at_utc": "2026-11-21T10:00:02+00:00",
+      "sources": {
+        "arxiv": {
+          "status": "bounded_partial",
+          "pages_requested": 1,
+          "pages_read": 1,
+          "returned": 1,
+          "reported_total": 2,
+          "access": "keyless",
+          "executed_query": "ti:Are AND ti:We AND ti:Really AND ti:Making AND ti:Much AND ti:Progress"
+        }
+      },
+      "returned_records": 1,
+      "known_seed_checks": [
+        {"kind": "doi", "requested": "10.1145/3298689.3347058", "status": "not_retrieved_in_this_run", "matched_source_ids": []},
+        {"kind": "source_id", "source": "arxiv", "requested": "1907.06902", "source_status": "bounded_partial", "status": "retrieved", "matched_source_ids": ["arxiv:1907.06902v2"]}
+      ]
+    }
+  ],
+  "source_records": [
+    {
+      "source": "openalex",
+      "source_id": "https://openalex.org/W2957191877",
+      "title": "Are We Really Making Much Progress? A Worrying Analysis of Recent Neural Recommendation Approaches",
+      "year": 2019,
+      "doi": "10.1145/3298689.3347058",
+      "discovered_by": ["direct-1"],
+      "metadata_conflicts": []
+    },
+    {
+      "source": "arxiv",
+      "source_id": "arxiv:1907.06902v2",
+      "title": "Are We Really Making Much Progress? A Worrying Analysis of Recent Neural Recommendation Approaches",
+      "year": 2019,
+      "doi": null,
+      "discovered_by": ["direct-1", "closure-1"],
+      "metadata_conflicts": []
+    }
+  ],
+  "doi_candidate_groups": {},
+  "known_seed_checks": [
+    {"seed": {"doi": "10.1145/3298689.3347058"}, "status": "retrieved", "retrieved_in_query_ids": ["direct-1"]},
+    {"seed": {"source": "arxiv", "source_id": "1907.06902"}, "status": "retrieved", "retrieved_in_query_ids": ["direct-1", "closure-1"]}
+  ],
+  "coverage": {
+    "query_count": 2,
+    "query_families": ["closure", "direct_problem"],
+    "raw_record_count": 3,
+    "distinct_source_record_count": 2,
+    "failed_or_partial_source_runs": []
+  },
+  "warning": "Campaign manifest for Dacrema et al. RecSys 2019 baseline-tuning precedent."
+}

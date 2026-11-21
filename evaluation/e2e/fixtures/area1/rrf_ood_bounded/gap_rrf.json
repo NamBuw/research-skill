@@ -1,0 +1,85 @@
+{
+  "scope": "Bounded evaluation of fixed-k Reciprocal Rank Fusion versus linear score combination under BEIR out-of-distribution shift",
+  "search_date": "2026-11-21",
+  "coverage_limits": "Bounded dual-regime search across OpenAlex (IR) and Crossref (score-fusion calibration); assumes dense-lexical score distributions shift across BEIR domains.",
+  "next_check": "Verify frozen split SHA-256 and run.json receipts before confirmatory interpretation.",
+  "queries": [
+    {
+      "id": "Q1",
+      "campaign_query_id": "direct-1",
+      "source": "openalex",
+      "query": "reciprocal rank fusion out of distribution BEIR hybrid retrieval",
+      "family": "direct_problem",
+      "status": "bounded_partial",
+      "retrieved": 2,
+      "inspected": 2
+    },
+    {
+      "id": "Q2",
+      "campaign_query_id": "closure-1",
+      "source": "crossref",
+      "query": "Reciprocal Rank Fusion outperforms Condorcet score calibration domain shift",
+      "family": "closure",
+      "status": "bounded_partial",
+      "retrieved": 1,
+      "inspected": 1
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E1",
+      "source_id": "https://openalex.org/W2148972377",
+      "study_id": "CORMACK-2009",
+      "locator": "cormack_2009_excerpt.pdf, page 2, Section 2 Equation (1) & Section 3",
+      "claim": "Out-of-distribution generalization when combining dense neural embeddings and lexical BM25 retrievers under domain shift was not evaluated",
+      "role": "limitation",
+      "access": "full_text"
+    },
+    {
+      "id": "E2",
+      "source_id": "https://openalex.org/W3152891000",
+      "study_id": "THAKUR-2021-BEIR",
+      "locator": "BEIR 2021, Section 4",
+      "claim": "Zero-shot domain shift causes uncalibrated dense-retrieval similarity scales to diverge across corpora.",
+      "role": "context",
+      "access": "full_text"
+    },
+    {
+      "id": "E3",
+      "source_id": "https://doi.org/10.1145/1571941.1572114",
+      "study_id": "CORMACK-2009",
+      "locator": "cormack_2009_excerpt.pdf, page 2, Section 2",
+      "claim": "RRFscore(d in D) = sum_{r in R} 1 / (k + r(d)), with smoothing constant k = 60 fixed across experiments",
+      "role": "method",
+      "access": "full_text"
+    }
+  ],
+  "closest_works": [
+    {
+      "id": "W1",
+      "source_id": "https://openalex.org/W2148972377",
+      "relation": "partial_precedent",
+      "access": "full_text",
+      "difference": "Cormack et al. (2009) evaluated RRF only on in-distribution TREC collections without testing OOD neural-lexical score variance on BEIR.",
+      "evidence_ids": ["E1"]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "G1",
+      "claim": "Rank-only Reciprocal Rank Fusion (k=60) retains higher OOD NDCG@10 than uncalibrated min-max linear score fusion on BEIR",
+      "type": "boundary_condition",
+      "disposition": "supported_candidate",
+      "rationale": "Cormack 2009 Section 3 explicitly leaves OOD dense-lexical hybrid fusion untested, and dual-regime closure search found no OOD boundary characterization.",
+      "trigger": "literature_synthesis",
+      "engineering_status": "implementation_checked",
+      "support_evidence_ids": ["E1", "E2"],
+      "counter_evidence_ids": ["E3"],
+      "closest_work_ids": ["W1"],
+      "search_query_ids": ["Q1", "Q2"],
+      "kill_query_ids": ["Q2"],
+      "consequence": "Clarifies when rank fusion should replace score normalization in zero-shot hybrid retrieval",
+      "answer_path": "Evaluate RRF vs linear fusion on frozen BEIR-OOD-Subset-v1 with verified NDCG@10 receipts"
+    }
+  ]
+}

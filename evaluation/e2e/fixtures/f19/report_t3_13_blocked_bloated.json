@@ -1,0 +1,56 @@
+{
+  "schema": "research_scientist_executive_report_v1",
+  "report_type": "parsimony_audit",
+  "lang": "en",
+  "title": "Blocked Proposal Summary: Over-Engineered 4-Module Pipeline",
+  "verdict": {
+    "status": "rejected",
+    "summary": "REJECT PROPOSAL: 4-module pipeline lacks simplest-baseline justification and ablation evidence [run_logs/t3_13_blocked.json]. The 1-module baseline already reaches 0.741 vs 0.740.",
+    "evidence_refs": ["K1", "K2"]
+  },
+  "parsimony_check": {
+    "simplest_alternative": "1-module tuned baseline (0.741 macro-F1 across 5 seeds)",
+    "rationale": "4-module stack scored 0.740 vs 0.741 (-0.001) without component ablation",
+    "verdict": "BLOCKED BY PARSIMONY GATE",
+    "locator": "run_logs/t3_13_blocked.json"
+  },
+  "key_evidence": [
+    {
+      "id": "K1",
+      "claim": "Tuned 1-module baseline reaches 0.741 macro-F1 across 5 fixed seeds.",
+      "value": "0.741",
+      "status": "verified",
+      "locator": "run_logs/t3_13_blocked.json"
+    },
+    {
+      "id": "K2",
+      "claim": "Proposed 4-module stack scored 0.740 macro-F1 with zero marginal gain.",
+      "value": "0.740",
+      "status": "verified",
+      "locator": "run_logs/t3_13_blocked.json"
+    }
+  ],
+  "flaws_and_risks": [
+    {
+      "id": "R1",
+      "severity": "critical",
+      "summary": "Proposal omits simplest_alternative and per-component ablation checks.",
+      "locator": "run_logs/t3_13_blocked.json"
+    }
+  ],
+  "next_steps": [
+    {
+      "step": 1,
+      "action": "Discard the three redundant modules and evaluate only single-component deltas.",
+      "target": "run_logs/t3_13_blocked.json",
+      "locator": "run_logs/t3_13_blocked.json"
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Blocked proposal audit log",
+      "locator": "run_logs/t3_13_blocked.json"
+    }
+  ]
+}
