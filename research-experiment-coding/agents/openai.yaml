@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Experiment Coding & Rigor"
+  short_description: "Root-cause debugging, TDD, verification-before-completion, PyTorch hygiene, repro checks, rliable IQM/CIs, and contamination audits"
+  default_prompt: "Use $research-experiment-coding to enforce 4-phase root-cause debugging, PyTorch/HF leakage & eval hygiene, reproducibility checks, rliable multi-seed IQM/CI stats, and SHA-256 run-receipt verification."

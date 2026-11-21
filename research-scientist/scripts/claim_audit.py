@@ -579,7 +579,408 @@ def audit_skill(
     }
 
 
+SUITE_PARENT = "research-scientist"
+SUITE_SUB_SKILLS = (
+    "research-precedent-corpus",
+    "research-gap-rq-audit",
+    "research-experiment-coding",
+    "research-novelty-venue",
+    "research-paper-writing",
+    "research-user-report",
+)
+
+SECRET_LEAK_RE = re.compile(
+    r"(?:\bsk-[A-Za-z0-9]{20,}\b|\bghp_[A-Za-z0-9]{20,}\b|\bAIza[0-9A-Za-z_-]{20,}\b|"
+    r"\bxox[baprs]-[0-9A-Za-z-]{10,}\b|\bS2_API_KEY\s*=\s*['\"][A-Za-z0-9_-]{12,}['\"])"
+)
+
+
+def _load_yaml_simple(path: Path) -> dict[str, Any]:
+    """Load simple YAML (using PyYAML if installed, or pure-stdlib fallback for agents/openai.yaml)."""
+    raw = path.read_text(encoding="utf-8")
+    try:
+        import yaml  # type: ignore
+
+        loaded = yaml.safe_load(raw)
+        if isinstance(loaded, dict):
+            return loaded
+        return {}
+    except ImportError:
+        pass
+    out: dict[str, Any] = {}
+    section: str | None = None
+    for line in raw.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if not line[0].isspace():
+            m = re.match(r"^([A-Za-z0-9_-]+)\s*:\s*(.*)$", line)
+            if m:
+                k, v = m.group(1), m.group(2).strip().strip("\"'")
+                if not v:
+                    out[k] = {}
+                    section = k
+                else:
+                    out[k] = v
+                    section = None
+        elif section and isinstance(out.get(section), dict):
+            m = re.match(r"^\s+([A-Za-z0-9_-]+)\s*:\s*(.*)$", line)
+            if m:
+                out[section][m.group(1)] = m.group(2).strip().strip("\"'")
+    return out
+
+
+def _check_openai_yaml(skill_dir: Path, skill_name: str, findings: list[dict[str, Any]]) -> None:
+    agents_dir = skill_dir / "agents"
+    yaml_path = agents_dir / "openai.yaml"
+    if agents_dir.is_symlink():
+        try:
+            if not agents_dir.resolve().is_relative_to(skill_dir):
+                findings.append({
+                    "file": f"{skill_name}/agents",
+                    "line": 1,
+                    "kind": "outside-root-symlink",
+                    "token": "agents",
+                    "detail": f"`agents/` resolves outside `{skill_name}/`",
+                })
+                return
+        except OSError:
+            findings.append({
+                "file": f"{skill_name}/agents",
+                "line": 1,
+                "kind": "outside-root-symlink",
+                "token": "agents",
+                "detail": f"`agents/` symlink invalid in `{skill_name}/`",
+            })
+            return
+    if not yaml_path.is_file():
+        findings.append({
+            "file": f"{skill_name}/agents/openai.yaml",
+            "line": 1,
+            "kind": "missing-openai-yaml",
+            "token": "agents/openai.yaml",
+            "detail": f"Missing Codex metadata `{skill_name}/agents/openai.yaml`",
+        })
+        return
+    try:
+        resolved_y = yaml_path.resolve()
+        if not resolved_y.is_relative_to(skill_dir):
+            findings.append({
+                "file": f"{skill_name}/agents/openai.yaml",
+                "line": 1,
+                "kind": "outside-root-symlink",
+                "token": "agents/openai.yaml",
+                "detail": f"`agents/openai.yaml` resolves outside `{skill_name}/`",
+            })
+            return
+        data = _load_yaml_simple(yaml_path)
+    except Exception as exc:
+        findings.append({
+            "file": f"{skill_name}/agents/openai.yaml",
+            "line": 1,
+            "kind": "invalid-openai-yaml",
+            "token": "agents/openai.yaml",
+            "detail": f"Invalid YAML in `{skill_name}/agents/openai.yaml`: {exc}",
+        })
+        return
+    iface = data.get("interface")
+    if not isinstance(iface, dict):
+        findings.append({
+            "file": f"{skill_name}/agents/openai.yaml",
+            "line": 1,
+            "kind": "invalid-openai-yaml",
+            "token": "interface",
+            "detail": f"`{skill_name}/agents/openai.yaml` missing `interface:` mapping",
+        })
+        return
+    for req_key in ("display_name", "short_description"):
+        val = iface.get(req_key)
+        if not isinstance(val, str) or not val.strip():
+            findings.append({
+                "file": f"{skill_name}/agents/openai.yaml",
+                "line": 1,
+                "kind": "invalid-openai-yaml",
+                "token": req_key,
+                "detail": f"`{skill_name}/agents/openai.yaml` missing non-empty `interface.{req_key}`",
+            })
+
+
+def _scan_secret_hygiene(rel_file: str, raw_text: str, findings: list[dict[str, Any]]) -> None:
+    for lineno, line in enumerate(raw_text.splitlines(), start=1):
+        m = SECRET_LEAK_RE.search(line)
+        if m:
+            findings.append({
+                "file": rel_file,
+                "line": lineno,
+                "kind": "secret-leak",
+                "token": m.group(0)[:12] + "...",
+                "detail": f"Potential hardcoded credential/secret detected in `{rel_file}`",
+            })
+
+
+def audit_suite(
+    suite_root: Path,
+    readme: Path | None = None,
+    max_skill_lines: int = 120,
+    max_skill_tokens: int = 1600,
+    max_frontmatter_tokens: int = 150,
+) -> dict[str, Any]:
+    """Audit the 1-parent + 6-subskill Hub-and-Spoke suite under <suite_root>."""
+    suite_root = suite_root.resolve()
+    if not suite_root.is_dir():
+        raise FileNotFoundError(f"Invalid suite root directory: {suite_root}")
+
+    parent_root = suite_root / SUITE_PARENT
+    if not parent_root.is_dir() or not (parent_root / "SKILL.md").is_file():
+        raise FileNotFoundError(f"Suite root missing parent skill `{SUITE_PARENT}/SKILL.md`: {suite_root}")
+
+    parent_report = audit_skill(
+        parent_root,
+        readme=readme,
+        max_skill_lines=max_skill_lines,
+        max_skill_tokens=max_skill_tokens,
+        max_frontmatter_tokens=max_frontmatter_tokens,
+    )
+    findings: list[dict[str, Any]] = []
+    for item in parent_report["findings"]:
+        scoped = dict(item)
+        if scoped["file"] != "README.md":
+            scoped["file"] = f"{SUITE_PARENT}/{scoped['file']}"
+        findings.append(scoped)
+
+    _check_openai_yaml(parent_root, SUITE_PARENT, findings)
+    parent_skill_text = (parent_root / "SKILL.md").read_text(encoding="utf-8")
+    _scan_secret_hygiene(f"{SUITE_PARENT}/SKILL.md", parent_skill_text, findings)
+
+    shared_scripts = collect_scripts(parent_root)
+    shared_flags = {rel: extract_flags(rel, src) for rel, src in shared_scripts.items()}
+
+    flag_re = re.compile(r"(?<![\w-])(--[a-z][a-z0-9-]*)")
+    script_ref_re = re.compile(
+        r"(?<![\w/.-])((?:\./|\.\./)*(?:[A-Za-z0-9_.-]+/)?"
+        r"(?:scripts|modules/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*/scripts)/"
+        r"(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.(?:py|sh|js|R|r))"
+    )
+    ref_doc_re = re.compile(
+        r"(?<![\w/.-])((?:\./|\.\./)*references/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.md)(?:#[A-Za-z0-9_.-]+)?"
+    )
+
+    skills_summary: list[dict[str, Any]] = [{
+        "name": SUITE_PARENT,
+        "role": "parent",
+        "footprint": parent_report["skill_footprint"],
+        "files_audited": len(parent_report["files_audited"]),
+    }]
+
+    for sub_name in SUITE_SUB_SKILLS:
+        sub_dir = suite_root / sub_name
+        if not sub_dir.is_dir():
+            findings.append({
+                "file": sub_name,
+                "line": 1,
+                "kind": "missing-subskill",
+                "token": sub_name,
+                "detail": f"Missing sibling sub-skill directory `{sub_name}/`",
+            })
+            continue
+
+        if f"../{sub_name}/SKILL.md" not in parent_skill_text:
+            findings.append({
+                "file": f"{SUITE_PARENT}/SKILL.md",
+                "line": 1,
+                "kind": "missing-subskill-route",
+                "token": f"../{sub_name}/SKILL.md",
+                "detail": f"Parent `research-scientist/SKILL.md` does not route to `../{sub_name}/SKILL.md`",
+            })
+
+        for forbidden_dir in ("scripts", "modules"):
+            if (sub_dir / forbidden_dir).exists() or (sub_dir / forbidden_dir).is_symlink():
+                findings.append({
+                    "file": f"{sub_name}/{forbidden_dir}",
+                    "line": 1,
+                    "kind": "duplicated-dir",
+                    "token": f"{sub_name}/{forbidden_dir}",
+                    "detail": f"Sub-skill `{sub_name}/` must NOT duplicate `{forbidden_dir}/`; reference `../research-scientist/{forbidden_dir}/` instead",
+                })
+
+        _check_openai_yaml(sub_dir, sub_name, findings)
+
+        sub_skill_md = sub_dir / "SKILL.md"
+        sub_docs: list[tuple[str, str]] = []
+        sub_fp = _measure_skill_footprint(
+            "",
+            max_lines=max_skill_lines,
+            max_est_tokens=max_skill_tokens,
+            max_frontmatter_tokens=max_frontmatter_tokens,
+        )
+        if not sub_skill_md.is_file():
+            findings.append({
+                "file": f"{sub_name}/SKILL.md",
+                "line": 1,
+                "kind": "missing-skill-md",
+                "token": "SKILL.md",
+                "detail": f"Missing `{sub_name}/SKILL.md`",
+            })
+        elif not sub_skill_md.resolve().is_relative_to(sub_dir):
+            findings.append({
+                "file": f"{sub_name}/SKILL.md",
+                "line": 1,
+                "kind": "outside-root-symlink",
+                "token": "SKILL.md",
+                "detail": f"`{sub_name}/SKILL.md` resolves outside `{sub_name}/`",
+            })
+        else:
+            raw_skill = sub_skill_md.read_text(encoding="utf-8")
+            sub_fp = _measure_skill_footprint(
+                raw_skill,
+                max_lines=max_skill_lines,
+                max_est_tokens=max_skill_tokens,
+                max_frontmatter_tokens=max_frontmatter_tokens,
+            )
+            if sub_fp["lines"] > max_skill_lines or sub_fp["est_tokens"] > max_skill_tokens:
+                findings.append({
+                    "file": f"{sub_name}/SKILL.md",
+                    "line": 1,
+                    "kind": "skill-bloat",
+                    "token": f"{sub_fp['lines']}L/{sub_fp['est_tokens']}tok",
+                    "detail": f"`{sub_name}/SKILL.md` exceeds lean budget ({sub_fp['lines']}L/{sub_fp['est_tokens']}tok)",
+                })
+            if sub_fp["frontmatter_est_tokens"] > max_frontmatter_tokens:
+                findings.append({
+                    "file": f"{sub_name}/SKILL.md",
+                    "line": 1,
+                    "kind": "frontmatter-bloat",
+                    "token": f"{sub_fp['frontmatter_est_tokens']}tok",
+                    "detail": f"`{sub_name}/SKILL.md` frontmatter exceeds {max_frontmatter_tokens} est. tokens",
+                })
+            meta, _body, _off = split_frontmatter(raw_skill)
+            if meta.get("name") != sub_name:
+                findings.append({
+                    "file": f"{sub_name}/SKILL.md",
+                    "line": 1,
+                    "kind": "invalid-frontmatter-name",
+                    "token": meta.get("name", ""),
+                    "detail": f"`{sub_name}/SKILL.md` frontmatter name must be `{sub_name}`",
+                })
+            if not meta.get("description", "").strip():
+                findings.append({
+                    "file": f"{sub_name}/SKILL.md",
+                    "line": 1,
+                    "kind": "missing-frontmatter-description",
+                    "token": "description",
+                    "detail": f"`{sub_name}/SKILL.md` missing frontmatter description",
+                })
+            sub_docs.append(("SKILL.md", raw_skill))
+
+        refs_dir = sub_dir / "references"
+        if refs_dir.is_symlink() and not refs_dir.resolve().is_relative_to(sub_dir):
+            findings.append({
+                "file": f"{sub_name}/references",
+                "line": 1,
+                "kind": "outside-root-symlink",
+                "token": "references",
+                "detail": f"`{sub_name}/references/` resolves outside `{sub_name}/`",
+            })
+        elif refs_dir.is_dir():
+            for entry in sorted(refs_dir.rglob("*")):
+                try:
+                    resolved = entry.resolve()
+                except OSError:
+                    continue
+                rel_e = entry.relative_to(sub_dir).as_posix()
+                if not resolved.is_relative_to(sub_dir):
+                    findings.append({
+                        "file": f"{sub_name}/{rel_e}",
+                        "line": 1,
+                        "kind": "outside-root-symlink",
+                        "token": rel_e,
+                        "detail": f"`{sub_name}/{rel_e}` resolves outside `{sub_name}/`",
+                    })
+                    continue
+                if resolved.is_file() and entry.suffix.lower() == ".md":
+                    sub_docs.append((rel_e, entry.read_text(encoding="utf-8")))
+
+        for rel_doc, raw_doc in sub_docs:
+            scoped_file = f"{sub_name}/{rel_doc}"
+            _scan_secret_hygiene(scoped_file, raw_doc, findings)
+            if rel_doc == "SKILL.md":
+                _, body_doc, off_doc = split_frontmatter(raw_doc)
+            else:
+                body_doc, off_doc = raw_doc, 0
+            doc_dir = (sub_dir / rel_doc).parent
+            for lineno, line_text in _logical_lines(body_doc, line_offset=off_doc):
+                norm_matches: list[tuple[int, str]] = []
+                for m in script_ref_re.finditer(line_text):
+                    raw_ref = m.group(1)
+                    resolved_target = (doc_dir / raw_ref).resolve()
+                    norm = _normalize_script_ref(raw_ref, sub_name, allow_rs_prefix=True)
+                    norm_matches.append((m.start(), norm))
+                    in_parent = resolved_target.is_relative_to(parent_root) and resolved_target.is_file()
+                    if not (in_parent and norm in shared_scripts):
+                        findings.append({
+                            "file": scoped_file,
+                            "line": lineno,
+                            "kind": "missing-script",
+                            "token": raw_ref,
+                            "detail": f"Sub-skill script reference `{raw_ref}` must resolve to an existing file in `../research-scientist/`",
+                        })
+                for rm in ref_doc_re.finditer(line_text):
+                    raw_ref = rm.group(1)
+                    resolved_ref = (doc_dir / raw_ref).resolve()
+                    in_sub = resolved_ref.is_relative_to(sub_dir) and resolved_ref.is_file()
+                    in_parent_ref = resolved_ref.is_relative_to(parent_root) and resolved_ref.is_file()
+                    if not (in_sub or in_parent_ref):
+                        findings.append({
+                            "file": scoped_file,
+                            "line": lineno,
+                            "kind": "missing-reference",
+                            "token": raw_ref,
+                            "detail": f"Referenced guide `{raw_ref}` does not resolve inside `{sub_name}/` or `{SUITE_PARENT}/`",
+                        })
+                if norm_matches:
+                    for fm in flag_re.finditer(line_text):
+                        flag = fm.group(1)
+                        fpos = fm.start()
+                        preceding = [nm for pos, nm in norm_matches if pos <= fpos]
+                        targets = [preceding[-1]] if preceding else [nm for _, nm in norm_matches]
+                        for tgt in targets:
+                            if tgt in shared_flags and flag not in shared_flags[tgt]:
+                                findings.append({
+                                    "file": scoped_file,
+                                    "line": lineno,
+                                    "kind": "missing-flag",
+                                    "token": flag,
+                                    "detail": f"Flag `{flag}` is not defined in `{SUITE_PARENT}/{tgt}`",
+                                })
+
+        skills_summary.append({
+            "name": sub_name,
+            "role": "sub-skill",
+            "footprint": sub_fp,
+            "files_audited": len(sub_docs),
+        })
+
+    return {
+        "status": "passed" if not findings else "failed",
+        "suite_root": str(suite_root),
+        "skills_audited": skills_summary,
+        "scripts_indexed": sorted(shared_scripts.keys()),
+        "finding_count": len(findings),
+        "findings": findings,
+    }
+
+
 def _compact_report(report: dict[str, Any], limit: int = 10) -> dict[str, Any]:
+    if "suite_root" in report:
+        return {
+            "compact": True,
+            "status": report["status"],
+            "suite_root": report["suite_root"],
+            "skills_audited": report["skills_audited"],
+            "total_scripts_indexed": len(report["scripts_indexed"]),
+            "finding_count": report["finding_count"],
+            "findings_truncated": max(0, len(report["findings"]) - limit),
+            "findings": report["findings"][:limit],
+        }
     return {
         "compact": True,
         "status": report["status"],
@@ -599,22 +1000,29 @@ def main(argv: list[str] | None = None) -> int:
     default_root = Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=str(default_root), help="Path to skill root directory containing SKILL.md")
+    parser.add_argument("--suite-root", help="Path to parent+sub-skills suite root directory to audit all 7 skills")
     parser.add_argument("--readme", help="Optional path to README.md to audit")
     parser.add_argument("--json", nargs="?", const="-", metavar="PATH", help="Emit JSON report to stdout or write to PATH")
     parser.add_argument("--compact", action="store_true", help="Emit compact bounded summary capping verbose lists")
     args = parser.parse_args(argv)
 
     try:
-        if not isinstance(args.root, str) or not args.root.strip():
-            raise ValueError("Invalid empty path passed to --root")
+        if args.suite_root is not None:
+            if not isinstance(args.suite_root, str) or not args.suite_root.strip():
+                raise ValueError("Invalid empty path passed to --suite-root")
+        else:
+            if not isinstance(args.root, str) or not args.root.strip():
+                raise ValueError("Invalid empty path passed to --root")
         if args.readme is not None and (not isinstance(args.readme, str) or not args.readme.strip()):
             raise ValueError("Invalid empty path passed to --readme")
         if args.json is not None and args.json != "-" and not args.json.strip():
             raise ValueError("Invalid empty output path passed to --json")
-        report = audit_skill(
-            Path(args.root),
-            readme=Path(args.readme) if args.readme is not None else None,
-        )
+
+        readme_p = Path(args.readme) if args.readme is not None else None
+        if args.suite_root is not None:
+            report = audit_suite(Path(args.suite_root), readme=readme_p)
+        else:
+            report = audit_skill(Path(args.root), readme=readme_p)
     except (OSError, UnicodeError, FileNotFoundError, ValueError) as exc:
         print(json.dumps({"error": str(exc)}), file=sys.stderr)
         return 2
@@ -635,17 +1043,24 @@ def main(argv: list[str] | None = None) -> int:
         except OSError as exc:
             print(json.dumps({"error": str(exc)}), file=sys.stderr)
             return 2
+        audited_count = len(report["skills_audited"]) if "suite_root" in report else len(report["files_audited"])
         print(
             f"claim_audit: {report['status']} "
-            f"({report['finding_count']} findings across {len(report['files_audited'])} files; wrote {out_path})"
+            f"({report['finding_count']} findings across {audited_count} targets; wrote {out_path})"
         )
     else:
-        fp = report["skill_footprint"]
-        print(
-            f"claim_audit: {report['status']} "
-            f"({report['finding_count']} findings across {len(report['files_audited'])} files; "
-            f"SKILL.md={fp['lines']}L/{fp['est_tokens']}tok, fm={fp['frontmatter_est_tokens']}tok)"
-        )
+        if "suite_root" in report:
+            print(
+                f"claim_audit: {report['status']} "
+                f"({report['finding_count']} findings across {len(report['skills_audited'])} skills in suite)"
+            )
+        else:
+            fp = report["skill_footprint"]
+            print(
+                f"claim_audit: {report['status']} "
+                f"({report['finding_count']} findings across {len(report['files_audited'])} files; "
+                f"SKILL.md={fp['lines']}L/{fp['est_tokens']}tok, fm={fp['frontmatter_est_tokens']}tok)"
+            )
         items = out_report["findings"]
         for item in items:
             print(f"- [{item['kind']}] {item['file']}:{item['line']} `{item['token']}` — {item['detail']}")

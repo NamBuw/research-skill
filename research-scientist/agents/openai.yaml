@@ -1,3 +1,4 @@
 interface:
-  display_name: "Research Scientist"
-  short_description: "Ground literature reviews, research gaps, and questions in evidence"
+  display_name: "Research Scientist (AI/CS Orchestrator)"
+  short_description: "Orchestrate strict AI/CS/CV/NLP research across 6 specialist sub-skills with zero-sycophancy, parsimony, and verification gates"
+  default_prompt: "Use $research-scientist to run falsification-first AI/CS/CV/NLP research, routing across precedent, gap/RQ, experiment coding, novelty/venue, paper writing, and PDF reporting sub-skills."

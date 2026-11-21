@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Paper Writing & Preflight"
+  short_description: "Publication-grade AI/CS/CV/NLP writing with Humanizer lint, lineage ledger, figure QA, anonymization, and arXiv/BibTeX preflight"
+  default_prompt: "Use $research-paper-writing to draft or audit AI/CS/CV/NLP manuscripts with anti-fabrication/anti-padding/anti-grandiose gates, figure QA, double-blind anonymization, and arXiv/BibTeX preflight."

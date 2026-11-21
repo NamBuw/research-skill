@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research User Report (LaTeX-PDF)"
+  short_description: "Concise, plain-language multilingual LaTeX-to-PDF user reports matching the user's language with intact diacritics"
+  default_prompt: "Use $research-user-report to export verified gap, novelty, venue, or manuscript findings into a concise plain-language LaTeX-to-PDF report matching my input language."

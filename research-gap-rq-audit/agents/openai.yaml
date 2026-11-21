@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Gap & RQ Audit"
+  short_description: "Falsification-first AI/CS/CV/NLP gap auditing, engineering-bug vs novelty triage, parsimony gate, and RQ cards"
+  default_prompt: "Use $research-gap-rq-audit to kill-test candidate gaps against prior art, separate engineering bugs from real gaps, enforce parsimony, and validate falsifiable RQ cards."

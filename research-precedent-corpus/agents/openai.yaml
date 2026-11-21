@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Precedent & Corpus"
+  short_description: "Multi-source AI/CS/CV/NLP prior-art retrieval, citation graph, PDF/OCR blocks, and PaperQA2 corpus Q&A"
+  default_prompt: "Use $research-precedent-corpus to run multi-query prior-art retrieval with known-seed controls, extract PDF/OCR blocks, and answer corpus questions with verified page locators."

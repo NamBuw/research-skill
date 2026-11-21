@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Novelty, Venue & Rebuttal"
+  short_description: "/10 scorecards, >=5 accepted-panel novelty, live CFP/fee verification, and OpenReview/CVPR rebuttal & H1-H17 fairness checks"
+  default_prompt: "Use $research-novelty-venue to compute locator-verified /10 scorecards, compare novelty against same-track accepted panels, verify live CFPs/fees, and audit peer-review rebuttals."
