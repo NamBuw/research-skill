@@ -10,6 +10,7 @@ The package also has local helpers. Run these from `research-scientist/`:
 
 ```bash
 python scripts/search_papers.py "your topic and mechanism" --size 20 --pages 2
+python scripts/search_papers.py "your topic and mechanism" --known-doi 10.48550/arxiv.1609.02907 --known-source-id arxiv=1609.02907
 python scripts/citation_trails.py W2741809807 --pages 2 --page-size 50
 python scripts/local_evidence.py "mechanism or outcome" /path/to/extracted/papers --limit 20
 python scripts/extract_pdf_blocks.py /path/to/paper.pdf --output /path/to/paper.blocks.json
@@ -24,7 +25,7 @@ python modules/kdense-scientific-writing/scripts/scaffold_manuscript.py --output
 python modules/researchradar/problem-statement-finder/scripts/radar.py check
 ```
 
-The example OpenAlex ID is only a syntax example. Replace it and every fictional JSON fixture before a real audit. Each checker enforces declared structure or arithmetic; the agent must still read the original papers, verify factual inputs, and make a reasoned scientific judgment.
+The example DOI and OpenAlex ID are only syntax examples. Replace them and every fictional JSON fixture with relevant, verified seeds before a real audit. An absent known seed means the executed query or source coverage needs repair; it does not mean the paper or idea is absent. Each checker enforces declared structure or arithmetic; the agent must still read the original papers, verify factual inputs, and make a reasoned scientific judgment.
 
 Version 2.4.0 includes six-source paper discovery, bounded citation and local PDF passage retrieval, public-review/limitation mining, evidence and gap records, operational research questions, experiment receipts, bundled scientific-writing and Humanizer components, scored comparisons, and venue planning. Supply your own `S2_API_KEY` through runtime configuration; no personal credentials are included.
 

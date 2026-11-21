@@ -86,5 +86,37 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(seen, ['ti:graph AND abs:network'])
         self.assertEqual(r['sources']['arxiv']['executed_query'], seen[0])
 
+    def test_known_seed_detects_restrictive_query_even_when_status_complete(self):
+        def transport(source, params):
+            if 'ti:' in params['search_query']:
+                return {'total': 1, 'entries': [{'id': 'https://arxiv.org/abs/1609.02907v4',
+                                                 'title': 'Semi-Supervised Classification with Graph Convolutional Networks'}]}
+            return {'total': 0, 'entries': []}
+        kwargs = {'known_source_ids': [('arxiv', 'arxiv:1609.02907')]}
+        missed = module.search('semi supervised graph convolution normalized adjacency',
+                               ('arxiv',), 10, 1, transport, **kwargs)
+        self.assertEqual(missed['sources']['arxiv']['status'], 'valid_zero_results')
+        self.assertEqual(missed['known_seed_checks'][0]['status'], 'not_retrieved_in_this_run')
+        found = module.search('semi supervised graph convolution normalized adjacency',
+                              ('arxiv',), 10, 1, transport,
+                              source_queries={'arxiv': 'ti:semi-supervised AND ti:graph AND ti:convolutional'}, **kwargs)
+        self.assertEqual(found['known_seed_checks'][0]['status'], 'retrieved')
+        self.assertEqual(found['known_seed_checks'][0]['matched_source_ids'], ['arxiv:1609.02907v4'])
+
+    def test_known_doi_matches_across_sources_and_failed_source_stays_unchecked(self):
+        def transport(source, params):
+            if source == 's2':
+                raise RuntimeError('http_429')
+            return {'meta': {'count': 1}, 'results': [{'id': 'https://openalex.org/W1',
+                                                       'display_name': 'Known work',
+                                                       'doi': 'https://doi.org/10.1000/ABC'}]}
+        r = module.search('known work', ('s2', 'openalex'), 10, 1, transport,
+                          known_dois=['https://doi.org/10.1000/abc'],
+                          known_source_ids=[('s2', 'some-id'), ('openalex', 'W1')])
+        self.assertEqual(r['known_seed_checks'][0]['status'], 'retrieved')
+        self.assertEqual(r['known_seed_checks'][1]['source_status'], 'http_429')
+        self.assertEqual(r['known_seed_checks'][1]['status'], 'not_retrieved_in_this_run')
+        self.assertEqual(r['known_seed_checks'][2]['status'], 'retrieved')
+
 if __name__ == '__main__':
     unittest.main()

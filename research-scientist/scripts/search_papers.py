@@ -163,7 +163,46 @@ def parse(source, data):
         raise ValueError('no_valid_records_in_nonempty_page')
     return out, total
 
-def search(query, sources=SOURCES, size=20, pages=1, transport=fetch, source_queries=None):
+def normalize_doi(value):
+    value = value.strip().lower()
+    value = re.sub(r'^https?://(?:dx\.)?doi\.org/', '', value)
+    return value.removeprefix('doi:')
+
+def normalize_source_id(source, value):
+    value = value.strip()
+    if source == 'arxiv':
+        value = value.rsplit('/', 1)[-1].removeprefix('arxiv:')
+        return re.sub(r'v\d+$', '', value, flags=re.IGNORECASE).lower()
+    if source == 'openalex':
+        return value.rsplit('/', 1)[-1].lower()
+    if source == 'crossref':
+        return normalize_doi(value)
+    return value.lower()
+
+def check_known_seeds(records, source_states, known_dois=(), known_source_ids=()):
+    """Exact identifier checks within this run; a miss never certifies absence."""
+    checks = []
+    for requested in known_dois:
+        if not isinstance(requested, str) or not normalize_doi(requested):
+            raise ValueError('known DOI must be nonblank')
+        key = normalize_doi(requested)
+        matches = [r for r in records if r['doi'] and normalize_doi(r['doi']) == key]
+        checks.append({'kind': 'doi', 'requested': requested,
+                       'status': 'retrieved' if matches else 'not_retrieved_in_this_run',
+                       'matched_source_ids': [r['source_id'] for r in matches]})
+    for source, requested in known_source_ids:
+        if source not in SOURCES or not isinstance(requested, str) or not requested.strip():
+            raise ValueError('known source ID needs a supported source and nonblank ID')
+        key = normalize_source_id(source, requested)
+        matches = [r for r in records if r['source'] == source and normalize_source_id(source, r['source_id']) == key]
+        checks.append({'kind': 'source_id', 'source': source, 'requested': requested,
+                       'source_status': source_states.get(source, {}).get('status', 'not_queried'),
+                       'status': 'retrieved' if matches else 'not_retrieved_in_this_run',
+                       'matched_source_ids': [r['source_id'] for r in matches]})
+    return checks
+
+def search(query, sources=SOURCES, size=20, pages=1, transport=fetch, source_queries=None,
+           known_dois=(), known_source_ids=()):
     if not query.strip() or len(query) > 500:
         raise ValueError('query must contain 1..500 nonblank characters')
     if not 1 <= size <= 100 or not 1 <= pages <= 5:
@@ -172,6 +211,16 @@ def search(query, sources=SOURCES, size=20, pages=1, transport=fetch, source_que
     if not isinstance(source_queries, dict) or any(k not in SOURCES or not isinstance(v, str) or not v.strip() or len(v) > 500
                                                  for k, v in source_queries.items()):
         raise ValueError('source_queries must map supported sources to nonblank queries of at most 500 characters')
+    known_dois = tuple(known_dois)
+    known_source_ids = tuple(known_source_ids)
+    if any(not isinstance(pair, (tuple, list)) or len(pair) != 2 for pair in known_source_ids):
+        raise ValueError('known source IDs must be SOURCE=ID pairs')
+    for requested in known_dois:
+        if not isinstance(requested, str) or not normalize_doi(requested):
+            raise ValueError('known DOI must be nonblank')
+    for source, requested in known_source_ids:
+        if source not in SOURCES or not isinstance(requested, str) or not requested.strip():
+            raise ValueError('known source ID needs a supported source and nonblank ID')
     result = {'query': query, 'checked_at_utc': datetime.now(timezone.utc).isoformat(),
               'sources': {}, 'records': [], 'doi_duplicate_groups': {}}
     for source in sources:
@@ -223,6 +272,7 @@ def search(query, sources=SOURCES, size=20, pages=1, transport=fetch, source_que
         if paper['doi']:
             doi_groups.setdefault(paper['doi'], []).append(index)
     result['doi_duplicate_groups'] = {doi: positions for doi, positions in doi_groups.items() if len(positions) > 1}
+    result['known_seed_checks'] = check_known_seeds(result['records'], result['sources'], known_dois, known_source_ids)
     result['warning'] = ('Discovery records only. A complete status covers only the executed query, not the topic or known relevant works; '
                          'test known seeds and reformulate missed queries. DOI groups are candidate duplicates; resolve versions and study identity manually. '
                          'Failures and bounded pages are unchecked coverage, never evidence of no prior work.')
@@ -234,6 +284,10 @@ if __name__ == '__main__':
     parser.add_argument('--source', action='append', choices=SOURCES)
     parser.add_argument('--query-for', action='append', metavar='SOURCE=QUERY',
                         help='Override the query for one source; repeat per source')
+    parser.add_argument('--known-doi', action='append', metavar='DOI',
+                        help='Check whether an exact known DOI occurs in this run; repeatable')
+    parser.add_argument('--known-source-id', action='append', metavar='SOURCE=ID',
+                        help='Check an exact source ID (arXiv versions are linked); repeatable')
     parser.add_argument('--size', type=int, default=20)
     parser.add_argument('--pages', type=int, default=1)
     args = parser.parse_args()
@@ -246,8 +300,14 @@ if __name__ == '__main__':
             if source in source_queries:
                 raise ValueError('duplicate --query-for source')
             source_queries[source] = value
+        known_ids = []
+        for item in args.known_source_id or []:
+            if '=' not in item:
+                raise ValueError('--known-source-id needs SOURCE=ID')
+            known_ids.append(tuple(item.split('=', 1)))
         print(json.dumps(search(args.query, args.source or SOURCES, args.size, args.pages,
-                                source_queries=source_queries), ensure_ascii=False))
+                                source_queries=source_queries, known_dois=args.known_doi or (),
+                                known_source_ids=known_ids), ensure_ascii=False))
     except ValueError as exc:
         print(json.dumps({'error': str(exc)}), file=sys.stderr)
         sys.exit(2)
