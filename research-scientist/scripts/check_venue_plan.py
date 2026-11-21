@@ -24,7 +24,18 @@ def parse_deadline(value):
         raise ValueError('deadline lacks a timezone or AoE')
     return date
 
-def check(dossier):
+def parse_checked_at(value):
+    if not isinstance(value, str):
+        raise ValueError('checked_at must be a timezone-aware ISO timestamp')
+    try:
+        checked = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError as exc:
+        raise ValueError('checked_at must be a timezone-aware ISO timestamp') from exc
+    if checked.utcoffset() is None:
+        raise ValueError('checked_at must include a timezone')
+    return checked
+
+def check(dossier, as_of=None):
     if not isinstance(dossier, dict):
         raise ValueError('dossier must be a JSON object')
     for key in ('venue', 'edition', 'track', 'official_cfp_url', 'checked_at', 'user_timezone', 'milestones', 'fees'):
@@ -33,6 +44,13 @@ def check(dossier):
     for key in ('venue', 'edition', 'track', 'checked_at'):
         if not isinstance(dossier[key], str) or not dossier[key].strip():
             raise ValueError(f'blank {key}')
+    checked = parse_checked_at(dossier['checked_at'])
+    as_of = as_of or datetime.now(timezone.utc)
+    if as_of.utcoffset() is None:
+        raise ValueError('as_of must include a timezone')
+    max_age = dossier.get('max_source_age_days', 30)
+    if isinstance(max_age, bool) or not isinstance(max_age, int) or max_age < 0:
+        raise ValueError('max_source_age_days must be a nonnegative integer')
     if not isinstance(dossier['official_cfp_url'], str) or not dossier['official_cfp_url'].startswith('https://'):
         raise ValueError('official_cfp_url must be HTTPS')
     try:
@@ -43,6 +61,11 @@ def check(dossier):
     if not isinstance(milestones, dict):
         raise ValueError('milestones must be an object')
     converted, warnings, parsed = {}, [], {}
+    cfp_age_days = (as_of - checked).total_seconds() / 86400
+    if cfp_age_days < 0:
+        warnings.append('cfp_checked_at_in_future')
+    elif cfp_age_days > max_age:
+        warnings.append('cfp_source_recheck_needed')
     for name, value in milestones.items():
         if value is None:
             converted[name] = None
@@ -62,7 +85,11 @@ def check(dossier):
     if not isinstance(currency, str) or len(currency) != 3 or not currency.isalpha():
         raise ValueError('currency must be a three-letter code')
     mandatory_total = 0
+    verified_known_total = 0
     missing_mandatory = []
+    unverified_fee_evidence = []
+    fee_source_ages_days = {}
+    stale_fee_evidence = []
     seen_categories = set()
     for index, fee in enumerate(fees):
         if not isinstance(fee, dict) or not isinstance(fee.get('name'), str) or type(fee.get('mandatory')) is not bool:
@@ -79,6 +106,20 @@ def check(dossier):
                 missing_mandatory.append(fee['name'])
             else:
                 mandatory_total += amount
+            fee_checked_at = fee.get('checked_at')
+            try:
+                fee_checked = parse_checked_at(fee_checked_at)
+            except ValueError:
+                fee_checked = None
+            if not isinstance(fee.get('source_url'), str) or not fee['source_url'].startswith('https://') or fee_checked is None:
+                unverified_fee_evidence.append(fee['name'])
+            else:
+                age = (as_of - fee_checked).total_seconds() / 86400
+                fee_source_ages_days[fee['name']] = round(age, 1)
+                if age < 0 or age > max_age:
+                    stale_fee_evidence.append(fee['name'])
+                elif amount is not None:
+                    verified_known_total += amount
     budget = dossier.get('budget')
     if budget is not None and (isinstance(budget, bool) or not isinstance(budget, (int, float)) or not math.isfinite(budget) or budget < 0):
         raise ValueError('invalid budget')
@@ -89,11 +130,40 @@ def check(dossier):
         warnings.append('presentation_mode_unverified')
     if dossier.get('budget_currency') != currency:
         warnings.append('budget_currency_unverified_or_mismatched')
-    feasible = None if missing_mandatory or budget is None or 'budget_currency_unverified_or_mismatched' in warnings or 'presentation_mode_unverified' in warnings else mandatory_total <= budget
+    comparison_possible = budget is not None and 'budget_currency_unverified_or_mismatched' not in warnings and 'presentation_mode_unverified' not in warnings
+    if comparison_possible and verified_known_total > budget:
+        feasible = False
+    elif missing_mandatory or unverified_fee_evidence or stale_fee_evidence or not comparison_possible:
+        feasible = None
+    else:
+        feasible = True
+    schedule = None
+    plan = dossier.get('work_plan')
+    if plan is not None:
+        if not isinstance(plan, dict) or not isinstance(plan.get('tasks'), list) or not isinstance(plan.get('buffer_days'), int) or isinstance(plan['buffer_days'], bool) or plan['buffer_days'] < 0:
+            raise ValueError('work_plan needs ordered tasks and nonnegative integer buffer_days')
+        if 'full_paper' not in parsed:
+            schedule = {'status': 'deadline_unknown', 'tasks': [], 'warning': 'A work plan cannot be dated without a verified full-paper deadline.'}
+        else:
+            end = parsed['full_paper'].astimezone(user_zone) - timedelta(days=plan['buffer_days'])
+            latest = []
+            for item in reversed(plan['tasks']):
+                if not isinstance(item, dict) or not isinstance(item.get('name'), str) or not item['name'].strip() or not isinstance(item.get('days'), int) or isinstance(item['days'], bool) or item['days'] < 0:
+                    raise ValueError('each work_plan task needs a name and nonnegative integer days')
+                start = end - timedelta(days=item['days'])
+                latest.append({'name': item['name'], 'days': item['days'], 'latest_start_local': start.isoformat(), 'latest_finish_local': end.isoformat()})
+                end = start
+            latest.reverse()
+            schedule = {'status': 'start_already_passed_under_serial_assumption' if end < as_of.astimezone(user_zone) else 'start_not_yet_past_under_serial_assumption',
+                        'buffer_days': plan['buffer_days'], 'tasks': latest,
+                        'warning': 'Task durations and serial order are supplied assumptions; this does not establish scientific readiness or guarantee submission.'}
     return {'venue': dossier['venue'], 'edition': dossier['edition'], 'track': dossier['track'],
             'milestones_user_timezone': converted, 'mandatory_known_total': mandatory_total,
+            'verified_known_lower_bound': verified_known_total,
             'currency': currency.upper(), 'missing_mandatory_costs': missing_mandatory,
-            'within_budget': feasible, 'warnings': warnings,
+            'unverified_fee_evidence': unverified_fee_evidence, 'stale_fee_evidence': stale_fee_evidence,
+            'fee_source_ages_days': fee_source_ages_days, 'cfp_source_age_days': round(cfp_age_days, 1),
+            'within_budget': feasible, 'warnings': warnings, 'backward_schedule': schedule,
             'verification': 'Dates, CFP identity, fee categories, eligibility and source freshness are supplied claims, not verified by this script. Unknown costs prevent a positive affordability verdict.'}
 
 if __name__ == '__main__':

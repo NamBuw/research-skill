@@ -1,0 +1,64 @@
+{
+  "scope": "Fictional system and outcome, defined population and time window",
+  "search_date": "2026-11-21",
+  "coverage_limits": "Fictional fixture: two index labels and one closest work; actual audits need a field-appropriate search plan",
+  "next_check": "Run independent source and citation searches, then read any new close work",
+  "queries": [
+    {
+      "id": "Q1",
+      "source": "Example index A",
+      "query": "fictional mechanism and outcome",
+      "family": "direct_problem",
+      "status": "complete",
+      "retrieved": 1,
+      "inspected": 1
+    },
+    {
+      "id": "Q2",
+      "source": "Example index B",
+      "query": "older synonym or closure for fictional mechanism",
+      "family": "closure",
+      "status": "complete",
+      "retrieved": 1,
+      "inspected": 1
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E1",
+      "source_id": "FictionalStudy-A",
+      "study_id": "S1",
+      "locator": "Section 3, fictional fixture",
+      "claim": "The comparison cannot distinguish two explanations in this setting",
+      "role": "result",
+      "access": "full_text"
+    }
+  ],
+  "closest_works": [
+    {
+      "id": "W1",
+      "source_id": "FictionalStudy-A",
+      "relation": "partial_precedent",
+      "access": "full_text",
+      "difference": "It tests only one of the two competing explanations",
+      "evidence_ids": ["E1"]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "G1",
+      "claim": "The two explanations remain unresolved in this fictional setting",
+      "type": "mechanistic_uncertainty",
+      "disposition": "supported_candidate",
+      "rationale": "A fictional source-level comparison and bounded closure search leave this specific uncertainty",
+      "trigger": "literature_synthesis",
+      "engineering_status": "not_applicable",
+      "support_evidence_ids": ["E1"],
+      "counter_evidence_ids": [],
+      "closest_work_ids": ["W1"],
+      "kill_query_ids": ["Q2"],
+      "consequence": "A different explanation would change a specified decision",
+      "answer_path": "A controlled comparison with discriminating measures"
+    }
+  ]
+}

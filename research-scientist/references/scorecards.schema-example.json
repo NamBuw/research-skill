@@ -1,0 +1,36 @@
+{
+  "profiles": [
+    {
+      "id": "fictional_paper_A",
+      "reading_basis": "full_text",
+      "closest_work": ["fictional_prior_paper_section_3"],
+      "ratings": {"importance": 8, "novelty": 4, "soundness": 7, "evidence": 6, "transparency": 8, "clarity": 7},
+      "evidence_locators": {
+        "importance": ["fictional paper A, introduction and outcome definition"],
+        "novelty": ["fictional paper A, contribution; fictional prior paper, section 3"],
+        "soundness": ["fictional paper A, methods"],
+        "evidence": ["fictional paper A, results table 1"],
+        "transparency": ["fictional paper A, appendix"],
+        "clarity": ["fictional paper A, section 2"]
+      }
+    },
+    {
+      "id": "fictional_paper_B",
+      "reading_basis": "full_text",
+      "closest_work": ["fictional_other_prior_paper_section_2"],
+      "ratings": {"importance": 6, "novelty": 7, "soundness": 7, "evidence": 8, "transparency": 6, "clarity": 7},
+      "evidence_locators": {
+        "importance": ["fictional paper B, introduction and outcome definition"],
+        "novelty": ["fictional paper B, contribution; fictional other prior paper, section 2"],
+        "soundness": ["fictional paper B, methods"],
+        "evidence": ["fictional paper B, results table 2"],
+        "transparency": ["fictional paper B, appendix"],
+        "clarity": ["fictional paper B, section 2"]
+      }
+    }
+  ],
+  "weight_scenarios": [
+    {"importance": 15, "novelty": 20, "soundness": 20, "evidence": 20, "transparency": 15, "clarity": 10},
+    {"importance": 25, "novelty": 10, "soundness": 20, "evidence": 20, "transparency": 15, "clarity": 10}
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "question_id": "RQ-FICTIONAL-1",
+  "protocol_version": "v1",
+  "protocol_frozen_at_utc": "2026-01-01T00:00:00Z",
+  "runs": [
+    {
+      "run_id": "baseline-1",
+      "role": "baseline",
+      "protocol_version": "v1",
+      "code_commit": "fictional-commit-baseline",
+      "data_version": "fictional-data-v1",
+      "split_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "metric_id": "fictional_accuracy",
+      "metric_script_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "command": "python run_baseline.py --config fictional-v1.json",
+      "started_at_utc": "2026-01-02T00:00:00Z",
+      "ended_at_utc": "2026-01-02T01:00:00Z",
+      "exit_code": 0,
+      "result_artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "result_value": 0.5,
+      "deviations": [],
+      "decision_timing": "prespecified"
+    },
+    {
+      "run_id": "candidate-1",
+      "role": "candidate",
+      "protocol_version": "v1",
+      "code_commit": "fictional-commit-candidate",
+      "data_version": "fictional-data-v1",
+      "split_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "metric_id": "fictional_accuracy",
+      "metric_script_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "command": "python run_candidate.py --config fictional-v1.json",
+      "started_at_utc": "2026-01-02T02:00:00Z",
+      "ended_at_utc": "2026-01-02T03:00:00Z",
+      "exit_code": 0,
+      "result_artifact_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "result_value": 0.6,
+      "deviations": [],
+      "decision_timing": "prespecified"
+    }
+  ]
+}

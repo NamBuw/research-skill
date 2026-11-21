@@ -1,0 +1,47 @@
+{
+  "sources": [
+    {
+      "id": "E1",
+      "type": "fictional_run_log",
+      "locator": "fictional/logs/run-001.json#metric",
+      "verified": true,
+      "verified_by": "fictional_author",
+      "verified_at": "2026-11-21"
+    },
+    {
+      "id": "E2",
+      "type": "fictional_prior_paper",
+      "locator": "fictional-paper, section 3",
+      "verified": true,
+      "verified_by": "fictional_author",
+      "verified_at": "2026-11-21"
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "kind": "reported",
+      "material": true,
+      "source_ids": ["E1"]
+    }
+  ],
+  "methods": [
+    {
+      "id": "M1",
+      "origin": "adapted",
+      "source_ids": ["E2"],
+      "exact_change": "Fictional input transformation; scientific consequence has not been established",
+      "novelty_claimed": false,
+      "grand_name": false
+    }
+  ],
+  "numeric_facts": [
+    {
+      "id": "N1",
+      "occurrences": [
+        {"location": "abstract", "value": 0.71, "unit": "fictional score"},
+        {"location": "results table", "value": 0.71, "unit": "fictional score"}
+      ]
+    }
+  ]
+}

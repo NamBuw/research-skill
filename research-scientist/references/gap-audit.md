@@ -29,6 +29,22 @@ source and stable locator
 
 If one arrow depends on an inference, label it as an inference and explain the warrant. Do not allow an LLM-generated gap sentence to become the evidence for itself. A retrieval score, topic cluster, missing phrase, “future work” sentence, reviewer comment, or novelty-classifier verdict is not the chain.
 
+### Run a candidate through an auditable state transition
+
+For each proposed gap, preserve the original claim and move it through these states. The same candidate can move backward after new evidence; preserve the old record and reason for revision.
+
+| State | Action that advances it | Action that rejects or demotes it |
+|---|---|---|
+| `lead` | Record the exact source passage, parser output, review comment, anomaly, or user observation that suggested it. | Discard if the lead was misquoted, misattributed, or merely a retrieval artifact. |
+| `bounded_uncertainty` | Define population/system, construct, comparison, consequence and a possible closing precedent. | Reframe if the issue is a local implementation fault, vague method preference, or a question already answered by the source. |
+| `source_checked` | Verify decisive primary passages, study identity and independence; classify each item as result, method, assumption, limitation, author future work, or context. | Demote if the only evidence is metadata, abstract, author future work, or repeated reports of one study. |
+| `challenged` | Run alternate-vocabulary, mechanism, historical, adjacent-field, and citation-trail searches; inspect the closest work and counterevidence. | Mark `not_a_gap` when a direct precedent or a non-consequential difference closes it; use `insufficient_evidence` for unresolved decisive access/search gaps. |
+| `supported_candidate` | Explain the unresolved inference and why resolving it matters, state an answer path, and expose remaining blind spots. | Return to an earlier state when new work changes the comparison or the proposed experiment cannot distinguish the accounts. |
+
+Do not collapse `lead` and `supported_candidate` into one LLM step. A source can suggest a candidate; a separate adversarial pass must try to eliminate it. This incorporates the useful staged ideation pattern of the AI Scientist and author-limitation mining systems while refusing their abstract/top-result or single-verification-query output as a novelty certificate.
+
+For a durable machine-readable record, copy [the fictional gap-record example](gap-record.schema-example.json), replace every fixture value, and run `python scripts/check_gap_record.py your-gap-record.json`. The checker verifies ID links, full-text access for a positive candidate, a read closest work with a linked source locator, a screened adversarial query, at least two successful source/query families or an explicit coverage exception, and engineering triage when the trigger is a failed implementation. It flags an author future-work statement used as the only support. Counts mean *retrieved into the local run* and *screened in that run*, not provider-wide totals. A source name does not prove index independence, and an exception needs scientific review. Passing is **only structural**: source truth, passage entailment, search recall, relevance, independence, scientific importance, and inference still require primary-source and expert review. Use `early_signal` or `insufficient_evidence` when those remain unresolved.
+
 ## Gate 0 — Is the request actually answerable as a gap audit?
 
 Before claiming anything:
@@ -190,6 +206,8 @@ Do not let a gap label dictate the question. For each surviving candidate:
 7. Verify that the closest precedent does not already answer the question under another name.
 
 Then use the [Good Question Card](artifact-templates.md#8-good-question-card). If the evidence supports an important question but not a novelty claim, keep the question and remove the novelty claim.
+
+Before promoting the card to a study proposal, run a two-sided prediction check. Write what the focal account and strongest rival each predict for the *same* observable, comparison, timing and units. If both predict the observed pattern, the proposed test cannot discriminate them. Add a better measure, negative control, intervention, setting contrast, proof obligation, or archival source as appropriate, or state that the RQ remains descriptive/exploratory. Name the result that would weaken the focal account and the result that would be indeterminate because of low precision, invalid measurement, noncompliance, or missing data. Freeze confirmatory choices before seeing outcome data; if outcomes were already seen, label the analysis exploratory and seek an untouched test.
 
 ## Required report for a substantial gap audit
 

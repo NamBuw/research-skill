@@ -38,6 +38,7 @@ For broad field claims, prefer several independent sources and trace their linea
 - Distinguish replication, reproducibility, robustness, and generalization. Do not say a result was reproduced unless the run, conditions, code/data versions, and outputs were actually checked.
 - Report denominators, units, missingness, effect sizes, uncertainty, exclusions, and comparator conditions where relevant. A p-value threshold is not the probability that a hypothesis is true; non-significance does not establish equivalence or absence of effect.
 - Do not invent sample sizes, procedures, parameter values, baselines, instruments, approvals, or preregistration. Do not retrofit a rationale into an observed analysis and present it as prespecified.
+- Do not label a concatenation, wrapper, routine transfer, or parameter change as a new scientific method merely by inventing an impressive name. Keep a component-level lineage and state precisely which mechanism, inference, or decision changes; the burden is on the claim, not on the branding.
 - Preserve changes to protocol, code, data, model, metrics, and analysis with dates and reasons. Report how deviations can affect the conclusion.
 - Treat ethical approval, consent, data rights, privacy, safety, and authorship as accountable human responsibilities. An agent checklist or score is not approval.
 

@@ -191,6 +191,10 @@ Then discard candidates that have no consequential stake, no answer path, no mea
 
 For a reusable structured card, use [the JSON example](question-card.schema-example.json) and the [local checker](../scripts/check_question_card.py). Replace every example field with actual study details and source IDs. The checker flags empty fields and identical focal/rival predictions; a passing check does not establish novelty, identification, validity, or feasibility.
 
+If the RQ rests on a claimed gap, retain its candidate ID and [gap audit record](gap-record.schema-example.json). Run `python scripts/check_gap_record.py your-gap-record.json` before promoting `supported_candidate`; inspect the returned errors and warnings, then read the sources yourself. A passed structural check is a readiness aid, never a positive scientific verdict. Formulate the RQ even when the honest gap status is `early_signal` if the question would still produce useful evidence, but remove unsupported originality language.
+
+Build a small **decision table** before selecting an experiment or proof: rows are focal account, strongest rival, and conservative/null account; columns are predicted observation, required assumptions, plausible artifact, and what a negative or indeterminate result teaches. Keep genuinely distinct accounts; do not manufacture symmetry. When all accounts predict the same result, revise the measure or contrast before claiming the design tests the mechanism. Test a cheap pilot's measurement reliability, sample/data access, and baseline fidelity before funding a large study. State the pilot's go/no-go criterion in advance when possible.
+
 For each candidate that survives, present:
 
 - **Question:** one sentence, with target/system, relation/mechanism, and boundary.

@@ -16,6 +16,12 @@ Do not humanize an unstable scientific argument. First settle the evidence, cont
 
 For a completed paper, write the abstract after the body and claim hierarchy are stable. It should state the actual problem, central answer, decisive evidence, and conditions on the claim; it is not a list of sections or a promise about planned experiments.
 
+### Local manuscript ledger
+
+For a consequential draft, create a ledger from [the fictional JSON example](manuscript-ledger.schema-example.json) and run `python scripts/check_manuscript_ledger.py manuscript-ledger.json`. Give each material claim a stable ID and an exact source/result locator. Record a human verifier and date only after the passage, output, or analysis has actually been opened and checked. Record each method as reused, adapted, combined, or newly derived, with its sources and exact change. A proposed method novelty claim needs closest-work source IDs, a specific difference, and an accountable human review record; none of these declarations proves novelty by itself. A grand name for reused, adapted, or combined methods is always flagged, even if the author claims a difference. Track repeated numerical facts across the abstract, body, figures, tables, and supplements. The checker flags missing links, unsupported novelty declarations, and mismatched repeated values; it does not read the manuscript or judge source entailment. When wording changes, re-check the claim against the source rather than carrying a stale verified label forward.
+
+Keep the ledger local when it contains unpublished work or restricted evidence. Do not send confidential manuscripts or peer-review material to an external model, search API, or parser unless the owner and applicable venue policy authorize that processing. Human authors retain responsibility for the methods, results, citations, authorship, and final submission.
+
 ## Humanizer pass for scholarly prose
 
 Read the full draft and flag patterns that make the writing sound formulaic, inflated, or detached from the evidence. Look at the document as a whole, not one sentence at a time. Common structural signs include:
@@ -70,3 +76,12 @@ Before returning edited prose, check the original and final side by side for:
 5. Whether the rewrite added an unsupported detail, removed a meaningful contrast, erased author voice, or made an uncertain result sound certain.
 
 If an edit changes a scientific claim or method description, do not treat it as line editing. Flag the change, restore the source-supported wording, or ask the author to verify it. A polished sentence cannot repair an unsupported contribution.
+
+### Section audit when drafting a full paper
+
+- **Title and abstract:** compare every outcome, magnitude, comparator, qualifier, and novelty phrase against the results and closest-work matrix. A planned experiment has no result to summarize.
+- **Introduction and related work:** distinguish background from direct competitors. For each closest paper, state the exact overlap and the material difference, then cite the original passage. Include relevant contrary and null work.
+- **Methods:** reconcile the declared study unit, data source, inclusion rules, preprocessing, split, reference protocol, controls, parameters, software, deviations, and method lineage with the actual run record. Do not fill gaps with plausible implementation details.
+- **Results:** verify each figure and table exists, matches the analysis population and metric, and is cited in the right place. Preserve negative and failed runs when they affect interpretation. Explain inconsistent denominators, units, or sample counts rather than silently harmonizing them.
+- **Discussion and limitations:** compare findings with rivals and prior results; state the supported scope and concrete failure modes. Mark speculative mechanisms as hypotheses.
+- **Declarations and references:** verify bibliography keys and source identity separately from claim support. Obtain current venue rules for author contributions, ethics, conflicts, data availability, and AI disclosure; do not invent boilerplate declarations.

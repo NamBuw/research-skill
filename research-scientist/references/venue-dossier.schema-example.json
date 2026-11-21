@@ -3,7 +3,7 @@
   "edition": "2027",
   "track": "Fictional research track",
   "official_cfp_url": "https://example.org/fictional-cfp",
-  "checked_at": "2026-11-21",
+  "checked_at": "2026-11-20T12:00:00+00:00",
   "user_timezone": "Asia/Saigon",
   "milestones": {
     "abstract_registration": "2027-01-28T23:59:00 AoE",
@@ -15,11 +15,18 @@
   "budget_currency": "USD",
   "budget": 500,
   "presentation_mode": "online",
+  "work_plan": {
+    "buffer_days": 2,
+    "tasks": [
+      {"name": "Fictional remaining experiments", "days": 10},
+      {"name": "Fictional analysis and manuscript review", "days": 7}
+    ]
+  },
   "fees": [
-    {"category": "submission", "name": "Submission fee", "mandatory": true, "amount": null},
-    {"category": "publication", "name": "Publication fee", "mandatory": true, "amount": null},
-    {"category": "author_registration", "name": "Author registration", "mandatory": true, "amount": null},
+    {"category": "submission", "name": "Submission fee", "mandatory": true, "amount": null, "source_url": "https://example.org/fictional-fees", "checked_at": "2026-11-20T12:00:00+00:00"},
+    {"category": "publication", "name": "Publication fee", "mandatory": true, "amount": null, "source_url": "https://example.org/fictional-fees", "checked_at": "2026-11-20T12:00:00+00:00"},
+    {"category": "author_registration", "name": "Author registration", "mandatory": true, "amount": null, "source_url": "https://example.org/fictional-fees", "checked_at": "2026-11-20T12:00:00+00:00"},
     {"category": "overlength", "name": "Overlength charge", "mandatory": false, "amount": null},
-    {"category": "tax", "name": "Tax", "mandatory": true, "amount": null}
+    {"category": "tax", "name": "Tax", "mandatory": true, "amount": null, "source_url": "https://example.org/fictional-fees", "checked_at": "2026-11-20T12:00:00+00:00"}
   ]
 }

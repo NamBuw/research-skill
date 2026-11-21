@@ -75,6 +75,8 @@ Use source IDs in cells, then keep citations and locators in the evidence ledger
 
 Allowed status values: `supported_candidate`, `early_signal`, `not_a_gap`, `insufficient_evidence`. Add a prose rationale; do not average into one score. Use “candidate” unless a defensible scope and domain review support a stronger claim. A coverage gap is explicitly about the reviewed corpus, not the entire field.
 
+For a machine-readable audit, use [the fictional JSON example](gap-record.schema-example.json) with [the local structural checker](../scripts/check_gap_record.py). Preserve query IDs and status, source/study IDs and exact locators, access levels, closest-work relations, kill-search query IDs, counterevidence, engineering status, and revision history. The example's fictional content is a schema illustration, not a real gap or literature finding. The checker cannot validate source-to-claim entailment or certify novelty.
+
 ## 7. Novelty comparison record
 
 ```markdown

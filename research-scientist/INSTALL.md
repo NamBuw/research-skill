@@ -22,8 +22,15 @@ Start a new session or refresh the skill list. Gemini CLI supports `/skills list
 - `references/artifact-templates.md` — formats for durable, auditable research artifacts.
 - `references/repository-landscape.md` — source-reading provenance, outside the runtime workflow.
 - `scripts/search_papers.py` — bounded four-source scholarly discovery with source-status logging.
+- `scripts/citation_trails.py` — bounded OpenAlex one-hop backward/forward citation leads for a verified work ID.
+- `scripts/local_evidence.py` — local lexical passage leads from text and MinerU Content List V2 exports.
+- `scripts/check_evidence_map.py` — structural question, passage, claim, and outline links.
+- `scripts/check_gap_record.py` — structural evidence/source/kill-search checks for a proposed gap.
+- `scripts/check_experiment_manifest.py` — structural run-receipt and baseline/candidate comparison checks.
 - `scripts/check_question_card.py` — structural RQ/rival/measurement check; an example JSON card is under `references/`.
 - `scripts/check_venue_plan.py` — deadline conversion and fee completeness; official facts still require review.
+- `scripts/check_manuscript_ledger.py` — structural claim, numeric fact, and method-lineage checks for a manuscript.
+- `scripts/compare_scorecards.py` — declared reading/locator basis and weight-sensitivity checks across papers.
 - `scripts/score_math.py` — guarded score arithmetic.
 - `scripts/audit_alignment.py` — optional read-only CSV identity/split diagnostic.
 - `agents/openai.yaml` — optional Codex UI metadata.

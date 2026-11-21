@@ -1,0 +1,62 @@
+{
+  "note": "Fictional schema fixture. No paper, result, or URL here is real evidence.",
+  "source_mode": "supplied_corpus",
+  "corpus_boundary": "One fictional supplied report; no field-wide search was conducted.",
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Fictional calibration report",
+      "identifier": "fixture://report-one",
+      "access": "original_full_text",
+      "identity_verified": true,
+      "study_group": "G1"
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "perspective": "measurement expert",
+      "text": "How were measurements checked?",
+      "status": "answered",
+      "searches": ["calibration measurement"]
+    },
+    {
+      "id": "Q2",
+      "perspective": "skeptical reviewer",
+      "text": "Did the result replicate independently?",
+      "status": "unresolved",
+      "searches": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E1",
+      "question_id": "Q1",
+      "source_id": "S1",
+      "locator": "fictional page 3, methods",
+      "passage": "Fictional placeholder: instruments were checked before each run.",
+      "relation": "supports",
+      "original_checked": true,
+      "entailment_reason": "The fictional methods statement directly describes instrument checks."
+    }
+  ],
+  "claims": [
+    {
+      "id": "C1",
+      "text": "In this fictional report, the instruments were checked before runs.",
+      "status": "supported",
+      "evidence_ids": ["E1"]
+    },
+    {
+      "id": "C2",
+      "text": "Whether the finding replicated independently is unresolved.",
+      "status": "unresolved",
+      "evidence_ids": [],
+      "needed_next": "Find an independent replication and read its methods and results."
+    }
+  ],
+  "outline": [
+    {"heading": "Measurement", "question_ids": ["Q1"], "claim_ids": ["C1"]},
+    {"heading": "Replication status", "question_ids": ["Q2"], "claim_ids": ["C2"]}
+  ]
+}
