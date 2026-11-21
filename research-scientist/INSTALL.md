@@ -1,59 +1,81 @@
-# Install and use
+# Install and Use (`research-scientist` Hub-and-Spoke Suite)
 
-This skill uses the open Agent Skills folder format: `SKILL.md` plus optional references. It has been installed for the current user in:
+This repository packages a **7-skill Hub-and-Spoke suite** in the open Agent Skills format (`SKILL.md` + `references/` + `agents/openai.yaml`):
 
-- **Codex:** `~/.agents/skills/research-scientist/`
-- **Gemini CLI:** `~/.agents/skills/research-scientist/` (the current Gemini CLI documents `~/.agents/skills/` as an alias for user skills)
-- **Claude Code:** `~/.claude/skills/research-scientist/`
+- **Parent Orchestrator:** `research-scientist/` (owns all shared `scripts/`, `modules/`, `THIRD_PARTY_NOTICES.md`, and cross-cutting `references/`)
+- **Six Sibling Specialist Sub-Skills** (must be installed alongside `research-scientist/` in the same skills parent directory so `../research-scientist/scripts/` and `../research-scientist/modules/` resolve cleanly without duplicating code):
+  1. `research-precedent-corpus/` — multi-source retrieval, citation graph, PDF/OCR blocks, PaperQA2 corpus Q&A
+  2. `research-gap-rq-audit/` — STORM exploration, gap pipeline, engineering-vs-gap triage, parsimony gate, RQ cards
+  3. `research-experiment-coding/` — 4-phase debugging, TDD, verification-before-completion, PyTorch hygiene, `repro`, `rliable`, contamination, SHA-256 receipts
+  4. `research-novelty-venue/` — /10 scorecards, `>=5` accepted-panel novelty, live CFP/fee verification, rebuttal budget/coverage & H1–H17 fairness
+  5. `research-paper-writing/` — Humanizer §1–§26 lint, anti-fabrication/anti-padding/anti-grandiose ledger, figure QA, anonymization, arXiv/BibTeX preflight
+  6. `research-user-report/` — concise, plain-language multilingual LaTeX-to-PDF user report (`report_latex_pdf.py`)
 
-Codex and Gemini share the canonical `.agents/skills` directory. Claude Code's user-level directory is mirrored from that canonical copy. If you edit the skill later, update both folders:
+## Multi-Skill Install & Sync (`sync_skills.py`)
+
+Use `research-scientist/scripts/sync_skills.py` to install or update all 7 skills together with verified relative links (`shared_scripts_resolved: true`) across Codex, Claude Code, and Gemini CLI:
+
+1. **Preview the sync (dry run):**
+
+   ```bash
+   python3 research-scientist/scripts/sync_skills.py --dry-run --compact
+   ```
+
+2. **Sync to default detected CLI directories** (`~/.agents/skills` for Codex/Gemini CLI, `~/.claude/skills` for Claude Code, plus `~/.codex/skills` if that directory exists):
+
+   ```bash
+   python3 research-scientist/scripts/sync_skills.py --compact
+   ```
+
+3. **Or explicitly target Codex, Claude Code, and Gemini CLI directories:**
+
+   ```bash
+   python3 research-scientist/scripts/sync_skills.py \
+     --target-dir ~/.codex/skills \
+     --target-dir ~/.claude/skills \
+     --target-dir ~/.agents/skills \
+     --compact
+   ```
+
+Start a new session or refresh the skill list in your client (e.g., `gemini skills list` or `/skills reload` in Gemini CLI).
+
+## Post-Install Verification (`claim_audit.py`)
+
+Verify documentation, script/flag consistency, `agents/openai.yaml` metadata, token budgets, and non-duplication after syncing:
 
 ```bash
-cp -a ~/.agents/skills/research-scientist/. ~/.claude/skills/research-scientist/
+# Verify repository suite (all 7 skills)
+python3 research-scientist/scripts/claim_audit.py --suite-root . --compact
+
+# Verify parent skill + README.md
+python3 research-scientist/scripts/claim_audit.py --root research-scientist --readme README.md --compact
+
+# Verify installed copy (example: ~/.agents/skills)
+python3 ~/.agents/skills/research-scientist/scripts/claim_audit.py --suite-root ~/.agents/skills --compact
 ```
 
-Start a new session or refresh the skill list. On the locally checked Gemini CLI 0.65.0, `gemini skills list` reported `research-scientist [Enabled]` at `~/.agents/skills/research-scientist/SKILL.md`; its interactive `/skills list` and `/skills reload` commands are also available. Codex and Claude Code discover user skills from their documented directories. The agent still needs appropriate search/PDF/database tools to perform live research. The skill adapts to available tools and does not install or assume a particular backend.
+Every check must exit `0` with `finding_count: 0`.
 
-## Package contents
+## Package Contents (`research-scientist/`)
 
-- `SKILL.md` — router and core evidence rules, loaded when the skill activates.
-- `references/gap-audit.md` — mandatory detailed gate for gap/novelty tasks.
-- `references/research-workflow.md` — review designs, search, evidence, question and study workflows.
-- `references/artifact-templates.md` — formats for durable, auditable research artifacts.
-- `references/repository-landscape.md` — source-reading provenance, outside the runtime workflow.
-- `scripts/search_papers.py` — bounded six-source scholarly discovery with source-status logging.
-- `scripts/search_campaign.py` — sequential multi-query discovery campaign with query-family and known-seed provenance; see `references/search-campaign.example.json`.
-- `scripts/resolve_fulltext.py` — OpenAlex OA PDF leads and optional bounded download receipt; source identity and version still need original-document review.
-- `scripts/citation_trails.py` — bounded OpenAlex one-hop backward/forward citation leads for a verified work ID.
-- `scripts/local_evidence.py` — local lexical passage leads from text and MinerU Content List V2 exports.
-- `scripts/extract_pdf_blocks.py` — optional local text-based PDF block/page extraction using PyMuPDF; no OCR.
-- `scripts/check_evidence_map.py` — structural question, passage, claim, and outline links.
-- `scripts/check_gap_record.py` — structural evidence/source/kill-search checks for a proposed gap.
-- `scripts/check_ai_cs_research_plan.py` — empirical AI/CS cross-check of gap, RQ and proposed discriminating experiments; the three fictional input examples are under `references/`.
-- `scripts/check_experiment_manifest.py` — structural run-receipt and baseline/candidate comparison checks.
-- `scripts/check_question_card.py` — structural RQ/rival/measurement check; an example JSON card is under `references/`.
-- `scripts/check_venue_plan.py` — deadline conversion and fee completeness; official facts still require review.
-- `scripts/capture_venue_sources.py` — dated HTML/plain/PDF snapshots of supplied venue source URLs.
-- `scripts/check_venue_sources.py` — exact quote matching from dossier facts to captured source text; interpretation still requires review.
-- `scripts/compare_venue_novelty.py` — arithmetic and evidence-field checks for a recent same-track accepted-paper panel versus the user's claim; `references/venue-novelty-profile.fixture.json` is fictional.
-- `scripts/venue_leads.py` — bounded related-paper publication-source leads, requiring official venue verification.
-- `scripts/check_manuscript_ledger.py` — structural claim, numeric fact, and method-lineage checks for a manuscript.
-- `scripts/compare_scorecards.py` — declared reading/locator basis and weight-sensitivity checks across papers.
-- `scripts/score_math.py` — guarded score arithmetic.
-- `scripts/audit_alignment.py` — optional read-only CSV identity/split diagnostic.
-- `modules/kdense-scientific-writing/` — bundled MIT-licensed offline paper-writing toolkit with workspace, claim, reference, consistency, reporting, authorship and lint commands. See its `VENDOR.md` and `LICENSE.md`; invoke it through this skill's paper-production workflow.
-- `modules/humanizer/` — bundled MIT-licensed 26-pattern prose-editing catalog, applied after scientific checks through this skill's writing workflow.
-- `modules/researchradar/` — bundled MIT-licensed public-review, paper, citation, limitation and exact-quote tools, used as a gap-evidence lane. Network routes have source-specific access and optional large datasets; see its `VENDOR.md`.
-- `agents/openai.yaml` — optional Codex UI metadata.
+- `SKILL.md` — lean Parent Orchestrator prompt, global zero-sycophancy / falsification-first / parsimony laws, and 6-spoke routing table.
+- `agents/openai.yaml` — Codex UI metadata (present in `research-scientist/` and all 6 sibling sub-skills).
+- `THIRD_PARTY_NOTICES.md` — consolidated MIT and Apache-2.0 attributions plus excluded/clean-room license boundaries.
+- `references/` — modular on-demand workflow guides, schemas, fixtures, and `repository-landscape.md` (33-repo triage matrix).
+- `scripts/` — runnable Python CLIs supporting `--help` and `--compact` disk-offloaded workflows:
+  - **Retrieval & Corpus (`research-precedent-corpus`):** `search_papers.py`, `search_campaign.py`, `resolve_fulltext.py`, `citation_trails.py`, `citation_graph.py`, `fulltext_mining.py`, `extract_pdf_blocks.py`, `local_evidence.py`, `check_evidence_map.py`
+  - **Gap, RQ & Parsimony (`research-gap-rq-audit`):** `storm_explorer.py`, `gap_pipeline.py`, `check_gap_record.py`, `check_gap_campaign.py`, `check_question_card.py`, `check_ai_cs_research_plan.py`
+  - **Experiment Coding & Rigor (`research-experiment-coding`):** `check_engineering_diagnostics.py`, `audit_alignment.py`, `check_experiment_manifest.py`, `check_experiment_rigor.py` (`repro`, `rliable`, `contamination`)
+  - **Novelty, Venue & Rebuttal (`research-novelty-venue`):** `venue_leads.py`, `venue_panel_collector.py`, `capture_venue_sources.py`, `check_venue_sources.py`, `check_venue_plan.py`, `compare_scorecards.py`, `compare_venue_novelty.py`, `score_math.py`, `check_rebuttal.py` (`budget`, `coverage`)
+  - **Paper Writing, Figures & Preflight (`research-paper-writing`):** `humanizer_lint.py`, `check_manuscript_ledger.py`, `check_figure_qa.py` (`palette`, `figure`), `check_submission_preflight.py` (`anonymize`, `arxiv-clean`, `bibtex`)
+  - **Multilingual User Report (`research-user-report`):** `report_latex_pdf.py`
+  - **Suite Governance & Sync:** `claim_audit.py`, `sync_skills.py`
+- `modules/` — bundled MIT-licensed offline/tool suites (`kdense-scientific-writing/`, `kdense-peer-review/`, `kdense-scholar-evaluation/`, `kdense-hypothesis-generation/`, `kdense-literature-review/`, `humanizer/`, `researchradar/`), each with `VENDOR.md` and `LICENSE.md`.
 
-The folder is self-contained and has no hard dependency on a specific external service. The paper-writing toolkit is a bundled copy of the named upstream MIT module with its license and source notice; the rest of the skill's scripts are written for this repository.
+## Runtime Dependencies, Optional Tools & API Keys
 
-The core checkers use Python's standard library. `scripts/extract_pdf_blocks.py` additionally needs PyMuPDF for local text-based PDF extraction; if it is unavailable, use an authorized extractor and pass its text or MinerU Content List V2 export to `scripts/local_evidence.py`. OCR or reliable table/formula parsing requires an appropriate parser and visual verification; this package does not bundle MinerU model weights.
-
-## Credentials and capability checks
-
-This package does not contain a Semantic Scholar key. For Semantic Scholar API work, ask the user to supply `S2_API_KEY` through the runtime's secret/environment mechanism. Check presence without printing its value. Do not store keys in skill text, agent prompts, logs, commits, or generated reports. Send a provided key only to the official API in its authentication header.
-
-Suggested disclosure: “Without an S2 key, shared access/rate limits may reduce the Semantic Scholar papers and citation trails we can inspect within the available time. Other sources may offset some loss; I will report which searches completed and which coverage remains unchecked.” A key improves access conditions; it does not guarantee scientific quality or completeness. Continue independent searches while awaiting a key. Check each alternative source's own access requirements.
-
-The package also includes modular references for prior-art retrieval, failure diagnosis, scoring and venue planning, scientific integrity, Humanizer-based scholarly editing, agent orchestration, and quality evaluation. Load only the modules needed. Parallel work uses the host agent's available delegation tools, with a sequential fallback; no framework-specific agent API is assumed.
+- **Core Python:** Most governance, gap/RQ, experiment-rigor, figure-QA, rebuttal, preflight, humanizer, scoring, and sync scripts run on Python 3 standard library.
+- **XML & PDF parsing:** `search_papers.py` and `fulltext_mining.py` use `defusedxml`. PDF extraction (`extract_pdf_blocks.py`), PDF CFP snapshots (`capture_venue_sources.py`), PDF rebuttal page counts (`check_rebuttal.py`), and post-compile PDF verification (`report_latex_pdf.py`) use `PyMuPDF` (`fitz`). `extract_pdf_blocks.py` optionally uses `pdfplumber` (`--tables`) and `Pillow` + the `tesseract` binary (`--ocr`), or an externally installed `mineru` CLI (`--use-mineru`; zero MinerU source is bundled).
+- **Optional external Khoj:** `local_evidence.py --khoj-url` connects over HTTP to a user-operated Khoj server (zero Khoj AGPL source is bundled).
+- **Optional LaTeX engines for `report_latex_pdf.py`:** Automatically probes `xelatex` → `lualatex` → `pdflatex` (with `vntex` / T5 encoding support for Vietnamese diacritics when using `pdflatex` or Unicode fonts under `lualatex`/`xelatex`) and verifies extracted PDF text via `PyMuPDF`. If no LaTeX compiler is installed, `--tex-out` still writes the validated `.tex` source, while PDF compilation reports an explicit missing-engine error.
+- **API keys & credentials:** No credentials are stored or bundled. Supply `S2_API_KEY` through your runtime environment for higher Semantic Scholar rate limits. Check presence without printing key values, and never commit secrets into skill files, logs, or reports.
