@@ -189,6 +189,8 @@ Then discard candidates that have no consequential stake, no answer path, no mea
 
 ### Good Question Card
 
+For a reusable structured card, use [the JSON example](question-card.schema-example.json) and the [local checker](../scripts/check_question_card.py). Replace every example field with actual study details and source IDs. The checker flags empty fields and identical focal/rival predictions; a passing check does not establish novelty, identification, validity, or feasibility.
+
 For each candidate that survives, present:
 
 - **Question:** one sentence, with target/system, relation/mechanism, and boundary.

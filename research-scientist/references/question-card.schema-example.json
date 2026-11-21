@@ -1,0 +1,21 @@
+{
+  "question": "Under condition C, does process X change outcome Y relative to comparator Z?",
+  "question_type": "causal",
+  "target_scope": "Defined units and setting C over a prespecified period",
+  "unit_of_observation": "One observation at each time point",
+  "unit_of_analysis": "One independent unit; repeated observations are modeled within unit",
+  "construct_or_estimand": "Difference in mean Y under X versus Z at time T",
+  "measurement": "Prespecified instrument for Y with calibration and missingness checks",
+  "closest_work": "Verified source IDs and exact contribution differences, or explicitly unresolved",
+  "prior_art_boundary": "Databases, queries, dates, languages, access and missing coverage",
+  "rival_explanation": "Measurement drift rather than effect of X",
+  "expected_if_focal": "Y changes under X while the negative-control measure remains stable",
+  "expected_if_rival": "Y and the negative-control measure shift together by measurement batch",
+  "discriminating_test": "Matched comparison with batch-balanced assignment and negative control",
+  "falsifying_result": "Valid measurement and adequate precision show no prespecified contrast in Y",
+  "indeterminate_result": "Measurement calibration fails or uncertainty is too large to distinguish accounts",
+  "pilot": "Small preregistered feasibility check of measurement and assignment",
+  "engineering_diagnosis": "Documented data-ID, preprocessing, split, evaluator and baseline checks",
+  "prior_outcome_exposure": "Whether any target outcomes were already inspected before this plan",
+  "identification_assumptions": "Exchangeability, consistency, positivity and no differential measurement bias"
+}
