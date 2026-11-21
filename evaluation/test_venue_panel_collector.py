@@ -622,6 +622,341 @@ class VenuePanelCollectorTests(unittest.TestCase):
             self.assertEqual(sec_out['venue_name'], booktitle)
             self.assertTrue(all(p['track'] == expected_track and p['venue'] == booktitle for p in sec_out['papers']))
 
+    def test_dblp_multi_proceedings_venue_name_and_track_main(self):
+        # Bug 1 & Bug 3: Workshop <proceedings> before Main <proceedings>, standard <booktitle>ICML</booktitle>
+        multi_proc_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<dblp>
+  <proceedings key="conf/icml/2024w"><title>Proceedings of ICML 2024 Workshop.</title><booktitle>ICML Workshop</booktitle><year>2024</year></proceedings>
+  <proceedings key="conf/icml/2024"><title>Proceedings of ICML 2024.</title><booktitle>ICML</booktitle><year>2024</year></proceedings>
+  <inproceedings key="conf/icml/W1"><author>W1</author><title>Workshop 1.</title><year>2024</year><booktitle>ICML Workshop</booktitle></inproceedings>
+  <inproceedings key="conf/icml/M1"><author>M1</author><title>Main 1.</title><year>2024</year><booktitle>ICML</booktitle></inproceedings>
+  <inproceedings key="conf/icml/M2"><author>M2</author><title>Main 2.</title><year>2024</year><booktitle>ICML</booktitle></inproceedings>
+  <inproceedings key="conf/icml/M3"><author>M3</author><title>Main 3.</title><year>2024</year><booktitle>ICML</booktitle></inproceedings>
+  <inproceedings key="conf/icml/M4"><author>M4</author><title>Main 4.</title><year>2024</year><booktitle>ICML</booktitle></inproceedings>
+  <inproceedings key="conf/icml/M5"><author>M5</author><title>Main 5.</title><year>2024</year><booktitle>ICML</booktitle></inproceedings>
+</dblp>
+"""
+        t_multi = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': multi_proc_xml.encode('utf-8')}
+        for trk in (None, 'Main', 'main'):
+            out = collector_mod.collect_panel('dblp', 'conf/icml/icml2024.xml', limit=5, track=trk, transport=t_multi)
+            self.assertEqual(out['track'], 'Main')
+            self.assertEqual(out['venue_name'], 'ICML')
+            self.assertEqual(out['venue']['name'], 'ICML')
+            self.assertTrue(all(p['venue'] == 'ICML' and p['track'] == 'Main' for p in out['papers']))
+            self.assertEqual([p['title'] for p in out['papers']], [f'Main {i}' for i in range(1, 6)])
+
+        # Even if only Workshop <proceedings> exists before Main papers, Main papers must NOT get Workshop venue_name
+        ws_proc_only_xml = multi_proc_xml.replace(
+            '  <proceedings key="conf/icml/2024"><title>Proceedings of ICML 2024.</title><booktitle>ICML</booktitle><year>2024</year></proceedings>\n',
+            '',
+        )
+        t_ws_proc = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': ws_proc_only_xml.encode('utf-8')}
+        out_no_main_proc = collector_mod.collect_panel('dblp', 'conf/icml/icml2024.xml', limit=5, track='Main', transport=t_ws_proc)
+        self.assertEqual(out_no_main_proc['venue_name'], 'ICML')
+        self.assertTrue(all(p['venue'] == 'ICML' for p in out_no_main_proc['papers']))
+
+        # Bug 3 on DBLP HTML without literal word "Main" in <h2>
+        std_html = """<!DOCTYPE html><html><body>
+        <h1>ICML 2024</h1>
+        <header><h2>Session 1: Optimization</h2></header>
+        <ul class="publ-list">
+          <li class="entry inproceedings" id="conf/icml/M1"><cite class="data"><span class="title">Main H1.</span><span itemprop="datePublished">2024</span></cite></li>
+          <li class="entry inproceedings" id="conf/icml/M2"><cite class="data"><span class="title">Main H2.</span><span itemprop="datePublished">2024</span></cite></li>
+          <li class="entry inproceedings" id="conf/icml/M3"><cite class="data"><span class="title">Main H3.</span><span itemprop="datePublished">2024</span></cite></li>
+          <li class="entry inproceedings" id="conf/icml/M4"><cite class="data"><span class="title">Main H4.</span><span itemprop="datePublished">2024</span></cite></li>
+          <li class="entry inproceedings" id="conf/icml/M5"><cite class="data"><span class="title">Main H5.</span><span itemprop="datePublished">2024</span></cite></li>
+        </ul>
+        <header><h2>Workshop Track</h2></header>
+        <ul class="publ-list">
+          <li class="entry inproceedings" id="conf/icml/W1"><cite class="data"><span class="title">WS H1.</span><span itemprop="datePublished">2024</span></cite></li>
+        </ul></body></html>"""
+        t_html = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': std_html.encode('utf-8')}
+        html_main = collector_mod.collect_panel('dblp', 'conf/icml/icml2024', limit=5, track='Main', transport=t_html)
+        self.assertEqual(html_main['track'], 'Main')
+        self.assertEqual(html_main['provenance']['track_filtered_out'], 1)
+        self.assertEqual([p['title'] for p in html_main['papers']], [f'Main H{i}' for i in range(1, 6)])
+
+        # --track Main on Workshop-only XML must raise insufficient_panel_papers (0 found)
+        ws_only_xml = (
+            '<?xml version="1.0" encoding="UTF-8"?><dblp>'
+            + ''.join(
+                f'<inproceedings key="conf/icml/W{i}"><author>W{i}</author><title>WS {i}.</title><year>2024</year><booktitle>ICML Workshop</booktitle></inproceedings>'
+                for i in range(1, 6)
+            )
+            + '</dblp>'
+        )
+        t_ws_only = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': ws_only_xml.encode('utf-8')}
+        with self.assertRaises(collector_mod.PanelCollectionError) as ctx_ws:
+            collector_mod.collect_panel('dblp', 'conf/icml/icml2024.xml', limit=5, track='Main', transport=t_ws_only)
+        self.assertEqual(ctx_ws.exception.error_code, 'insufficient_panel_papers')
+        self.assertEqual(ctx_ws.exception.details['found_count'], 0)
+
+    def test_dblp_secondary_only_no_mixing_and_canonical_html_labels(self):
+        # Bug 2: ACL Findings + ACL Demo must NEVER mix into one panel or mislabel Findings as Demo
+        mixed_sec_xml = (
+            '<?xml version="1.0" encoding="UTF-8"?><dblp>'
+            + ''.join(
+                f'<inproceedings key="conf/acl/F{i}"><author>F{i}</author><title>Findings {i}.</title><year>2024</year><booktitle>ACL Findings</booktitle></inproceedings>'
+                for i in range(1, 6)
+            )
+            + ''.join(
+                f'<inproceedings key="conf/acl/D{i}"><author>D{i}</author><title>Demo {i}.</title><year>2024</year><booktitle>ACL Demo</booktitle></inproceedings>'
+                for i in range(1, 6)
+            )
+            + '</dblp>'
+        )
+        t_mixed_sec = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': mixed_sec_xml.encode('utf-8')}
+        out_sec = collector_mod.collect_panel('dblp', 'conf/acl/acl2024.xml', limit=5, transport=t_mixed_sec)
+        self.assertEqual(out_sec['track'], 'Findings')
+        self.assertEqual(out_sec['provenance']['track_filtered_out'], 5)
+        self.assertEqual({p['section'] for p in out_sec['papers']}, {'ACL Findings'})
+
+        # 3 Findings + 3 Demo must NOT combine to 6 papers to satisfy limit=5
+        small_mixed_sec_xml = (
+            '<?xml version="1.0" encoding="UTF-8"?><dblp>'
+            + ''.join(
+                f'<inproceedings key="conf/acl/F{i}"><author>F{i}</author><title>Findings {i}.</title><year>2024</year><booktitle>ACL Findings</booktitle></inproceedings>'
+                for i in range(1, 4)
+            )
+            + ''.join(
+                f'<inproceedings key="conf/acl/D{i}"><author>D{i}</author><title>Demo {i}.</title><year>2024</year><booktitle>ACL Demo</booktitle></inproceedings>'
+                for i in range(1, 4)
+            )
+            + '</dblp>'
+        )
+        t_small_sec = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': small_mixed_sec_xml.encode('utf-8')}
+        with self.assertRaises(collector_mod.PanelCollectionError) as ctx_small:
+            collector_mod.collect_panel('dblp', 'conf/acl/acl2024.xml', limit=5, transport=t_small_sec)
+        self.assertEqual(ctx_small.exception.error_code, 'insufficient_panel_papers')
+        self.assertEqual(ctx_small.exception.details['found_count'], 3)
+
+        # DBLP HTML single secondary section & multi-secondary sections get canonical track labels (never raw <h2> or 'Workshop')
+        single_sec_html = """<!DOCTYPE html><html><body>
+        <h1>Findings of ACL 2024</h1>
+        <header><h2>Findings of the Association for Computational Linguistics: ACL 2024</h2></header>
+        <ul class="publ-list">""" + ''.join(
+            f'<li class="entry inproceedings" id="conf/acl/F{i}"><cite class="data"><span class="title">F {i}.</span><span itemprop="datePublished">2024</span></cite></li>'
+            for i in range(1, 6)
+        ) + '</ul></body></html>'
+        t_single_html = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': single_sec_html.encode('utf-8')}
+        out_single_html = collector_mod.collect_panel('dblp', 'conf/acl/findings2024', limit=5, transport=t_single_html)
+        self.assertEqual(out_single_html['track'], 'Findings')
+
+        multi_sec_html = """<!DOCTYPE html><html><body>
+        <h1>ACL 2024 Companion</h1>
+        <header><h2>ACL 2024 Findings</h2></header><ul class="publ-list">""" + ''.join(
+            f'<li class="entry inproceedings" id="conf/acl/F{i}"><cite class="data"><span class="title">F {i}.</span><span itemprop="datePublished">2024</span></cite></li>'
+            for i in range(1, 6)
+        ) + '</ul><header><h2>ACL 2024 Demonstrations</h2></header><ul class="publ-list">' + ''.join(
+            f'<li class="entry inproceedings" id="conf/acl/D{i}"><cite class="data"><span class="title">D {i}.</span><span itemprop="datePublished">2024</span></cite></li>'
+            for i in range(1, 6)
+        ) + '</ul></body></html>'
+        t_multi_html = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': multi_sec_html.encode('utf-8')}
+        out_multi_html = collector_mod.collect_panel('dblp', 'conf/acl/acl2024comp', limit=5, transport=t_multi_html)
+        self.assertEqual(out_multi_html['track'], 'Findings')
+        self.assertEqual(out_multi_html['provenance']['track_filtered_out'], 5)
+        self.assertEqual({p['section'] for p in out_multi_html['papers']}, {'ACL 2024 Findings'})
+
+    def test_dblp_extended_secondary_track_parity_excludes_industry_and_benchmarks_from_main(self):
+        # Bug 4: KDD Industry Track, Datasets and Benchmarks, SRW, etc. must NOT leak into Main
+        for sec_label, expected_track in (
+            ('KDD Industry Track', 'Industry'),
+            ('NeurIPS Datasets and Benchmarks', 'Datasets and Benchmarks'),
+            ('ACL SRW', 'SRW'),
+            ('ICSE Doctoral Symposium', 'Doctoral Symposium'),
+            ('CHI Extended Abstracts', 'Extended Abstracts'),
+            ('ICML Posters', 'Posters'),
+            ('ICML Position Papers', 'Position Papers'),
+            ('WWW Adjunct', 'Adjunct'),
+        ):
+            mixed_xml = (
+                '<?xml version="1.0" encoding="UTF-8"?><dblp>'
+                + ''.join(
+                    f'<inproceedings key="conf/x/S{i}"><author>S{i}</author><title>Sec {i}.</title><year>2024</year><booktitle>{sec_label}</booktitle></inproceedings>'
+                    for i in range(1, 6)
+                )
+                + ''.join(
+                    f'<inproceedings key="conf/x/M{i}"><author>M{i}</author><title>Main {i}.</title><year>2024</year><booktitle>KDD</booktitle></inproceedings>'
+                    for i in range(1, 6)
+                )
+                + '</dblp>'
+            )
+            t_mix = lambda url, timeout=20, body=mixed_xml: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': body.encode('utf-8')}
+            main_out = collector_mod.collect_panel('dblp', 'conf/x/2024.xml', limit=5, transport=t_mix)
+            self.assertEqual(main_out['track'], 'Main', msg=sec_label)
+            self.assertEqual(main_out['provenance']['track_filtered_out'], 5, msg=sec_label)
+            self.assertEqual({p['section'] for p in main_out['papers']}, {'KDD'}, msg=sec_label)
+
+            # Secondary-only XML with extended secondary label does not claim Main
+            sec_only_xml = (
+                '<?xml version="1.0" encoding="UTF-8"?><dblp>'
+                + ''.join(
+                    f'<inproceedings key="conf/x/S{i}"><author>S{i}</author><title>Sec {i}.</title><year>2024</year><booktitle>{sec_label}</booktitle></inproceedings>'
+                    for i in range(1, 6)
+                )
+                + '</dblp>'
+            )
+            t_only = lambda url, timeout=20, body=sec_only_xml: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': body.encode('utf-8')}
+            sec_out = collector_mod.collect_panel('dblp', 'conf/x/sec2024.xml', limit=5, transport=t_only)
+            self.assertEqual(sec_out['track'], expected_track, msg=sec_label)
+
+    def test_dblp_ampersand_datasets_benchmarks_demos_alias_and_colocated_isolation(self):
+        # 1. DBLP XML & DBLP HTML with "NeurIPS Datasets & Benchmarks" (&amp;) must NEVER leak into Main
+        db_xml = (
+            '<?xml version="1.0" encoding="UTF-8"?><dblp>'
+            '<proceedings key="conf/nips/2024db"><title>NeurIPS Datasets &amp; Benchmarks 2024.</title><booktitle>NeurIPS Datasets &amp; Benchmarks</booktitle><year>2024</year></proceedings>'
+            '<proceedings key="conf/nips/2024"><title>Advances in Neural Information Processing Systems 37.</title><booktitle>NeurIPS</booktitle><year>2024</year></proceedings>'
+            + ''.join(
+                f'<inproceedings key="conf/nips/DB{i}"><author>D{i}</author><title>DB Paper {i}.</title><year>2024</year><booktitle>NeurIPS Datasets &amp; Benchmarks</booktitle></inproceedings>'
+                for i in range(1, 6)
+            )
+            + ''.join(
+                f'<inproceedings key="conf/nips/M{i}"><author>M{i}</author><title>Main Paper {i}.</title><year>2024</year><booktitle>NeurIPS</booktitle></inproceedings>'
+                for i in range(1, 6)
+            )
+            + '</dblp>'
+        )
+        t_db_xml = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': db_xml.encode('utf-8')}
+        for trk in (None, 'Main', 'main'):
+            out_main = collector_mod.collect_panel('dblp', 'conf/nips/neurips2024.xml', limit=5, track=trk, transport=t_db_xml)
+            self.assertEqual(out_main['track'], 'Main')
+            self.assertEqual(out_main['provenance']['track_filtered_out'], 5)
+            self.assertEqual([p['title'] for p in out_main['papers']], [f'Main Paper {i}' for i in range(1, 6)])
+
+        for db_trk in ('Datasets and Benchmarks', 'Datasets & Benchmarks'):
+            out_db_sel = collector_mod.collect_panel('dblp', 'conf/nips/neurips2024.xml', limit=5, track=db_trk, transport=t_db_xml)
+            self.assertEqual([p['title'] for p in out_db_sel['papers']], [f'DB Paper {i}' for i in range(1, 6)])
+            self.assertEqual({p['section'] for p in out_db_sel['papers']}, {'NeurIPS Datasets & Benchmarks'})
+
+        db_only_xml = (
+            '<?xml version="1.0" encoding="UTF-8"?><dblp>'
+            + ''.join(
+                f'<inproceedings key="conf/nips/DB{i}"><author>D{i}</author><title>DB Paper {i}.</title><year>2024</year><booktitle>NeurIPS Datasets &amp; Benchmarks</booktitle></inproceedings>'
+                for i in range(1, 6)
+            )
+            + '</dblp>'
+        )
+        t_db_only_xml = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': db_only_xml.encode('utf-8')}
+        out_db_iso = collector_mod.collect_panel('dblp', 'conf/nips/db2024.xml', limit=5, transport=t_db_only_xml)
+        self.assertEqual(out_db_iso['track'], 'Datasets and Benchmarks')
+
+        db_html = (
+            '<!DOCTYPE html><html><body><h1>NeurIPS 2024</h1>'
+            '<header><h2>NeurIPS Datasets &amp; Benchmarks</h2></header><ul class="publ-list">'
+            + ''.join(
+                f'<li class="entry inproceedings" id="conf/nips/DB{i}"><cite class="data"><span class="title">DB H{i}.</span><span itemprop="datePublished">2024</span></cite></li>'
+                for i in range(1, 6)
+            )
+            + '</ul><header><h2>Session 1: Core</h2></header><ul class="publ-list">'
+            + ''.join(
+                f'<li class="entry inproceedings" id="conf/nips/M{i}"><cite class="data"><span class="title">Core H{i}.</span><span itemprop="datePublished">2024</span></cite></li>'
+                for i in range(1, 6)
+            )
+            + '</ul></body></html>'
+        )
+        t_db_html = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': db_html.encode('utf-8')}
+        for trk in (None, 'Main'):
+            out_html_main = collector_mod.collect_panel('dblp', 'conf/nips/neurips2024', limit=5, track=trk, transport=t_db_html)
+            self.assertEqual(out_html_main['track'], 'Main')
+            self.assertEqual(out_html_main['provenance']['track_filtered_out'], 5)
+            self.assertEqual([p['title'] for p in out_html_main['papers']], [f'Core H{i}' for i in range(1, 6)])
+
+        db_only_html = (
+            '<!DOCTYPE html><html><body><h1>NeurIPS 2024 Datasets &amp; Benchmarks</h1>'
+            '<header><h2>NeurIPS Datasets &amp; Benchmarks</h2></header><ul class="publ-list">'
+            + ''.join(
+                f'<li class="entry inproceedings" id="conf/nips/DB{i}"><cite class="data"><span class="title">DB H{i}.</span><span itemprop="datePublished">2024</span></cite></li>'
+                for i in range(1, 6)
+            )
+            + '</ul></body></html>'
+        )
+        t_db_only_html = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': db_only_html.encode('utf-8')}
+        out_html_db_iso = collector_mod.collect_panel('dblp', 'conf/nips/db2024', limit=5, transport=t_db_only_html)
+        self.assertEqual(out_html_db_iso['track'], 'Datasets and Benchmarks')
+
+        # 2. --track Demos resolves Demo in both DBLP XML (ACL (Demo)) and DBLP HTML (System Demonstrations)
+        demo_xml = (
+            '<?xml version="1.0" encoding="UTF-8"?><dblp>'
+            + ''.join(
+                f'<inproceedings key="conf/acl/D{i}"><author>D{i}</author><title>Demo {i}.</title><year>2024</year><booktitle>ACL (Demo)</booktitle></inproceedings>'
+                for i in range(1, 6)
+            )
+            + '</dblp>'
+        )
+        t_demo_xml = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': demo_xml.encode('utf-8')}
+        out_demos_xml = collector_mod.collect_panel('dblp', 'conf/acl/demo2024.xml', limit=5, track='Demos', transport=t_demo_xml)
+        self.assertEqual(out_demos_xml['paper_count'], 5)
+        self.assertEqual([p['title'] for p in out_demos_xml['papers']], [f'Demo {i}' for i in range(1, 6)])
+
+        demo_html = (
+            '<!DOCTYPE html><html><body><h1>ACL 2024 Companion</h1>'
+            '<header><h2>System Demonstrations</h2></header><ul class="publ-list">'
+            + ''.join(
+                f'<li class="entry inproceedings" id="conf/acl/D{i}"><cite class="data"><span class="title">Demo H{i}.</span><span itemprop="datePublished">2024</span></cite></li>'
+                for i in range(1, 6)
+            )
+            + '</ul></body></html>'
+        )
+        t_demo_html = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': demo_html.encode('utf-8')}
+        out_demos_html = collector_mod.collect_panel('dblp', 'conf/acl/demo2024', limit=5, track='Demos', transport=t_demo_html)
+        self.assertEqual(out_demos_html['paper_count'], 5)
+        self.assertEqual([p['title'] for p in out_demos_html['papers']], [f'Demo H{i}' for i in range(1, 6)])
+
+        # 3. Co-located and Pre-conference Symposium get dedicated labels and never merge with Workshop
+        for sec_label, expected_track in (
+            ('AAAI Co-located Events', 'Co-located'),
+            ('AAAI Co-located Workshops', 'Co-located'),
+            ('SIGMOD Pre-conference Symposium', 'Pre-conference Symposium'),
+        ):
+            small_mix_xml = (
+                '<?xml version="1.0" encoding="UTF-8"?><dblp>'
+                + ''.join(
+                    f'<inproceedings key="conf/x/W{i}"><author>W{i}</author><title>WS {i}.</title><year>2024</year><booktitle>ICML Workshop</booktitle></inproceedings>'
+                    for i in range(1, 4)
+                )
+                + ''.join(
+                    f'<inproceedings key="conf/x/C{i}"><author>C{i}</author><title>Other {i}.</title><year>2024</year><booktitle>{sec_label}</booktitle></inproceedings>'
+                    for i in range(1, 4)
+                )
+                + '</dblp>'
+            )
+            t_small_mix = lambda url, timeout=20, body=small_mix_xml: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': body.encode('utf-8')}
+            with self.assertRaises(collector_mod.PanelCollectionError) as ctx_no_merge:
+                collector_mod.collect_panel('dblp', 'conf/x/mix2024.xml', limit=5, transport=t_small_mix)
+            self.assertEqual(ctx_no_merge.exception.error_code, 'insufficient_panel_papers', msg=sec_label)
+            self.assertEqual(ctx_no_merge.exception.details['found_count'], 3, msg=sec_label)
+
+            iso_xml = (
+                '<?xml version="1.0" encoding="UTF-8"?><dblp>'
+                + ''.join(
+                    f'<inproceedings key="conf/x/C{i}"><author>C{i}</author><title>Other {i}.</title><year>2024</year><booktitle>{sec_label}</booktitle></inproceedings>'
+                    for i in range(1, 6)
+                )
+                + '</dblp>'
+            )
+            t_iso = lambda url, timeout=20, body=iso_xml: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': body.encode('utf-8')}
+            out_iso = collector_mod.collect_panel('dblp', 'conf/x/iso2024.xml', limit=5, transport=t_iso)
+            self.assertEqual(out_iso['track'], expected_track, msg=sec_label)
+
+        # 4. --year filtering happens before _select_dblp_default_track on multi-year secondary TOC
+        multi_yr_xml = (
+            '<?xml version="1.0" encoding="UTF-8"?><dblp>'
+            + ''.join(
+                f'<inproceedings key="conf/x/W{i}"><author>W{i}</author><title>WS23 {i}.</title><year>2023</year><booktitle>ICML Workshop</booktitle></inproceedings>'
+                for i in range(1, 7)
+            )
+            + ''.join(
+                f'<inproceedings key="conf/x/F{i}"><author>F{i}</author><title>Find24 {i}.</title><year>2024</year><booktitle>ACL Findings</booktitle></inproceedings>'
+                for i in range(1, 6)
+            )
+            + '</dblp>'
+        )
+        t_multi_yr = lambda url, timeout=20: {'status_code': 200, 'headers': {}, 'final_url': url, 'body': multi_yr_xml.encode('utf-8')}
+        out_yr24 = collector_mod.collect_panel('dblp', 'conf/x/multi.xml', limit=5, year=2024, transport=t_multi_yr)
+        self.assertEqual(out_yr24['track'], 'Findings')
+        self.assertEqual(out_yr24['year'], 2024)
+        self.assertEqual([p['title'] for p in out_yr24['papers']], [f'Find24 {i}' for i in range(1, 6)])
+
 
 if __name__ == '__main__':
     unittest.main()

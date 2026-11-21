@@ -356,6 +356,237 @@ class CompareVenueNoveltySourcesTests(unittest.TestCase):
             self.assertEqual(full['status'], 'structurally_checked')
             self.assertIn('disclaimer', full)
 
+    @unittest.skipIf(fitz is None, 'PyMuPDF (fitz) not installed')
+    def test_sources_dir_rejects_html_and_svg_disguised_as_pdf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            profile, src_dir = _build_local_fixture(tmp_path / 'mixed')
+            (src_dir / 'anubis_challenge.pdf').write_bytes(
+                b'<html><body>Anubis Proof of Work Challenge</body></html>'
+            )
+            (src_dir / 'fake_svg.pdf').write_bytes(
+                b'<svg xmlns="http://www.w3.org/2000/svg"><text x="10" y="20">Fake SVG</text></svg>'
+            )
+
+            out = novelty_mod.check(profile, as_of=self.as_of, sources_dir=src_dir)
+            self.assertEqual(out['status'], 'structurally_checked')
+            skipped_paths = {item['path'] for item in out['locator_verification']['skipped_files']}
+            self.assertIn('anubis_challenge.pdf', skipped_paths)
+            self.assertIn('fake_svg.pdf', skipped_paths)
+
+            only_fake = tmp_path / 'only_fake'
+            only_fake.mkdir()
+            (only_fake / 'anubis_challenge.pdf').write_bytes(
+                b'<html><body>Anubis Proof of Work Challenge</body></html>'
+            )
+            (only_fake / 'fake_svg.pdf').write_bytes(
+                b'<svg xmlns="http://www.w3.org/2000/svg"><text x="10" y="20">Fake SVG</text></svg>'
+            )
+            with self.assertRaises(ValueError):
+                novelty_mod.check(profile, as_of=self.as_of, sources_dir=only_fake)
+
+            prof_file = tmp_path / 'profile.json'
+            prof_file.write_text(json.dumps(profile), encoding='utf-8')
+            script = str(SCRIPTS_DIR / 'compare_venue_novelty.py')
+            res_cli = subprocess.run(
+                [sys.executable, script, str(prof_file), '--sources-dir', str(only_fake)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(res_cli.returncode, 2)
+            self.assertIn('error', json.loads(res_cli.stderr))
+
+    def test_https_rejects_whitespace_and_control_characters(self):
+        self.assertTrue(novelty_mod._https('https://example.org/cfp?id=1&x=2#page=1'))
+        bad_urls = (
+            'https://example.org/cfp\x00',
+            'https://example.org/cfp\x07',
+            'https://example.org/cfp\n',
+            'https://example.org/cfp\r',
+            'https://example.org/cfp\t',
+            'https://example.org/cfp\x7f',
+            'https://example.org/cfp\u0085',
+            'https://example.org/cfp\u00a0',
+            'https://example.org/cfp\u200b',
+            'https://example.org/cfp\u202e',
+            'https://example.org/cfp\ufeff',
+            'https://@example.org/cfp',
+            'https://user@example.org/cfp',
+            'https://example.org/cfp with spaces',
+            ' https://example.org/cfp',
+        )
+        for bad_url in bad_urls:
+            self.assertFalse(novelty_mod._https(bad_url), msg=repr(bad_url))
+            profile = json.loads(FIXTURE.read_text(encoding='utf-8'))
+            profile['venue']['official_cfp_url'] = bad_url
+            out = novelty_mod.check(profile, as_of=self.as_of)
+            self.assertEqual(out['status'], 'invalid', msg=repr(bad_url))
+            self.assertIn('venue:official_cfp_url_must_be_https', out['errors'], msg=repr(bad_url))
+
+    def test_sources_dir_blocks_r10_traversal_symbol_and_url_swallowing_bypasses(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            profile, src_dir = _build_local_fixture(Path(tmp))
+            profile['target']['closest_work_locator'] = '!file:FICTIONAL-PRIOR-A.txt: "Prior work omits the graph shift intervention"'
+            profile['accepted_panel'][0]['closest_work_locator'] = 'sub/.. "Panel reference 1 reports bounded delta."'
+            profile['fit_axes'][0]['locator'] = 'https://example.org/fictional-cfp(file:foo.txt: "Main scope covers graph learning"'
+            out = novelty_mod.check(profile, as_of=self.as_of, sources_dir=src_dir)
+            self.assertEqual(out['status'], 'invalid')
+            self.assertIn('target:closest_work_locator_unverified:unsafe_source_path', out['errors'])
+            self.assertIn('accepted_panel:0:closest_work_locator_unverified:unsafe_source_path', out['errors'])
+            self.assertIn('fit_axes:0:locator_unverified:unsafe_source_path', out['errors'])
+            self.assertIsNone(out['fit_score_out_of_10'])
+            self.assertIsNone(out['novelty_comparison'])
+
+    def test_https_port_validation_and_r11_url_snapshot_bypass_blocks(self):
+        # Finding 3: _https() port validation
+        for good_url in (
+            'https://example.org:8443/cfp',
+            'https://example.org:443/cfp',
+            'https://[::1]:8443/cfp',
+            'https://example.org:/cfp',
+        ):
+            self.assertTrue(novelty_mod._https(good_url), msg=repr(good_url))
+
+        for bad_port_url in (
+            'https://example.org:abc/cfp',
+            'https://example.org:99999/cfp',
+            'https://example.org:-1/cfp',
+            'https://example.org:65536/cfp',
+            'https://example.org:80:80/cfp',
+            'https://[::1]:abc/cfp',
+        ):
+            self.assertFalse(novelty_mod._https(bad_port_url), msg=repr(bad_port_url))
+            profile = json.loads(FIXTURE.read_text(encoding='utf-8'))
+            profile['venue']['official_cfp_url'] = bad_port_url
+            out = novelty_mod.check(profile, as_of=self.as_of)
+            self.assertEqual(out['status'], 'invalid', msg=repr(bad_port_url))
+            self.assertIn('venue:official_cfp_url_must_be_https', out['errors'], msg=repr(bad_port_url))
+
+        # Finding 1 & 2 end-to-end inside compare_venue_novelty.check(sources_dir=...)
+        with tempfile.TemporaryDirectory() as tmp:
+            profile, src_dir = _build_local_fixture(Path(tmp))
+            profile['target']['closest_work_locator'] = (
+                'https://example.org/a\u202e../etc/passwd: "Prior work omits the graph shift intervention"'
+            )
+            profile['accepted_panel'][0]['closest_work_locator'] = (
+                'https:///etc/passwd: "Panel reference 1 reports bounded delta."'
+            )
+            profile['fit_axes'][0]['locator'] = (
+                'https://example.org/fictional-cfp\u200bfile:FICTIONAL-PRIOR-A.txt: "Main scope covers graph learning"'
+            )
+            profile['fit_axes'][1]['locator'] = (
+                'https://example.org/fictional-p3\u2014/etc/passwd: "empirical mechanism studies"'
+            )
+            profile['fit_axes'][2]['locator'] = (
+                'https://../etc/passwd: "multi-seed ablations"'
+            )
+            profile['fit_axes'][3]['locator'] = (
+                'https://file:FICTIONAL-PRIOR-A.txt: "8 pages plus references"'
+            )
+            profile['fit_axes'][4]['locator'] = (
+                'https://example.org/a//etc/passwd: "USD 750 early author registration"'
+            )
+            out = novelty_mod.check(profile, as_of=self.as_of, sources_dir=src_dir)
+            self.assertEqual(out['status'], 'invalid')
+            self.assertIn('target:closest_work_locator_unverified:unsafe_source_path', out['errors'])
+            self.assertIn('accepted_panel:0:closest_work_locator_unverified:unsafe_source_path', out['errors'])
+            for i in range(5):
+                self.assertIn(f'fit_axes:{i}:locator_unverified:unsafe_source_path', out['errors'])
+            self.assertIsNone(out['fit_score_out_of_10'])
+            self.assertIsNone(out['novelty_comparison'])
+
+    def test_r12_https_authority_hostnames_port_zero_and_quote_desync_blocks(self):
+        # Finding 2: _https() must preserve valid authorities while rejecting malformed hostnames & port 0
+        valid_https = (
+            'https://example.org/cfp',
+            'https://example.org:8443/cfp',
+            'https://example.org:/cfp',
+            'https://[::1]:8443/cfp',
+            'https://[::1]/cfp',
+            'https://localhost/cfp',
+            'https://127.0.0.1/cfp',
+            'https://127.0.0.1:8443/cfp',
+            'https://münchen.de/cfp',
+        )
+        for url in valid_https:
+            self.assertTrue(novelty_mod._https(url), msg=repr(url))
+
+        bad_https = (
+            'https://../',
+            'https://..',
+            'https://../cfp',
+            'https://./cfp',
+            'https://~/cfp',
+            'https://.example.org/cfp',
+            'https://example.org./cfp',
+            'https://a..b.org/cfp',
+            'https://-bad.org/cfp',
+            'https://bad-.org/cfp',
+            'https://127.1/cfp',
+            'https://2130706433/cfp',
+            'https://[example.org]/cfp',
+            'https://[127.0.0.1]/cfp',
+            'https://example.org:0/cfp',
+            'https://example.org:000/cfp',
+            'https://[::1]:0/cfp',
+        )
+        for url in bad_https:
+            self.assertFalse(novelty_mod._https(url), msg=repr(url))
+
+        # End-to-end check() rejects malformed hostnames & port 0 on official_cfp_url and official_acceptance_url
+        for bad_url in ('https://../cfp', 'https://./cfp', 'https://~/cfp', 'https://example.org:0/cfp', 'https://[::1]:0/cfp'):
+            profile = json.loads(FIXTURE.read_text(encoding='utf-8'))
+            profile['venue']['official_cfp_url'] = bad_url
+            profile['accepted_panel'][0]['official_acceptance_url'] = bad_url
+            out = novelty_mod.check(profile, as_of=self.as_of)
+            self.assertEqual(out['status'], 'invalid', msg=repr(bad_url))
+            self.assertIn('venue:official_cfp_url_must_be_https', out['errors'], msg=repr(bad_url))
+            self.assertIn('accepted_panel:0:official_acceptance_url_must_be_https', out['errors'], msg=repr(bad_url))
+
+        # Finding 1: compare_venue_novelty.check() rejects single-quote/double-quote desync payloads in locators
+        with tempfile.TemporaryDirectory() as tmp:
+            profile, src_dir = _build_local_fixture(Path(tmp))
+            (src_dir / 'FICTIONAL-PRIOR-A.txt').write_text(
+                'We evaluate "zero-shot" transfer. Prior work omits the graph shift intervention under boundary B.\n',
+                encoding='utf-8',
+            )
+            bundle_path = src_dir / 'venue-sources.json'
+            bundle = json.loads(bundle_path.read_text(encoding='utf-8'))
+            bundle['sources'][0]['text'] = (
+                'We evaluate "zero-shot" transfer. ' + bundle['sources'][0]['text']
+            )
+            bundle_path.write_text(json.dumps(bundle), encoding='utf-8')
+
+            # Benign mixed-quote locator passes cleanly
+            profile_ok = copy.deepcopy(profile)
+            profile_ok['target']['closest_work_locator'] = (
+                'FICTIONAL-PRIOR-A.txt: \'We evaluate "zero-shot" transfer.\' "Prior work omits the graph shift intervention"'
+            )
+            profile_ok['fit_axes'][0]['locator'] = (
+                '\'We evaluate "zero-shot" transfer.\' "Main scope covers graph learning"'
+            )
+            ok_out = novelty_mod.check(profile_ok, as_of=self.as_of, sources_dir=src_dir)
+            self.assertEqual(ok_out['status'], 'structurally_checked', msg=ok_out['errors'])
+            self.assertEqual(ok_out['fit_score_out_of_10'], 8)
+
+            # Desync injection across target, accepted_panel, and fit_axes fails closed
+            profile_bad = copy.deepcopy(profile)
+            profile_bad['target']['closest_work_locator'] = (
+                'FICTIONAL-PRIOR-A.txt: \'evaluate "zero-shot\' file:FICTIONAL-PRIOR-A.txt " transfer." "Prior work omits the graph shift intervention"'
+            )
+            profile_bad['accepted_panel'][0]['closest_work_locator'] = (
+                'FICTIONAL-PRIOR-B.txt: \'evaluate "zero-shot\' /etc/passwd " transfer." "Panel reference 1 reports bounded delta."'
+            )
+            profile_bad['fit_axes'][0]['locator'] = (
+                '\'evaluate "zero-shot\' ../etc/passwd " transfer." "Main scope covers graph learning"'
+            )
+            bad_out = novelty_mod.check(profile_bad, as_of=self.as_of, sources_dir=src_dir)
+            self.assertEqual(bad_out['status'], 'invalid')
+            self.assertIn('target:closest_work_locator_unverified:unsafe_source_path', bad_out['errors'])
+            self.assertIn('accepted_panel:0:closest_work_locator_unverified:unsafe_source_path', bad_out['errors'])
+            self.assertIn('fit_axes:0:locator_unverified:unsafe_source_path', bad_out['errors'])
+            self.assertIsNone(bad_out['fit_score_out_of_10'])
+            self.assertIsNone(bad_out['novelty_comparison'])
+
 
 class VenueLeadsQualityLookupTests(unittest.TestCase):
     def test_venue_leads_quality_normalization_and_builtin_ccf_tiers(self):

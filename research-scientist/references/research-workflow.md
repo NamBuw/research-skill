@@ -92,6 +92,19 @@ Do not count repeated papers by the same underlying study as independent confirm
 
 ## 4. Gap and novelty audit
 
+### Attack-first audit sequence (mandatory before endorsing any gap)
+
+Do not begin by listing what is "interesting" or "promising" about a candidate idea. Run an adversarial falsification pass in strict order:
+
+1. **Reject self-inflicted engineering & protocol defects:** Check whether an observed failure, low baseline score, or surprise comes from train/test leakage, duplicate IDs across splits, broken/untuned baselines, metric bugs, or unequal compute/tuning budgets ([engineering diagnosis](engineering-vs-gap.md)). Fixing bad engineering is a bug fix, not a scientific gap.
+2. **Reject common non-gap failure traps:** Explicitly test and kill candidates that fall into known pseudo-gap patterns:
+   - *Method-first novelty:* starting with a trendy tool/architecture and inventing a problem around it without a real failure mode or stake.
+   - *Gap without stake / grant grandiosity:* "nobody has applied X to Y yet" or sweeping macro slogans where answering the question changes no decision, prediction, or mechanism.
+   - *Benchmark without deployment or prediction without scientific leverage:* high accuracy on a static split with no causal/mechanistic discrimination or operational boundary.
+   - *Filling domain gaps from memory:* asserting field absence from model priors rather than verified multi-source searches and read full texts.
+3. **Kill via direct & disguised prior art:** Restate the mechanism in plain language (stripping coined names/acronyms) and search alternate terminology, component combinations, and adjacent fields.
+4. **Verify coverage & reading basis:** Confirm `known_seed_checks` passed and all closest precedents were read at full text (never abstract-only). Only after surviving steps 1–4 may a candidate be evaluated as `supported_candidate`.
+
 ### Classify the signal before calling it a gap
 
 Useful candidate types include:
@@ -185,7 +198,7 @@ Generate candidates from distinct lenses, not merely wording variants:
 7. Transfer a mechanism across fields only after explaining the structural analogy and its limits.
 8. Challenge whether the field is asking the right question.
 
-Then discard candidates that have no consequential stake, no answer path, no meaningful difference from precedent, no falsifier/disconfirming evidence, impossible access/resources, unacceptable risk, or no decision that changes. Novelty without importance is not enough; feasibility without value is not enough.
+Then discard candidates that have no consequential stake, no answer path, no meaningful difference from precedent, no falsifier/disconfirming evidence, impossible access/resources, unacceptable risk, or no decision that changes. Kill weak, duplicate, or unfalsifiable ideas plainly as `not_a_gap` or `implementation_error`—never soften a fatal flaw into *"promising with minor tweaks"*, present every candidate as viable, give generic objections, or bloat project scope instead of sharpening the test. Novelty without importance is not enough; feasibility without value is not enough.
 
 ### Good Question Card
 

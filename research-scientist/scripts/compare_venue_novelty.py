@@ -7,9 +7,12 @@ not establish novelty, venue standards, fit, acceptance odds or paper quality.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
+import re
 import statistics
 import sys
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -24,18 +27,56 @@ from venue_leads import load_venue_quality_refs, lookup_venue_quality
 AXES = ('scope_audience', 'contribution_track', 'evidence_maturity',
         'format_eligibility', 'user_constraints')
 HARD_CONSTRAINTS = ('deadline', 'budget', 'eligibility')
+_DNS_LABEL_RE = re.compile(r'^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$')
 
 
 def _filled(value):
     return isinstance(value, str) and bool(value.strip())
 
 
+def _valid_hostname(host, netloc=''):
+    if not host:
+        return False
+    if netloc.startswith('['):
+        try:
+            return ipaddress.ip_address(host).version == 6
+        except ValueError:
+            return False
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        pass
+    try:
+        ascii_host = host.encode('idna').decode('ascii')
+    except UnicodeError:
+        return False
+    if not ascii_host or len(ascii_host) > 253:
+        return False
+    labels = ascii_host.split('.')
+    if any(not lbl or not _DNS_LABEL_RE.match(lbl) for lbl in labels):
+        return False
+    if labels[-1].isdigit():
+        return False
+    return True
+
+
 def _https(value):
     if not _filled(value):
         return False
+    if any(ch.isspace() or unicodedata.category(ch) in {'Cc', 'Cf'} for ch in value):
+        return False
     try:
         parsed = urlparse(value)
-        return parsed.scheme == 'https' and bool(parsed.hostname) and not parsed.username and not parsed.password
+        port = parsed.port
+        if parsed.scheme != 'https':
+            return False
+        netloc = parsed.netloc or ''
+        if '@' in netloc or parsed.username is not None or parsed.password is not None:
+            return False
+        if port is not None and port < 1:
+            return False
+        return _valid_hostname(parsed.hostname, netloc)
     except ValueError:
         return False
 

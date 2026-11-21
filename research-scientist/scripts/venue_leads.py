@@ -311,7 +311,7 @@ _SECONDARY_TRACK_RE = re.compile(
     r'\b(?:workshops?|findings|tutorials?|demos?|demonstrations?|companions?|'
     r'doctoral\s+(?:consortium|symposium)|adjunct|co[-\s]?located|'
     r'extended\s+abstracts?|posters?|srw|industry\s+track|'
-    r'datasets?\s+and\s+benchmarks?|position\s+papers?|'
+    r'datasets?(?:\s+and\s+|\s*&\s*)benchmarks?|position\s+papers?|'
     r'pre[-\s]?conference\s+symposium)\b',
     re.IGNORECASE,
 )

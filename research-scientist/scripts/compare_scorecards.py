@@ -5,6 +5,7 @@ import html
 import json
 import re
 import sys
+import unicodedata
 from decimal import BasicContext, Decimal, localcontext
 from pathlib import Path
 
@@ -144,6 +145,8 @@ def _extract_pdf_pages(path):
     except pdf_errors as exc:
         raise ValueError(f'Corrupt or unreadable PDF ({path.name}): {exc}') from exc
     try:
+        if not getattr(doc, 'is_pdf', True):
+            raise ValueError(f'Not a valid PDF ({path.name})')
         if doc.needs_pass:
             raise ValueError(f'Encrypted PDF cannot be verified: {path.name}')
         num_pages = len(doc)
@@ -152,6 +155,8 @@ def _extract_pdf_pages(path):
             text = doc[idx].get_text('text') or ''
             pages_raw[page_num] = [text]
     except pdf_errors as exc:
+        if isinstance(exc, ValueError) and str(exc).startswith(('Not a valid PDF', 'Encrypted PDF')):
+            raise
         raise ValueError(f'Corrupt or unreadable PDF ({path.name}): {exc}') from exc
     finally:
         doc.close()
@@ -368,26 +373,45 @@ def _parse_anchors(text):
     return page_range, line_range, matched_spans
 
 
+_QUOTE_SPAN_RE = re.compile(
+    r'"([^"]*)"|«([^»]*)»|`([^`]*)`|(?<!\w)\'([^\']*)\'(?!\w)'
+)
+
+
 def _extract_quotes(text):
     quotes = []
-    quote_pattern = re.compile(
-        r'"([^"]+)"|«([^»]+)»|`([^`]+)`|(?<!\w)\'([^\']+)\'(?!\w)'
-    )
-    for match in quote_pattern.finditer(text):
+    for match in _QUOTE_SPAN_RE.finditer(text):
         candidate = next((g for g in match.groups() if g is not None), '')
         if len(_normalized(candidate)) >= 3:
             quotes.append(candidate)
     return quotes
 
 
-_DOUBLE_QUOTE_RE = re.compile(r'"[^"]*"|«[^»]*»|`[^`]*`')
-_SINGLE_QUOTE_RE = re.compile(r"(?<!\w)'[^']*'(?!\w)")
 _FILE_TOKEN_RE = re.compile(r'([\w./-]+\.(?:pdf|json|md|txt))', flags=re.IGNORECASE)
+_TRAVERSAL_TAIL = r'(?:$|[^\w.-])'
+_URI_OR_SUBPATH_STARTER = (
+    r'(?:file:|\.\.' + _TRAVERSAL_TAIL + r'|~[/\\]|[A-Za-z]:[/\\]|\\\\)'
+)
+_URI_OR_PATH_STARTER = (
+    r'(?:/(?!\s)|' + _URI_OR_SUBPATH_STARTER + r')'
+)
+_URL_MASK_RE = re.compile(
+    r'https?://(?!' + _URI_OR_PATH_STARTER + r')'
+    r'(?:(?![<>{}|\\^`"\[\];\s?#])'
+    r'(?!/' + _URI_OR_PATH_STARTER + r')'
+    r'(?![^\w./-]' + _URI_OR_PATH_STARTER + r').)+'
+    r'(?:[?#](?!' + _URI_OR_PATH_STARTER + r')'
+    r'(?:(?![<>{}|\\^`"\[\];\s])'
+    r'(?!/' + _URI_OR_SUBPATH_STARTER + r')'
+    r'(?![^\w./=-]' + _URI_OR_PATH_STARTER + r')'
+    r'(?!=' + _URI_OR_SUBPATH_STARTER + r').)*)?',
+    re.IGNORECASE,
+)
+_UNSAFE_DELIM = r'[^\w.-]'
 
 
 def _strip_quoted_spans(text):
-    unquoted = _DOUBLE_QUOTE_RE.sub(' ', text)
-    return _SINGLE_QUOTE_RE.sub(' ', unquoted)
+    return _QUOTE_SPAN_RE.sub(' ', text)
 
 
 def _snapshot_is_blocked(snap):
@@ -404,44 +428,72 @@ def _snapshot_is_blocked(snap):
 
 
 def verify_locator(locator, index, default_source_ids=(), source_url=None, extra_quotes=(), require_url_snapshot=False):
+    dict_quotes = []
+    struct_page_range = None
+    struct_line_range = None
     if isinstance(locator, dict):
         for int_key in ('page', 'line_start', 'line_end'):
-            if int_key in locator and locator[int_key] is not None and type(locator[int_key]) is not int:
-                return False, f'invalid_{int_key}_type'
+            if int_key in locator and locator[int_key] is not None:
+                if type(locator[int_key]) is not int:
+                    return False, f'invalid_{int_key}_type'
+                if locator[int_key] < 1:
+                    return False, 'anchor_out_of_bounds'
+        if locator.get('line_end') is not None and locator.get('line_start') is None:
+            return False, 'anchor_out_of_bounds'
+        if (
+            type(locator.get('line_start')) is int
+            and type(locator.get('line_end')) is int
+            and locator['line_end'] < locator['line_start']
+        ):
+            return False, 'anchor_out_of_bounds'
+        if type(locator.get('page')) is int:
+            struct_page_range = (locator['page'], locator['page'])
+        if type(locator.get('line_start')) is int:
+            end_line = locator['line_end'] if type(locator.get('line_end')) is int else locator['line_start']
+            struct_line_range = (locator['line_start'], end_line)
+        if 'quote' in locator and locator['quote'] is not None:
+            raw_quote = locator['quote']
+            if not isinstance(raw_quote, str):
+                return False, 'invalid_quote_type'
+            if '\x00' in raw_quote:
+                return False, 'unsafe_source_path'
+            norm_quote = _normalized(raw_quote)
+            if not norm_quote:
+                return False, 'blank_quote'
+            if len(norm_quote) < 3:
+                return False, 'quote_too_short'
+            dict_quotes.append(raw_quote)
         parts = []
         if isinstance(locator.get('source'), str):
             parts.append(locator['source'])
-        if type(locator.get('page')) is int:
-            parts.append(f"p.{locator['page']}")
-        if type(locator.get('line_start')) is int:
-            if type(locator.get('line_end')) is int:
-                parts.append(f"lines {locator['line_start']}-{locator['line_end']}")
-            else:
-                parts.append(f"line {locator['line_start']}")
-        if isinstance(locator.get('locator'), str):
-            parts.append(locator['locator'])
-        if isinstance(locator.get('quote'), str):
-            parts.append(f'"{locator["quote"]}"')
+        for text_key in ('locator', 'text', 'section', 'table', 'figure'):
+            val = locator.get(text_key)
+            if isinstance(val, str) and val.strip():
+                parts.append(val)
         text = ' '.join(parts).strip()
     elif isinstance(locator, str):
         text = locator.strip()
     else:
         return False, 'invalid_locator_type'
 
-    if not text:
+    if not text and not dict_quotes and struct_page_range is None and struct_line_range is None:
         return False, 'blank_locator'
     if '\x00' in text:
         return False, 'unsafe_source_path'
 
     unquoted_text = _strip_quoted_spans(text)
-    path_check_text = re.sub(r'https?://[^\s]+', ' ', unquoted_text, flags=re.IGNORECASE)
-    if re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', path_check_text):
+    if any(
+        unicodedata.category(ch) == 'Cf'
+        or (unicodedata.category(ch) == 'Cc' and ch not in '\t\n\r')
+        for ch in unquoted_text
+    ):
         return False, 'unsafe_source_path'
-    if re.search(r'(?:^|[\s=:("\'\[,/\\])\.\.(?:$|[/\\])', path_check_text):
+    path_check_text = _URL_MASK_RE.sub(' ', unquoted_text)
+    if re.search(rf'(?:^|{_UNSAFE_DELIM})\.\.{_TRAVERSAL_TAIL}', path_check_text):
         return False, 'unsafe_source_path'
-    if re.search(r'(?:^|[\s=:("\'\[,])(?:/(?!\s)|~[/\\]|[A-Za-z]:[/\\]|\\\\)', path_check_text):
+    if re.search(rf'(?:^|{_UNSAFE_DELIM})(?:/(?!\s)|~[/\\]|[A-Za-z]:[/\\]|\\\\)', path_check_text):
         return False, 'unsafe_source_path'
-    if re.search(r'(?:^|[\s=:("\'\[,])file:', path_check_text, re.IGNORECASE):
+    if re.search(rf'(?:^|{_UNSAFE_DELIM})file:', path_check_text, re.IGNORECASE):
         return False, 'unsafe_source_path'
 
     explicit_files = _FILE_TOKEN_RE.findall(path_check_text)
@@ -516,7 +568,19 @@ def verify_locator(locator, index, default_source_ids=(), source_url=None, extra
         return False, 'source_not_found'
 
     anchor_text = _FILE_TOKEN_RE.sub(lambda m: '_FILE_' + Path(m.group(1)).suffix, path_check_text)
-    page_range, line_range, anchor_spans = _parse_anchors(anchor_text)
+    parsed_page_range, parsed_line_range, anchor_spans = _parse_anchors(anchor_text)
+    if struct_page_range is not None:
+        if parsed_page_range is not None and parsed_page_range != struct_page_range:
+            return False, 'anchor_out_of_bounds'
+        page_range = struct_page_range
+    else:
+        page_range = parsed_page_range
+    if struct_line_range is not None:
+        if parsed_line_range is not None and parsed_line_range != struct_line_range:
+            return False, 'anchor_out_of_bounds'
+        line_range = struct_line_range
+    else:
+        line_range = parsed_line_range
     if page_range and (page_range[0] < 1 or page_range[1] < page_range[0]):
         return False, 'anchor_out_of_bounds'
     if line_range and (line_range[0] < 1 or line_range[1] < line_range[0]):
@@ -550,7 +614,7 @@ def verify_locator(locator, index, default_source_ids=(), source_url=None, extra
         return False, 'anchor_out_of_bounds'
 
     inline_quotes = _extract_quotes(text)
-    quotes = list(inline_quotes)
+    quotes = list(dict_quotes) + list(inline_quotes)
     extra_list = [eq for eq in extra_quotes if isinstance(eq, str) and len(_normalized(eq)) >= 3]
     quotes.extend(extra_list)
 
@@ -565,7 +629,7 @@ def verify_locator(locator, index, default_source_ids=(), source_url=None, extra
         matched_quote_only = False
         for window in in_bounds_windows:
             if all(_contains_exact_quote(window, q) for q in quotes):
-                if not inline_quotes and extra_list and residual:
+                if not inline_quotes and not dict_quotes and extra_list and residual:
                     if _contains_exact_quote(window, residual):
                         return True, 'verified'
                     matched_quote_only = True

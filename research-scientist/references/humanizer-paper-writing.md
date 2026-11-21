@@ -51,13 +51,29 @@ For a completed paper, write the abstract after the body and claim hierarchy are
 
 ### Local manuscript ledger
 
-For a consequential draft, create a ledger from [the fictional JSON example](manuscript-ledger.schema-example.json) and run `python scripts/check_manuscript_ledger.py manuscript-ledger.json`. Give each material claim a stable ID and an exact source/result locator. Record a human verifier and date only after the passage, output, or analysis has actually been opened and checked. Record each method as reused, adapted, combined, or newly derived, with its sources and exact change. A proposed method novelty claim needs closest-work source IDs, a specific difference, and an accountable human review record; none of these declarations proves novelty by itself. A grand name for reused, adapted, or combined methods is always flagged, even if the author claims a difference. Track repeated numerical facts across the abstract, body, figures, tables, and supplements. The checker flags missing links, unsupported novelty declarations, and mismatched repeated values; it does not read the manuscript or judge source entailment. When wording changes, re-check the claim against the source rather than carrying a stale verified label forward.
+For a consequential draft, create a ledger from [the fictional JSON example](manuscript-ledger.schema-example.json) and run the manuscript-grounded audit:
+
+```bash
+python scripts/check_manuscript_ledger.py --ledger manuscript-ledger.json --manuscript draft.md --sources-dir ./sources
+```
+
+(The legacy positional invocation `python scripts/check_manuscript_ledger.py manuscript-ledger.json` remains supported for ledger-only structural checks.)
+
+Give each material claim a stable ID and an exact source/result locator. Record a human verifier and date only after the passage, output, or analysis has actually been opened and checked. Record each method as `reused`, `adapted`, `combined`, or `newly_derived`, with its sources, exact change, and `derivation_evidence` (required for `newly_derived`). A proposed method novelty claim needs `closest_work_source_ids`, `difference_evidence`, and an accountable `human_adjudication` record; none of these declarations proves novelty by itself.
+
+When `--manuscript` and `--sources-dir` are supplied, `scripts/check_manuscript_ledger.py` scans the LaTeX/Markdown manuscript prose directly—independent of the `grand_name` boolean—for grandiose or coined framework names on `reused`/`adapted`/`combined` or unbacked `newly_derived` methods, checks repeated and headline numeric claims against `numeric_facts`, checks `[claim:C...]` markers, and verifies exact source quotes, page locators, and JSON dotted fragments against local files in `--sources-dir`. Still, no automated pass proves full semantic entailment or scientific truth; inspect every flagged passage yourself and re-check claims after wording changes.
 
 Keep the ledger local when it contains unpublished work or restricted evidence. Do not send confidential manuscripts or peer-review material to an external model, search API, or parser unless the owner and applicable venue policy authorize that processing. Human authors retain responsibility for the methods, results, citations, authorship, and final submission.
 
 ## Humanizer pass for scholarly prose
 
-Use the [bundled Humanizer pattern catalog](../modules/humanizer/UPSTREAM_SKILL.md) for this stage; it is part of this package, with its [source and license notice](../modules/humanizer/VENDOR.md). Read the full draft and flag patterns that make the writing sound formulaic, inflated, or detached from the evidence. Look at the document as a whole, not one sentence at a time. Common structural signs include:
+Run the deterministic prose, anti-sycophancy, claim-preservation, and 8-gram originality linter alongside the [bundled Humanizer pattern catalog](../modules/humanizer/UPSTREAM_SKILL.md) (see its [source and license notice](../modules/humanizer/VENDOR.md)):
+
+```bash
+python scripts/humanizer_lint.py draft.md --strict --compare-baseline orig.md --json
+```
+
+Add `--reference prior.md` to check 8-gram overlap (`--overlap-threshold 0.15`), or `--mode reply` / `--mode review` for non-manuscript outputs. Humanizer NEVER rescues weak evidence, hides missing run receipts, or justifies polishing an unverified claim: if receipts, baselines, or primary sources are missing, refuse to polish and state what is missing first. Read the full draft and flag patterns that make the writing sound formulaic, inflated, sycophantic, or detached from the evidence. Look at the document as a whole, not one sentence at a time. Common structural signs include:
 
 - staged openings that announce an important point before making it;
 - repeated “not X, but Y” contrasts when the rejected alternative was never claimed;
@@ -78,11 +94,14 @@ The goal is readable scholarly writing that accurately represents the authors' w
 
 ## Scientific integrity: methods, names, and novelty claims
 
-This gate applies before a contribution is named or described in the abstract, title, introduction, or contribution list.
+This gate applies before a contribution is named or described in the abstract, title, introduction, or contribution list. Every manuscript must pass all four paper-writing gates: **(1) anti-fabrication**, **(2) anti-extraneous-info / anti-padding**, **(3) anti-grandiose / anti-hype**, and **(4) publication-ready rigor**.
 
 - **Never invent a method.** Do not fabricate steps, equations, components, ablations, datasets, results, or implementation details to make the paper sound complete. Record undisclosed or unknown details as unknown.
 - **Never inflate recombination into invention.** If the work joins, sequences, adapts, or reuses known methods, cite each source and describe those operations plainly. State the exact new component, mechanism, assumption, theorem, measurement, evaluation, or empirical finding that the authors actually add.
-- **Do not use a grand name to conceal the lineage.** Avoid new acronyms and branded labels for routine combinations, pipelines, wrappers, or repackaging. If a short label improves readability, define it as a shorthand and explicitly identify the known methods it contains. A name is not evidence of novelty.
+- **Do not use a grand name to conceal the lineage.** Ban inflated labels and coined acronyms for routine pipelines, wrappers, or repackaging—including terms such as *"Synergistic"*, *"Unified Framework"*, *"Groundbreaking"*, *"Revolutionary"*, *"Hyper-"* prefixes, or coined `-Net`/`-Flow`/`-Cascade` names over known components (e.g., stitching BM25, dense retrieval, RRF, and a cross-encoder). If a short label improves readability, define it strictly as a descriptive shorthand and explicitly identify every known method it contains. A name is not evidence of novelty.
+- **Prune extraneous padding, self-repetition, and problem inflation.** Cut boilerplate throat-clearing (*"in the era of..."*, *"in today's rapidly evolving..."*, *"with the rapid proliferation of..."*, *"needless to say"*), redundant cross-section restatements across abstract/intro/conclusion, dramatized crisis claims (*"catastrophic bottleneck"*, *"existential crisis"*, *"renders all prior work obsolete"*, *"plagued by"* without measured failure rates; scoped technical terms such as *"catastrophic forgetting"* in continual learning remain valid), and tangential side claims lacking RQ or evidence links.
+- **Demand parsimony and per-component ablation.** Every added component, loss term, or architectural stage in a multi-component method must document `simplest_alternative` and `ablation_evidence` proving it outperforms the minimal sufficient baseline.
+- **Refuse to polish unverified drafts.** If method lineage is undisclosed, run receipts or baselines are missing, or a stitched pipeline is pitched as a new paradigm without parsimony/ablation proof, stop prose polishing and refuse until verified evidence and honest attribution are restored.
 - **Separate implementation from contribution.** Code organization, prompt wording, a convenient workflow, or ordinary parameter selection may be useful engineering; do not call it a new scientific method without a demonstrated, non-obvious consequence and appropriate comparison.
 - **Make novelty claims proportional to the search.** “First,” “novel,” “unprecedented,” “state of the art,” and “new framework” require source-backed comparison. If the search was bounded or the distinction is uncertain, use a bounded description such as “we combine A and B for setting C; we evaluate …” and state the search limit.
 - **Do not hide borrowed ideas behind vague verbs.** Say whether the authors reuse, adapt, extend, derive, combine, or independently implement a component. Cite the closest source where the relation is first explained.

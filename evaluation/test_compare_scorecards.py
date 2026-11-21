@@ -645,6 +645,524 @@ class CompareScorecardsTests(unittest.TestCase):
             self.assertIn('locator_unverified:paper_a:importance:0:unsafe_source_path', out['issues'])
             self.assertIn('locator_unverified:paper_a:novelty:0:unsafe_source_path', out['issues'])
 
+            # Extended delimiters (<;{ and |]) before file:/paths, trailing ':' after '..', and URL+control-char
+            for extra_bad in (
+                '<file:paper_a.txt>: "Real quote from paper A"',
+                ';file:paper_a.txt: "Real quote from paper A"',
+                '{file:paper_a.txt}: "Real quote from paper A"',
+                '|file:paper_a.txt: "Real quote from paper A"',
+                ']file:paper_a.txt: "Real quote from paper A"',
+                'a/..: "Real quote from paper A"',
+                'https://example.com/a.pdf\x07: "Real quote from paper A"',
+            ):
+                ok, reason = module.verify_locator(extra_bad, idx, default_source_ids=('paper_a',))
+                self.assertFalse(ok, msg=repr(extra_bad))
+                self.assertEqual(reason, 'unsafe_source_path', msg=repr(extra_bad))
+
+    @unittest.skipIf(fitz is None, 'PyMuPDF (fitz) not installed')
+    def test_sources_dir_rejects_html_and_svg_disguised_as_pdf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            src_dir = tmp_path / 'mixed_sources'
+            src_dir.mkdir()
+            (src_dir / 'anubis_challenge.pdf').write_bytes(
+                b'<html><body>Anubis Proof of Work Challenge</body></html>'
+            )
+            (src_dir / 'fake_svg.pdf').write_bytes(
+                b'<svg xmlns="http://www.w3.org/2000/svg"><text x="10" y="20">Fake SVG</text></svg>'
+            )
+            (src_dir / 'paper_a.txt').write_text('Real quote from paper A.\n', encoding='utf-8')
+            pdf_b = src_dir / 'paper_b.pdf'
+            doc = fitz.open()
+            doc.new_page().insert_text((72, 72), 'Valid PDF text from paper B.')
+            doc.save(str(pdf_b))
+            doc.close()
+
+            idx = module.index_sources_dir(src_dir)
+            skipped = {item['path']: item['reason'] for item in idx['skipped_files']}
+            self.assertEqual(skipped.get('anubis_challenge.pdf'), 'ValueError')
+            self.assertEqual(skipped.get('fake_svg.pdf'), 'ValueError')
+            self.assertEqual(idx['sources_indexed'], 2)
+
+            # All-HTML/SVG .pdf directory must raise ValueError and exit 2 via CLI
+            only_fake = tmp_path / 'only_fake_pdfs'
+            only_fake.mkdir()
+            (only_fake / 'anubis_challenge.pdf').write_bytes(
+                b'<html><body>Anubis Proof of Work Challenge</body></html>'
+            )
+            (only_fake / 'fake_svg.pdf').write_bytes(
+                b'<svg xmlns="http://www.w3.org/2000/svg"><text x="10" y="20">Fake SVG</text></svg>'
+            )
+            with self.assertRaises(ValueError):
+                module.index_sources_dir(only_fake)
+
+            prof_a = self.profile('paper_a', 8, 7)
+            prof_a['evidence_locators'] = {dim: ['paper_a.txt: "Real quote from paper A."'] for dim in module.DIMENSIONS}
+            prof_b = self.profile('paper_b', 6, 8)
+            prof_b['evidence_locators'] = {dim: ['paper_b.pdf: "Valid PDF text from paper B."'] for dim in module.DIMENSIONS}
+            sc_json = tmp_path / 'sc.json'
+            sc_json.write_text(json.dumps({'profiles': [prof_a, prof_b], 'weight_scenarios': self._valid_weights()}), encoding='utf-8')
+
+            script = str(SCRIPT_DIR / 'compare_scorecards.py')
+            res_cli = subprocess.run(
+                [sys.executable, script, str(sc_json), '--sources-dir', str(only_fake)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(res_cli.returncode, 2)
+            self.assertIn('error', json.loads(res_cli.stderr))
+
+    def test_verify_locator_dict_quote_no_breakout_or_splitting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src_dir = Path(tmp)
+            (src_dir / 'paper_a.txt').write_text(
+                'Real quote from paper A.\n'
+                'Line 2: He said "goodbye" today in section 2.\n'
+                'Line 3: Nghiên cứu tiếng Việt có dấu.\n',
+                encoding='utf-8',
+            )
+            (src_dir / 'paper_b.txt').write_text(
+                'Paper B contains secret cross-file quote.\n',
+                encoding='utf-8',
+            )
+            (src_dir / 'paper_quotes.txt').write_text(
+                'The author wrote "see p. 999 for details" in notes.\n',
+                encoding='utf-8',
+            )
+            idx = module.index_sources_dir(src_dir)
+
+            # 1. Cross-file breakout via embedded double quotes must fail
+            self.assertEqual(
+                module.verify_locator(
+                    {'source': 'paper_a.txt', 'quote': 'secret cross-file quote" paper_b.txt "'},
+                    idx,
+                    default_source_ids=('paper_a',),
+                ),
+                (False, 'quote_not_found'),
+            )
+            # 2. Internal quotes must be matched literally, not stripped/split
+            self.assertEqual(
+                module.verify_locator(
+                    {'source': 'paper_a.txt', 'quote': 'He said "hello" today in section 2.'},
+                    idx,
+                    default_source_ids=('paper_a',),
+                ),
+                (False, 'quote_not_found'),
+            )
+            # 3. Disjoint-fragment fabrication via '" AND "' must fail
+            self.assertEqual(
+                module.verify_locator(
+                    {'source': 'paper_a.txt', 'quote': 'Real quote from paper A" AND "Nghiên cứu tiếng Việt'},
+                    idx,
+                    default_source_ids=('paper_a',),
+                ),
+                (False, 'quote_not_found'),
+            )
+            # 4. Benign quote with inner quotes and "p. 999" must pass without false anchor parsing
+            self.assertEqual(
+                module.verify_locator(
+                    {'source': 'paper_quotes.txt', 'quote': 'The author wrote "see p. 999 for details" in notes.'},
+                    idx,
+                    default_source_ids=('paper_quotes',),
+                ),
+                (True, 'verified'),
+            )
+            # Additional dict locator validation and preservation checks
+            self.assertEqual(
+                module.verify_locator({'quote': 'Real quote from paper A.'}, idx, default_source_ids=('paper_a',)),
+                (True, 'verified'),
+            )
+            self.assertEqual(
+                module.verify_locator({'source': 'paper_a.txt', 'section': 'Methods', 'quote': 'Real quote from paper A.'}, idx),
+                (True, 'verified'),
+            )
+            self.assertEqual(
+                module.verify_locator({'source': 'paper_a.txt', 'line_start': 2, 'line_end': 2, 'quote': 'Real quote from paper A.'}, idx),
+                (False, 'quote_not_found'),
+            )
+            self.assertEqual(
+                module.verify_locator({'source': 'paper_a.txt', 'quote': 'Real\x00quote'}, idx),
+                (False, 'unsafe_source_path'),
+            )
+            self.assertEqual(
+                module.verify_locator({'source': 'paper_a.txt', 'quote': 123}, idx),
+                (False, 'invalid_quote_type'),
+            )
+            self.assertEqual(
+                module.verify_locator({'source': 'paper_a.txt', 'quote': '   '}, idx),
+                (False, 'blank_quote'),
+            )
+
+    def test_verify_locator_blocks_extended_delimiters_and_url_swallowing_while_preserving_valid_locators(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src_dir = Path(tmp)
+            (src_dir / 'paper_a.txt').write_text(
+                'Real quote from paper A.\n'
+                'Case|1 benchmark note.\n',
+                encoding='utf-8',
+            )
+            (src_dir / 'a..b.txt').write_text(
+                'Real quote from paper A.\n',
+                encoding='utf-8',
+            )
+            idx = module.index_sources_dir(src_dir)
+
+            bypass_payloads = (
+                '>file:paper_a.txt: "Real quote from paper A."',
+                '}file:paper_a.txt: "Real quote from paper A."',
+                ')file:paper_a.txt: "Real quote from paper A."',
+                '&file:paper_a.txt: "Real quote from paper A."',
+                '?file:paper_a.txt: "Real quote from paper A."',
+                '>/etc/passwd: "Real quote from paper A."',
+                '}/etc/passwd: "Real quote from paper A."',
+                ')/etc/passwd: "Real quote from paper A."',
+                '|../etc/passwd: "Real quote from paper A."',
+                ']../etc/passwd: "Real quote from paper A."',
+                ';../etc/passwd: "Real quote from paper A."',
+                '<../etc/passwd: "Real quote from paper A."',
+                '{../etc/passwd: "Real quote from paper A."',
+                '>../etc/passwd: "Real quote from paper A."',
+                '}../etc/passwd: "Real quote from paper A."',
+                ')../etc/passwd: "Real quote from paper A."',
+                '|../secret.txt: "Real quote from paper A."',
+                ']../secret.txt: "Real quote from paper A."',
+                ';../secret.txt: "Real quote from paper A."',
+                '<../secret.txt: "Real quote from paper A."',
+                '{../secret.txt: "Real quote from paper A."',
+                'https://example.com/a.pdf;file:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a.pdf|/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a.pdf|../etc/passwd: "Real quote from paper A."',
+                'https://example.com/a.pdf?file:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a.pdf)file:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a.pdf)/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a.pdf/../etc/passwd: "Real quote from paper A."',
+            )
+            for bad_loc in bypass_payloads:
+                ok, reason = module.verify_locator(bad_loc, idx, default_source_ids=('paper_a',))
+                self.assertFalse(ok, msg=bad_loc)
+                self.assertEqual(reason, 'unsafe_source_path', msg=bad_loc)
+
+            valid_locators = (
+                'https://example.com/a.pdf#page=1: "Real quote from paper A."',
+                'https://example.com/view?id=1&x=2: "Real quote from paper A."',
+                'https://example.com/view?file=1&x=2: "Real quote from paper A."',
+                'https://example.com/login?next=/cfp: "Real quote from paper A."',
+                'profile: "Real quote from paper A."',
+                'a..b.txt: "Real quote from paper A."',
+                'paper_a.txt Case|1: "Real quote from paper A."',
+                'paper_a.txt: "Real quote from paper A."',
+            )
+            for good_loc in valid_locators:
+                self.assertEqual(
+                    module.verify_locator(good_loc, idx, default_source_ids=('paper_a',)),
+                    (True, 'verified'),
+                    msg=good_loc,
+                )
+
+    def test_verify_locator_r10_traversal_symbol_delimiters_url_parity_and_dict_anchors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src_dir = Path(tmp)
+            (src_dir / 'paper_a.txt').write_text(
+                'Real quote from paper A.\n'
+                'Line 2: He said "goodbye" today in section 2.\n'
+                'Case|1 benchmark note.\n',
+                encoding='utf-8',
+            )
+            (src_dir / 'a..b.txt').write_text('Real quote from paper A.\n', encoding='utf-8')
+            (src_dir / 'paper..v2.pdf.txt').write_text('Real quote from paper A.\n', encoding='utf-8')
+            (src_dir / 'paper..v2.json').write_text(
+                json.dumps([
+                    {'type': 'paragraph', 'page_idx': 0, 'content': {'paragraph_content': [{'content': 'Real quote from paper A.'}]}},
+                ]),
+                encoding='utf-8',
+            )
+            (src_dir / 'multi.json').write_text(
+                json.dumps([
+                    {'type': 'paragraph', 'page_idx': 0, 'content': {'paragraph_content': [{'content': 'Page one text from real PDF.'}]}},
+                    {'type': 'paragraph', 'page_idx': 1, 'content': {'paragraph_content': [{'content': 'Page two text from real PDF.'}]}},
+                ]),
+                encoding='utf-8',
+            )
+            sub_dir = src_dir / 'sub'
+            sub_dir.mkdir()
+            (sub_dir / 'file.txt').write_text('Real quote from paper A.\n', encoding='utf-8')
+            idx = module.index_sources_dir(src_dir)
+
+            unsafe_payloads = (
+                '.. "Real quote from paper A."',
+                'sub/.. "Real quote from paper A."',
+                'http://example.com/a.pdf/.. "Real quote from paper A."',
+                'https://example.com/a.pdf/.. "Real quote from paper A."',
+                'https://example.com/a).. "Real quote from paper A."',
+                'https://example.com/a.pdf/..)',
+                '!file:paper_a.txt: "Real quote from paper A."',
+                '@file:paper_a.txt: "Real quote from paper A."',
+                '#file:paper_a.txt: "Real quote from paper A."',
+                '$file:paper_a.txt: "Real quote from paper A."',
+                '%file:paper_a.txt: "Real quote from paper A."',
+                '*file:paper_a.txt: "Real quote from paper A."',
+                '+file:paper_a.txt: "Real quote from paper A."',
+                '~file:paper_a.txt: "Real quote from paper A."',
+                '!/etc/passwd: "Real quote from paper A."',
+                '@/etc/passwd: "Real quote from paper A."',
+                '+/etc/passwd: "Real quote from paper A."',
+                '*/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a(file:paper_a.txt: "Real quote from paper A."',
+                "https://example.com/a'file:paper_a.txt: \"Real quote from paper A.\"",
+                'https://example.com/a!file:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a#file:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a(/etc/passwd: "Real quote from paper A."',
+                "https://example.com/a'/etc/passwd: \"Real quote from paper A.\"",
+                'https://example.com/a(../etc/passwd: "Real quote from paper A."',
+                "https://example.com/a'../etc/passwd: \"Real quote from paper A.\"",
+                'https://example.com/a=/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a.pdf(/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a.pdf(..: "Real quote from paper A."',
+                'https://example.com/a.pdf(file:paper_a.txt: "Real quote from paper A.")',
+                "https://example.com/a.pdf'file:paper_a.txt: \"Real quote from paper A.\"",
+                "https://example.com/a.pdf'/etc/passwd: \"Real quote from paper A.\"",
+            )
+            for bad_loc in unsafe_payloads:
+                ok, reason = module.verify_locator(bad_loc, idx, default_source_ids=('paper_a',))
+                self.assertFalse(ok, msg=bad_loc)
+                self.assertEqual(reason, 'unsafe_source_path', msg=bad_loc)
+
+            benign_payloads = (
+                'https://example.com/a.pdf#page=1: "Real quote from paper A."',
+                'https://example.com/view?id=1&x=2: "Real quote from paper A."',
+                'https://example.com/view?file=1&x=2: "Real quote from paper A."',
+                'https://example.com/view?next=/cfp: "Real quote from paper A."',
+                "https://example.com/a.pdf?x=foo'bar: \"Real quote from paper A.\"",
+                'https://example.com/a.pdf?x=foo(bar): "Real quote from paper A."',
+                'https://en.wikipedia.org/wiki/Foo_(bar): "Real quote from paper A."',
+                'https://example.com/~user/paper.pdf: "Real quote from paper A."',
+                'sub/file.txt: "Real quote from paper A."',
+                'profile: "Real quote from paper A."',
+                'my-file: "Real quote from paper A."',
+                'paper_a.txt Case|1: "Real quote from paper A."',
+                'a..b.txt: "Real quote from paper A."',
+                'paper..v2.json: "Real quote from paper A."',
+            )
+            for good_loc in benign_payloads:
+                self.assertEqual(
+                    module.verify_locator(good_loc, idx, default_source_ids=('paper_a',)),
+                    (True, 'verified'),
+                    msg=good_loc,
+                )
+
+            # Dict structured anchor bounds, authoritative precedence, and short quote rejection
+            oob_dicts = (
+                {'source': 'multi.json', 'page': 999, 'locator': '#page=1', 'quote': 'Page one text from real PDF.'},
+                {'source': 'multi.json', 'page': 0, 'locator': '#page=1', 'quote': 'Page one text from real PDF.'},
+                {'source': 'multi.json', 'page': -1, 'quote': 'Page one text from real PDF.'},
+                {'source': 'multi.json', 'page': 2, 'locator': '#page=1', 'quote': 'Page one text from real PDF.'},
+                {'source': 'paper_a.txt', 'line_start': 999, 'locator': '#L1', 'quote': 'Real quote from paper A.'},
+                {'source': 'paper_a.txt', 'line_start': -1, 'quote': 'Real quote from paper A.'},
+                {'source': 'paper_a.txt', 'line_start': 0, 'quote': 'Real quote from paper A.'},
+                {'source': 'paper_a.txt', 'line_start': 2, 'line_end': -1, 'quote': 'Line 2'},
+                {'source': 'paper_a.txt', 'line_start': 3, 'line_end': 1, 'quote': 'Real quote from paper A.'},
+                {'source': 'paper_a.txt', 'line_end': 1, 'quote': 'Line 2: He said "goodbye" today in section 2.'},
+            )
+            for bad_dict in oob_dicts:
+                self.assertEqual(
+                    module.verify_locator(bad_dict, idx, default_source_ids=('paper_a',)),
+                    (False, 'anchor_out_of_bounds'),
+                    msg=repr(bad_dict),
+                )
+
+            self.assertEqual(
+                module.verify_locator(
+                    {'source': 'multi.json', 'page': 2, 'locator': 'multi.json#page=2', 'quote': 'Page two text from real PDF.'},
+                    idx,
+                ),
+                (True, 'verified'),
+            )
+            for short_quote in ('2', 'in', ' x '):
+                self.assertEqual(
+                    module.verify_locator({'source': 'paper_a.txt', 'quote': short_quote}, idx),
+                    (False, 'quote_too_short'),
+                    msg=repr(short_quote),
+                )
+
+            # End-to-end compare() blocks new bypasses
+            prof_a = self.profile('paper_a', 8, 7)
+            prof_a['evidence_locators'] = {dim: ['paper_a.txt: "Real quote from paper A."'] for dim in module.DIMENSIONS}
+            prof_a['evidence_locators']['importance'] = ['https://example.com/a(file:paper_a.txt: "Real quote from paper A."']
+            prof_a['evidence_locators']['novelty'] = ['.. "Real quote from paper A."']
+            prof_b = self.profile('a..b', 6, 8)
+            prof_b['evidence_locators'] = {dim: ['a..b.txt: "Real quote from paper A."'] for dim in module.DIMENSIONS}
+            out = module.compare({'profiles': [prof_a, prof_b], 'weight_scenarios': self._valid_weights()}, sources_dir=src_dir)
+            self.assertEqual(out['status'], 'not_comparable')
+            self.assertIn('locator_unverified:paper_a:importance:0:unsafe_source_path', out['issues'])
+            self.assertIn('locator_unverified:paper_a:novelty:0:unsafe_source_path', out['issues'])
+
+    def test_verify_locator_r11_unicode_cf_punctuation_and_malformed_authority_bypasses(self):
+        import time
+
+        with tempfile.TemporaryDirectory() as tmp:
+            src_dir = Path(tmp)
+            (src_dir / 'paper_a.txt').write_text('Real quote from paper A.\n', encoding='utf-8')
+            (src_dir / 'paper_b.txt').write_text('Real quote from paper B.\n', encoding='utf-8')
+            idx = module.index_sources_dir(src_dir)
+
+            r11_unsafe = (
+                # Finding 1: Unicode Cf invisible/bidi chars & Unicode punctuation in path and query/fragment phases
+                'https://example.com/a\u200bfile:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a\u202efile:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a\u00adfile:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a\ufefffile:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a\u2060file:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a\u2014file:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a\u200b/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a\u2014/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a\u2014../etc/passwd: "Real quote from paper A."',
+                'https://example.com/a\u200b.. "Real quote from paper A."',
+                'https://example.com/a?x=1\u200bfile:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a?x=1\u200b/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a?x=1\u2014file:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a?x=1\u2014/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a?x=1\u2014../etc/passwd: "Real quote from paper A."',
+                'https://example.com/a#frag\u2014/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a\u2013/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a\u2022../etc/passwd: "Real quote from paper A."',
+                'https://example.com/a\u2019file:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a\u201d/etc/passwd: "Real quote from paper A."',
+                'https://example.com/a\u200b.pdf: "Real quote from paper A."',
+                'paper_a.txt\u0085: "Real quote from paper A."',
+                # Finding 2: Malformed / scheme-hijacked authority & double-slash path bypasses
+                'https://../etc/passwd: "Real quote from paper A."',
+                'https://.. "Real quote from paper A."',
+                'https:///etc/passwd: "Real quote from paper A."',
+                'https://file:paper_a.txt: "Real quote from paper A."',
+                'https://example.com/a//etc/passwd: "Real quote from paper A."',
+                'https://example.com//etc/passwd: "Real quote from paper A."',
+                'http://../etc/passwd: "Real quote from paper A."',
+                'http:///etc/passwd: "Real quote from paper A."',
+                'http://file:paper_a.txt: "Real quote from paper A."',
+                'http://example.com/a//etc/passwd: "Real quote from paper A."',
+                'https://~/secret: "Real quote from paper A."',
+                'https://C:/Windows/win.ini: "Real quote from paper A."',
+                'https://example.com/a/file:paper_a.txt: "Real quote from paper A."',
+            )
+            for bad_loc in r11_unsafe:
+                ok, reason = module.verify_locator(bad_loc, idx, default_source_ids=('paper_a',))
+                self.assertFalse(ok, msg=repr(bad_loc))
+                self.assertEqual(reason, 'unsafe_source_path', msg=repr(bad_loc))
+
+            # Direct _URL_MASK_RE checks: must NOT swallow Unicode Cf/punctuation or malformed authorities
+            for raw_url, tail in (
+                ('https://example.com/a\u200bfile:paper_a.txt', 'file:paper_a.txt'),
+                ('https://example.com/a\u2014/etc/passwd', '/etc/passwd'),
+                ('https://example.com/a?x=1\u200b/etc/passwd', '/etc/passwd'),
+                ('https://../etc/passwd', '../etc/passwd'),
+                ('https:///etc/passwd', '/etc/passwd'),
+                ('https://file:paper_a.txt', 'file:paper_a.txt'),
+                ('https://example.com/a//etc/passwd', '//etc/passwd'),
+            ):
+                masked = module._URL_MASK_RE.sub(' ', raw_url)
+                self.assertIn(tail, masked, msg=f'{raw_url!r} -> {masked!r}')
+
+            # Benign URLs must remain accepted
+            r11_benign = (
+                'https://example.com/a.pdf: "Real quote from paper A."',
+                'https://example.com/cfp?next=/cfp&x=1#page=2: "Real quote from paper A."',
+                'https://example.com/view?file=1&x=2: "Real quote from paper A."',
+                'https://medium.com/@author/paper: "Real quote from paper A."',
+                'https://example.com/x?q=foo(bar): "Real quote from paper A."',
+                'https://example.com/cfp?a=1//etc/passwd: "Real quote from paper A."',
+                'https://example.com:8443/cfp: "Real quote from paper A."',
+                'https://vi.wikipedia.org/wiki/Tiếng_Việt: "Real quote from paper A."',
+            )
+            for good_loc in r11_benign:
+                self.assertEqual(
+                    module.verify_locator(good_loc, idx, default_source_ids=('paper_a',)),
+                    (True, 'verified'),
+                    msg=repr(good_loc),
+                )
+
+            # End-to-end compare() rejects Finding 1 & Finding 2 payloads
+            prof_a = self.profile('paper_a', 8, 7)
+            prof_a['evidence_locators'] = {dim: ['paper_a.txt: "Real quote from paper A."'] for dim in module.DIMENSIONS}
+            prof_a['evidence_locators']['importance'] = ['https://example.com/a\u200bfile:paper_a.txt: "Real quote from paper A."']
+            prof_a['evidence_locators']['novelty'] = ['https://example.com/a\u2014file:paper_a.txt: "Real quote from paper A."']
+            prof_a['evidence_locators']['soundness'] = ['https://../etc/passwd: "Real quote from paper A."']
+            prof_a['evidence_locators']['evidence'] = ['https://file:paper_a.txt: "Real quote from paper A."']
+            prof_a['evidence_locators']['transparency'] = ['https://example.com/a//etc/passwd: "Real quote from paper A."']
+            prof_b = self.profile('paper_b', 6, 8)
+            prof_b['evidence_locators'] = {dim: ['paper_b.txt: "Real quote from paper B."'] for dim in module.DIMENSIONS}
+            out = module.compare({'profiles': [prof_a, prof_b], 'weight_scenarios': self._valid_weights()}, sources_dir=src_dir)
+            self.assertEqual(out['status'], 'not_comparable')
+            for dim in ('importance', 'novelty', 'soundness', 'evidence', 'transparency'):
+                self.assertIn(f'locator_unverified:paper_a:{dim}:0:unsafe_source_path', out['issues'])
+
+            # Linear O(n) complexity guard on 100k-char URL
+            long_url = 'https://example.com/' + ('a/' * 25000) + '?q=' + ('b&' * 25000)
+            t0 = time.perf_counter()
+            m = module._URL_MASK_RE.search(long_url)
+            elapsed = time.perf_counter() - t0
+            self.assertIsNotNone(m)
+            self.assertEqual(len(m.group(0)), len(long_url))
+            self.assertLess(elapsed, 0.2)
+
+    def test_verify_locator_r12_single_pass_quote_stripping_sync(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src_dir = Path(tmp)
+            (src_dir / 'paper_a.txt').write_text(
+                'We evaluate "zero-shot" transfer. Real quote from paper A.\n'
+                'We evaluate «guillemet» and `code` spans.\n'
+                "He said 'single' inside double.\n",
+                encoding='utf-8',
+            )
+            (src_dir / 'paper_b.txt').write_text('Real quote from paper B.\n', encoding='utf-8')
+            idx = module.index_sources_dir(src_dir)
+
+            # Single-quoted / backtick / guillemet / empty quote desync payloads must be rejected
+            desync_payloads = (
+                'paper_a.txt: \'evaluate "zero-shot\' /etc/passwd " transfer." "Real quote from paper A."',
+                'paper_a.txt: \'evaluate "zero-shot\' file:paper_a.txt " transfer." "Real quote from paper A."',
+                'paper_a.txt: \'evaluate "zero-shot\' ../etc/passwd " transfer." "Real quote from paper A."',
+                'paper_a.txt: \'evaluate "zero-shot\' \u200b " transfer." "Real quote from paper A."',
+                'paper_a.txt: \'evaluate «guillemet\' /etc/passwd « spans.» "Real quote from paper A."',
+                'paper_a.txt: \'evaluate `code\' ../etc/passwd ` spans.` "Real quote from paper A."',
+                'paper_a.txt: "" /etc/passwd "Real quote from paper A."',
+                "paper_a.txt: '' ../etc/passwd 'Real quote from paper A.'",
+                'paper_a.txt: «» file:paper_a.txt "Real quote from paper A."',
+                'paper_a.txt: `` \u200b "Real quote from paper A."',
+                'paper_a.txt: \'"\' /etc/passwd \'"\' "Real quote from paper A."',
+            )
+            for bad_loc in desync_payloads:
+                ok, reason = module.verify_locator(bad_loc, idx, default_source_ids=('paper_a',))
+                self.assertFalse(ok, msg=repr(bad_loc))
+                self.assertEqual(reason, 'unsafe_source_path', msg=repr(bad_loc))
+
+            # Legitimate mixed quotes and empty quote preceding real quote remain valid
+            benign_mixed = (
+                'paper_a.txt: \'We evaluate "zero-shot" transfer.\' "Real quote from paper A."',
+                'paper_a.txt: \'We evaluate «guillemet» and `code` spans.\' "Real quote from paper A."',
+                'paper_a.txt: "He said \'single\' inside double." "Real quote from paper A."',
+                'paper_a.txt: "" "Real quote from paper A."',
+                "paper_a.txt: '' \"Real quote from paper A.\"",
+            )
+            for good_loc in benign_mixed:
+                self.assertEqual(
+                    module.verify_locator(good_loc, idx, default_source_ids=('paper_a',)),
+                    (True, 'verified'),
+                    msg=repr(good_loc),
+                )
+
+            # End-to-end compare() rejects R12 quote-desync bypasses across dimensions
+            prof_a = self.profile('paper_a', 8, 7)
+            prof_a['evidence_locators'] = {dim: ['paper_a.txt: "Real quote from paper A."'] for dim in module.DIMENSIONS}
+            prof_a['evidence_locators']['importance'] = [desync_payloads[0]]
+            prof_a['evidence_locators']['novelty'] = [desync_payloads[1]]
+            prof_a['evidence_locators']['soundness'] = [desync_payloads[2]]
+            prof_a['evidence_locators']['evidence'] = [desync_payloads[3]]
+            prof_b = self.profile('paper_b', 6, 8)
+            prof_b['evidence_locators'] = {dim: ['paper_b.txt: "Real quote from paper B."'] for dim in module.DIMENSIONS}
+            out = module.compare({'profiles': [prof_a, prof_b], 'weight_scenarios': self._valid_weights()}, sources_dir=src_dir)
+            self.assertEqual(out['status'], 'not_comparable')
+            for dim in ('importance', 'novelty', 'soundness', 'evidence'):
+                self.assertIn(f'locator_unverified:paper_a:{dim}:0:unsafe_source_path', out['issues'])
+
 
 if __name__ == '__main__':
     unittest.main()

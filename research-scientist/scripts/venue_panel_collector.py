@@ -355,7 +355,11 @@ _PMLR_FRONTMATTER_EXACT = {
     'preface', 'frontmatter', 'front matter', 'editorial', 'foreword', 'table of contents',
 }
 _SECONDARY_TRACK_RE = re.compile(
-    r'\b(?:workshops?|tutorials?|demos?|demonstrations?|findings|companions?|doctoral\s+consortium)\b',
+    r'\b(?:workshops?|findings|tutorials?|demos?|demonstrations?|companions?|'
+    r'doctoral\s+(?:consortium|symposium)|adjunct|co[-\s]?located|'
+    r'extended\s+abstracts?|posters?|srw|industry\s+track|'
+    r'datasets?(?:\s+and\s+|\s*&\s*)benchmarks?|position\s+papers?|'
+    r'pre[-\s]?conference\s+symposium)\b',
     re.IGNORECASE,
 )
 
@@ -372,17 +376,174 @@ def _infer_pmlr_volume_track(h2_text: str, venue_name: str) -> str:
 
 
 def _infer_dblp_secondary_track(text: str) -> str:
-    inferred = _infer_pmlr_volume_track('', text)
-    if inferred != 'Main':
-        return inferred
-    lower = text.lower()
+    lower = (text or '').lower()
     if re.search(r'\bfindings\b', lower):
         return 'Findings'
+    if re.search(r'\bsrw\b|student\s+research\s+workshop', lower):
+        return 'SRW'
+    if re.search(r'\bpre[-\s]?conference\s+symposium\b', lower):
+        return 'Pre-conference Symposium'
+    if re.search(r'\bco[-\s]?located\b', lower):
+        return 'Co-located'
+    if re.search(r'\bworkshops?\b', lower):
+        return 'Workshop'
+    if re.search(r'\btutorials?\b', lower):
+        return 'Tutorials'
+    if re.search(r'\bdemos?\b|\bdemonstrations?\b', lower):
+        return 'Demo'
     if re.search(r'\bdoctoral\s+consortium\b', lower):
         return 'Doctoral Consortium'
+    if re.search(r'\bdoctoral\s+symposium\b', lower):
+        return 'Doctoral Symposium'
     if re.search(r'\bcompanions?\b', lower):
         return 'Companion'
+    if re.search(r'\bindustry\s+track\b', lower):
+        return 'Industry'
+    if re.search(r'\bdatasets?(?:\s+and\s+|\s*&\s*)benchmarks?\b', lower):
+        return 'Datasets and Benchmarks'
+    if re.search(r'\bextended\s+abstracts?\b', lower):
+        return 'Extended Abstracts'
+    if re.search(r'\bposters?\b', lower):
+        return 'Posters'
+    if re.search(r'\bposition\s+papers?\b', lower):
+        return 'Position Papers'
+    if re.search(r'\badjunct\b', lower):
+        return 'Adjunct'
     return 'Workshop'
+
+
+def _filter_dblp_track(parsed_candidates: list[dict[str, Any]], track_filter: str) -> tuple[list[dict[str, Any]], str]:
+    req = track_filter.strip()
+    req_l = req.lower()
+    if req_l == 'main':
+        filtered = [
+            p for p in parsed_candidates
+            if not (p.get('section') and _SECONDARY_TRACK_RE.search(p['section']))
+        ]
+        return filtered, 'Main'
+
+    alias_map = {
+        'workshops': 'workshop',
+        'tutorial': 'tutorials',
+        'demos': 'demo',
+        'demonstration': 'demo',
+        'demonstrations': 'demo',
+        'companions': 'companion',
+        'industry track': 'industry',
+        'datasets & benchmarks': 'datasets and benchmarks',
+        'dataset & benchmark': 'datasets and benchmarks',
+        'dataset and benchmark': 'datasets and benchmarks',
+        'poster': 'posters',
+        'position paper': 'position papers',
+        'extended abstract': 'extended abstracts',
+        'student research workshop': 'srw',
+        'colocated': 'co-located',
+        'co located': 'co-located',
+        'pre conference symposium': 'pre-conference symposium',
+    }
+    norm_req = alias_map.get(req_l, req_l)
+    filtered = [
+        p for p in parsed_candidates
+        if req_l in (p.get('section') or '').lower()
+        or (
+            bool(p.get('section') and _SECONDARY_TRACK_RE.search(p['section']))
+            and _infer_dblp_secondary_track(p['section']).lower() == norm_req
+        )
+    ]
+    return filtered, req
+
+
+def _select_dblp_default_track(parsed_candidates: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str]:
+    non_secondary = [
+        p for p in parsed_candidates
+        if not (p.get('section') and _SECONDARY_TRACK_RE.search(p['section']))
+    ]
+    if non_secondary:
+        return non_secondary, 'Main'
+
+    counts: dict[str, int] = {}
+    first_idx: dict[str, int] = {}
+    annotated: list[tuple[dict[str, Any], str]] = []
+    for idx, p in enumerate(parsed_candidates):
+        sec = p.get('section') or ''
+        ctrack = _infer_dblp_secondary_track(sec)
+        annotated.append((p, ctrack))
+        counts[ctrack] = counts.get(ctrack, 0) + 1
+        if ctrack not in first_idx:
+            first_idx[ctrack] = idx
+
+    if not counts:
+        return parsed_candidates, 'Main'
+
+    canonical_track = max(counts, key=lambda t: (counts[t], -first_idx[t]))
+    filtered = [p for p, ct in annotated if ct == canonical_track]
+    return filtered, canonical_track
+
+
+def _select_dblp_xml_venue_name(
+    proc_records: list[dict[str, Any]],
+    filtered: list[dict[str, Any]],
+    canonical_track: str,
+    venue_id: str,
+    year_override: int | None,
+) -> str:
+    filtered_sections = [p['section'] for p in filtered if p.get('section')]
+    filtered_sections_l = {s.lower() for s in filtered_sections}
+    is_main_filtered = (
+        canonical_track == 'Main'
+        or (bool(filtered_sections) and not any(_SECONDARY_TRACK_RE.search(s) for s in filtered_sections))
+    )
+
+    def _year_score(rec: dict[str, Any]) -> int:
+        if year_override is not None and rec['year'] == year_override:
+            return 1
+        if filtered and filtered[0].get('year') is not None and rec['year'] == filtered[0]['year']:
+            return 1
+        return 0
+
+    if proc_records and filtered_sections_l:
+        exact_bt = [
+            rec for rec in proc_records
+            if rec['booktitle'] and rec['booktitle'].lower() in filtered_sections_l
+        ]
+        if exact_bt:
+            return max(exact_bt, key=_year_score)['label']
+
+        if is_main_filtered:
+            compat = [
+                rec for rec in proc_records
+                if not rec['is_secondary']
+                and (
+                    not rec['booktitle']
+                    or any(sec_l in rec['label'].lower() or rec['label'].lower() in sec_l for sec_l in filtered_sections_l)
+                )
+            ]
+            if compat:
+                return max(compat, key=_year_score)['label']
+        else:
+            track_l = canonical_track.lower()
+            compat = [
+                rec for rec in proc_records
+                if rec['is_secondary']
+                and (
+                    _infer_dblp_secondary_track(rec['label']).lower() == track_l
+                    or any(sec_l in rec['label'].lower() or rec['label'].lower() in sec_l for sec_l in filtered_sections_l)
+                )
+            ]
+            if compat:
+                return max(compat, key=_year_score)['label']
+
+    if filtered_sections:
+        return filtered_sections[0]
+
+    if proc_records:
+        if is_main_filtered:
+            non_sec = [rec for rec in proc_records if not rec['is_secondary']]
+            if non_sec:
+                return max(non_sec, key=_year_score)['label']
+        return max(proc_records, key=_year_score)['label']
+
+    return f'DBLP {venue_id}'
 
 
 def parse_pmlr_html(html_text: str, source_url: str, venue_id: str, track_filter: str | None = None, year_override: int | None = None) -> dict[str, Any]:
@@ -745,9 +906,17 @@ def parse_acl_html(html_text: str, source_url: str, venue_id: str, track_filter:
         req = track_filter.strip()
         req_l = req.lower()
         canonical_track = req
+        acl_aliases = {
+            'demos': 'demo',
+            'demonstration': 'demo',
+            'demonstrations': 'demo',
+            'workshops': 'workshop',
+            'tutorial': 'tutorials',
+        }
+        norm_req = acl_aliases.get(req_l, req_l)
         track_matched = [
             p for p in parsed_candidates
-            if p['vol_track'].lower() == req_l or req_l in p['vol_id'].lower() or req_l in p['vol_title'].lower()
+            if p['vol_track'].lower() == norm_req or req_l in p['vol_id'].lower() or req_l in p['vol_title'].lower()
         ]
     else:
         has_main = any(p['vol_track'] == 'Main' for p in parsed_candidates)
@@ -794,15 +963,24 @@ def _parse_dblp_xml(xml_text: str, source_url: str, venue_id: str, track_filter:
     except ET.ParseError as exc:
         raise PanelCollectionError('malformed_xml', f'Malformed DBLP XML at {source_url}: {exc}', details={'source_url': source_url}) from exc
 
-    venue_name: str | None = None
-    proc = root.find('.//proceedings')
-    if proc is not None:
-        proc_title = ''.join(proc.find('title').itertext()).strip() if proc.find('title') is not None else ''
-        proc_bt = (proc.findtext('booktitle') or '').strip()
-        if proc_bt or proc_title:
-            venue_name = _strip_dblp_trailing_dot(proc_bt or proc_title)
+    procs = root.findall('.//proceedings')
+    proc_records: list[dict[str, Any]] = []
+    for proc in procs:
+        proc_title = _strip_dblp_trailing_dot(''.join(proc.find('title').itertext())) if proc.find('title') is not None else ''
+        proc_bt = _strip_dblp_trailing_dot(proc.findtext('booktitle') or '')
+        proc_year_txt = (proc.findtext('year') or '').strip()
+        proc_year = int(proc_year_txt) if proc_year_txt.isdigit() else None
+        label = proc_bt or proc_title
+        if label:
+            proc_records.append({
+                'label': label,
+                'booktitle': proc_bt,
+                'title': proc_title,
+                'year': proc_year,
+                'is_secondary': bool(_SECONDARY_TRACK_RE.search(f'{proc_bt} {proc_title}')),
+            })
 
-    frontmatter_skipped = len(root.findall('.//proceedings'))
+    frontmatter_skipped = len(procs)
     raw_entries = [el for el in root.iter() if el.tag in ('inproceedings', 'article')]
     if not raw_entries:
         raise PanelCollectionError('empty_or_malformed_html', f'No <inproceedings> or <article> entries found in DBLP XML at {source_url}')
@@ -839,7 +1017,7 @@ def _parse_dblp_xml(xml_text: str, source_url: str, venue_id: str, track_filter:
             'id': f'dblp:{key}',
             'title': title,
             'authors': authors,
-            'venue': venue_name or '',
+            'venue': '',
             'venue_id': venue_id,
             'year': paper_year,
             'section': section,
@@ -858,40 +1036,17 @@ def _parse_dblp_xml(xml_text: str, source_url: str, venue_id: str, track_filter:
             },
         })
 
+    candidates_for_track = (
+        [p for p in parsed_candidates if p['year'] == year_override]
+        if year_override is not None
+        else parsed_candidates
+    )
     if track_filter and track_filter.strip():
-        req = track_filter.strip()
-        req_l = req.lower()
-        canonical_track = req
-        filtered = [p for p in parsed_candidates if req_l in (p.get('section') or '').lower()]
+        filtered, canonical_track = _filter_dblp_track(candidates_for_track, track_filter)
     else:
-        sections = {p['section'] for p in parsed_candidates if p.get('section')}
-        if len(sections) > 1:
-            non_secondary = [
-                p for p in parsed_candidates
-                if not (p.get('section') and _SECONDARY_TRACK_RE.search(p['section']))
-            ]
-            if non_secondary:
-                filtered = non_secondary
-                canonical_track = 'Main'
-            else:
-                filtered = parsed_candidates
-                canonical_track = _infer_dblp_secondary_track(' '.join(sorted(sections)))
-        elif len(sections) == 1:
-            only_sec = next(iter(sections))
-            filtered = parsed_candidates
-            if _SECONDARY_TRACK_RE.search(only_sec):
-                canonical_track = _infer_dblp_secondary_track(only_sec)
-            else:
-                canonical_track = 'Main'
-        else:
-            canonical_track = 'Main'
-            filtered = parsed_candidates
+        filtered, canonical_track = _select_dblp_default_track(candidates_for_track)
 
-    if year_override is not None:
-        filtered = [p for p in filtered if p['year'] == year_override]
-
-    if not venue_name:
-        venue_name = next((p['section'] for p in filtered if p.get('section')), None) or f'DBLP {venue_id}'
+    venue_name = _select_dblp_xml_venue_name(proc_records, filtered, canonical_track, venue_id, year_override)
 
     for p in filtered:
         p['venue'] = venue_name
@@ -1000,39 +1155,15 @@ def parse_dblp_toc(raw_text: str, source_url: str, venue_id: str, track_filter: 
         _check_js_shell(raw_text, source_url)
         raise PanelCollectionError('empty_or_malformed_html', f'No DBLP paper entries found at {source_url}', details={'source_url': source_url})
 
+    candidates_for_track = (
+        [p for p in parsed_candidates if p['year'] == year_override]
+        if year_override is not None
+        else parsed_candidates
+    )
     if track_filter and track_filter.strip():
-        req = track_filter.strip()
-        req_l = req.lower()
-        canonical_track = req
-        filtered = [p for p in parsed_candidates if req_l in (p.get('section') or '').lower()]
+        filtered, canonical_track = _filter_dblp_track(candidates_for_track, track_filter)
     else:
-        sections = {p['section'] for p in parsed_candidates if p.get('section')}
-        if len(sections) > 1:
-            non_secondary = [
-                p for p in parsed_candidates
-                if not (p.get('section') and _SECONDARY_TRACK_RE.search(p['section']))
-            ]
-            if non_secondary:
-                filtered = non_secondary
-                rem_sections = {p['section'] for p in filtered if p.get('section')}
-                canonical_track = (
-                    next(iter(rem_sections))
-                    if len(rem_sections) == 1 and 'main' not in next(iter(rem_sections)).lower()
-                    else 'Main'
-                )
-            else:
-                filtered = parsed_candidates
-                canonical_track = 'Workshop'
-        elif len(sections) == 1:
-            only_sec = next(iter(sections))
-            canonical_track = 'Main' if 'main' in only_sec.lower() else only_sec
-            filtered = parsed_candidates
-        else:
-            canonical_track = 'Main'
-            filtered = parsed_candidates
-
-    if year_override is not None:
-        filtered = [p for p in filtered if p['year'] == year_override]
+        filtered, canonical_track = _select_dblp_default_track(candidates_for_track)
 
     for p in filtered:
         p['track'] = canonical_track
