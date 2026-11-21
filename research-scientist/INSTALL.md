@@ -29,6 +29,7 @@ Start a new session or refresh the skill list. Gemini CLI supports `/skills list
 - `scripts/check_experiment_manifest.py` — structural run-receipt and baseline/candidate comparison checks.
 - `scripts/check_question_card.py` — structural RQ/rival/measurement check; an example JSON card is under `references/`.
 - `scripts/check_venue_plan.py` — deadline conversion and fee completeness; official facts still require review.
+- `scripts/venue_leads.py` — bounded related-paper publication-source leads, requiring official venue verification.
 - `scripts/check_manuscript_ledger.py` — structural claim, numeric fact, and method-lineage checks for a manuscript.
 - `scripts/compare_scorecards.py` — declared reading/locator basis and weight-sensitivity checks across papers.
 - `scripts/score_math.py` — guarded score arithmetic.

@@ -106,6 +106,8 @@ Give a short list of usually 3–5 options when enough current information exist
 
 ## Submission opportunity dossier and calendar
 
+For a candidate list, search the actual contribution and the closest related papers, then inspect where the most similar *eligible* papers appeared. The optional `scripts/venue_leads.py "specific contribution" --page-size 50 --pages 2` groups a bounded OpenAlex result by primary publication source and retains work IDs and sample years. Treat it as a lead generator only: OpenAlex search ranking, missing primary locations, preprints, and historical publication patterns bias the list. A frequent source may be closed, out of scope for the current track, too costly, or inappropriate for the manuscript. Verify each serious candidate against its own current official CFP or aims and author instructions before assigning fit.
+
 For a substantial venue request, produce a submission plan as well as fit scores. Research the exact year, edition, track, or special issue. A recurring conference's previous CFP is historical evidence only; never project its dates or prices into the current cycle. Separate confirmed, tentative, expired, rolling, and not-announced opportunities.
 
 For every shortlisted venue, provide:

@@ -17,6 +17,7 @@ python scripts/check_question_card.py /path/to/question-card.json
 python scripts/check_experiment_manifest.py /path/to/experiment-manifest.json
 python scripts/check_manuscript_ledger.py /path/to/manuscript-ledger.json
 python scripts/compare_scorecards.py /path/to/scorecards.json
+python scripts/venue_leads.py "specific contribution and field" --page-size 50 --pages 2
 python scripts/check_venue_plan.py /path/to/venue-dossier.json
 ```
 
@@ -36,7 +37,7 @@ Version 2.1.0 includes six-source paper discovery, bounded citation and local pa
 | Engineering failure diagnosis | Own failure protocol and local sample-ID/split diagnostic | Correctness of the implementation, benchmark, and causal explanation of a failure |
 | Experiment lifecycle | Own frozen-protocol, apparatus, run-receipt, matched-comparison, analysis and review procedure; structural receipt checker | Execution, reproduction, statistical validity and domain review |
 | Paper comparison and scores | Own six-dimension rubric, guarded arithmetic helper, declared-evidence comparator and weight-sensitivity check | Evidence-based ratings, calibration, and human/domain disagreement resolution |
-| Submission planning | Own current-CFP, deadline, cost, fit, and backward-schedule protocol; local calendar/cost checker | Live official venue facts and the manuscript's actual readiness |
+| Submission planning | Related-paper publication-source leads, current-CFP/deadline/cost/fit protocol, and local calendar/cost checker | Live official venue facts, track eligibility, and the manuscript's actual readiness |
 | Scientific writing | Own evidence-first paper workflow, Humanizer pass, and structural claim/number/method-lineage ledger checker | Author verification of methods, results, citations, and venue policy |
 
 The skill runs in Codex, Claude Code, and Gemini CLI using each host's available tools. External repositories cited in the source notes are not installation requirements. No single parser or search index is silently treated as comprehensive.
