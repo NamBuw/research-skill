@@ -1,4 +1,4 @@
-# Synthetic scoring and venue response — English translation
+# SYNTHETIC TEST FIXTURE — NOT A REAL MANUSCRIPT OR VENUE
 
 This is a faithful English rendering of the actual Vietnamese response generated in the development check at commit `25c0dfb`; the original wording remains in Git history. All A/B/C/Z details are fictional fixture inputs, not real publications or venue facts. No web search or full manuscript inspection was performed.
 

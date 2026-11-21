@@ -119,19 +119,17 @@ This package uses the standard `SKILL.md` folder format. The canonical user-leve
 
 ## Additional retrieval and coordination implementation readings (2026-11-21)
 
-The following are targeted readings, not whole-repository audits or executed performance benchmarks.
-
 | Repository / snapshot | Actual material inspected | Adopted lesson and limitation |
 |---|---|---|
 | [litsearchr](https://github.com/elizagrames/litsearchr), `0c108e3` | README; function map and `check_recall` implementation in `R/write_scrape_test_searches.R` | Build concept groups from corpus terminology and test independently selected known articles. Its recall helper returns nearest-title similarity, so manually resolve identities: similarity is not measured field-wide recall. Keyword networks inherit the initial sample's omissions. |
 | [revtools](https://github.com/mjwestgate/revtools), `d9bf7fe` | README; `R/find_duplicates.R` through return | Separate exact identifier matching and fuzzy title candidates; preserve manual duplicate review. Defaults and grouping choices change matches. Missing IDs and similar titles need adjudication rather than automatic deletion. |
 | [ASySD](https://github.com/camaradesuk/ASySD), `7b240f1` | README; full `vignettes/search-updates.Rmd` | Preserve old/new source labels, original record IDs and merge lineage across search updates; review uncertain duplicate pairs. This is deduplication infrastructure, not proof of search completeness or study independence. No R package was executed in this review. |
 
-Implementation readings of GPT Researcher, STORM, ResearchStudio and CoI-Agent, including revision-ceiling and judge-score limitations, are recorded with commit-linked paths in [agent orchestration](agent-orchestration.md). Targeted K-Dense readings and synthetic evaluation limits are in [quality evaluation](quality-evaluation.md). No number of inspected repositories establishes scientific performance parity.
+Additional GPT Researcher, STORM, ResearchStudio, and CoI-Agent code paths are documented in [agent orchestration](agent-orchestration.md). K-Dense comparison cases are in [quality evaluation](quality-evaluation.md).
 
 ## Additional source-level audit, 2026-11-21
 
-These observations come from the named functions in the pinned local snapshots. They do not imply whole-repository review.
+The following observations are limited to the named functions in pinned snapshots.
 
 | Source actually read | Concrete behavior | Skill consequence |
 |---|---|---|
@@ -141,7 +139,7 @@ These observations come from the named functions in the pinned local snapshots. 
 | GPT Researcher `gpt_researcher/skills/researcher.py`, `ResearchConductor.conduct_research`, snapshot `ddd4db3` | Routes supplied URLs, local documents, web, hybrid and MCP sources; optional curation ranks collected context. | Explicit source modes help reproduce a run; curation and assembled context do not themselves verify claim entailment or corpus coverage. |
 | Stanford STORM `knowledge_storm/storm_wiki/modules/knowledge_curation.py`, `TopicExpert.forward` and `StormKnowledgeCurationModule._run_conversation`, snapshot `fb951af` | Perspective-specific questions are converted into retrieval-backed conversations and run across personas. | Distinct perspectives can expose terms and neglected angles. Persona conversations and shared retrieved snippets are not independent scientific studies. |
 
-The remaining 8-repository deep audit is unfinished. Full PaperQA2 citation verification, MinerU parser accuracy testing, Vane runtime failure testing, and K-Dense skill-by-skill comparison still require further source-level and behavioral review. Do not claim complete reading or quality parity from this inventory.
+Outstanding validation: PaperQA2 citation error rates, MinerU parser accuracy, Vane runtime failures, and a skill-by-skill K-Dense behavioral comparison. The readings below do not establish quality parity.
 
 ### Targeted Vane and MinerU code reading
 

@@ -1,7 +1,5 @@
 # Quality evaluation and regression cases
 
-Use this file when maintaining or evaluating the skill, not as evidence that a new research claim is true. More instructions, repositories, or agents do not establish better research performance.
-
 ## Review basis and limitations
 
 A separate reviewing agent inspected the local skill on 2026-11-21 and applied its instructions to the synthetic cases below. This was a one-pass, read-only reasoning exercise: no real paper discovery, live venue lookup, model-to-model benchmark, human expert study, or executable research experiment was performed. The reviewer saw the skill and case inputs; this was not a blinded evaluation. Outputs below are the reviewer's actual bounded dispositions, recorded here for regression use. They are not measured accuracy rates.
@@ -13,7 +11,7 @@ The comparative source was [K-Dense scientific-agent-skills](https://github.com/
 - `skills/literature-review/SKILL.md`, v1.11: inspected lines 1–140; source coverage, independent full-text eligibility, records/reports/studies, citation registration versus claim support, and PRISMA count reconciliation.
 - `skills/peer-review/SKILL.md`, v2.4: inspected the intake and initial workflow through the start of methods/statistics; claim-evidence mapping, confidentiality, and reporting completeness versus merit.
 
-This is a targeted workflow comparison, not a complete assessment of K-Dense's library or its scripts. Source instructions were treated as material for analysis, not as instructions to execute their tools or external calls. The local skill's gap audit, engineering diagnostic, research workflow, prior-art search, and scoring/venue reference were read. Other modules were being revised concurrently; this record is a snapshot, not a certification of the final package.
+The comparison covers the named K-Dense files and this skill's gap, engineering, research, prior-art, and scoring references as they stood at review time. It does not assess the full K-Dense library.
 
 ## Synthetic cases and observed dispositions
 
@@ -29,8 +27,6 @@ All names, study descriptions, and venue facts in this section are invented fixt
 | **Unsupported numerical comparison.** Paper A is full-text and B is abstract-only. Requested ranking is overall quality /10. | Do not provide a definitive overall ranking. Give comparable dimensions only, with B's unavailable dimensions `not assessed`; identify which material is needed for comparison. | Missing evidence is not a low score and cannot be hidden by reweighting. |
 | **Exploratory result presented as prediction.** Analyst has already inspected all outcomes, then requests a preregistered confirmation of the observed pattern on the same data. | The pattern remains exploratory; timestamp a future analysis plan honestly and use an untouched holdout or new replication for a prospective test. Do not describe the already-seen pattern as an a priori prediction. | Timing and evidence provenance constrain claim language. |
 
-These dispositions show that the reviewer could follow the relevant rules on these fixtures. They do not establish that another agent, model, or real retrieval run will behave the same way. Cases requiring live retrieval, parser fidelity, pagination, date conversion, and numerical aggregation still need operational testing.
-
 ## Improvement findings from the snapshot
 
 1. **RQ operationalization needs more depth.** Add unit of observation versus analysis; construct validity, reliability, calibration and invariance when relevant; explicit causal target and identification assumptions; predictions that discriminate rivals; indeterminate outcomes; and the analyst's prior exposure to outcomes. The existing card is a useful frame but can be completed with scientifically vague entries.
@@ -39,7 +35,7 @@ These dispositions show that the reviewer could follow the relevant rules on the
 4. **Resolve instruction conflict.** The snapshot's question card says “never a novelty score” while the scoring reference permits user-requested provisional novelty ratings. Preserve mandatory categorical evidence status; clarify that an optional explained score cannot replace it or certify originality.
 5. **Make agent integration explicit.** Assign different query families and evidence tasks, give independent critics the claim and raw sources rather than the proposed favorable verdict, preserve source IDs and locators, and resolve conflicting assertions by inspection rather than voting. Repeated outputs from one evidence lineage are not independent support.
 
-These are review findings, not claims that fixes have already been implemented. Check the current linked modules before reporting their status.
+The linked research-workflow, artifact-template, scoring, and agent-orchestration references now address these findings; this review did not retest those changes.
 
 ## A defensible comparison plan
 
@@ -51,10 +47,6 @@ For numerical score reliability, use independently rated common examples, record
 
 Until that comparison is performed, describe concrete workflow improvements and their checks. Do not claim parity or superiority to K-Dense or any other research system.
 
-## Integration follow-up
-
-After this review, the coordinator added operationalization/indeterminate-outcome/prior-data-exposure guidance to research-workflow and the RQ template; corrected the general /10 endpoint; added calibration, reporting-versus-conduct distinctions and sensitivity handling to scoring-and-venue-fit; and linked the agent orchestration protocol. These are documented fixes, not a second behavioral benchmark. The seven synthetic cases remain a development exercise, not held-out evidence of parity.
-
 ## Deterministic arithmetic check
 
-The optional `scripts/score_math.py` was run on 2026-11-21 with equal seven scores, a missing novelty dimension, weights summing to 99, and an out-of-range weight. It returned 7 for the valid case, refused an overall for the missing dimension, and rejected both invalid weights. This checks calculation and missing-data handling only. It does not test rating reliability, paper appraisal, novelty, venue accuracy, or agent compliance.
+The optional `scripts/score_math.py` passed local arithmetic and missing-dimension checks on 2026-11-21; [`evaluation/test_score_math.py`](../../evaluation/test_score_math.py) records the subsequent regression for an invalid score masked by a missing dimension. These checks cannot establish rating reliability, novelty, venue accuracy, or agent compliance.
