@@ -146,6 +146,27 @@ def normalize_title(title: str | None) -> str:
     return re.sub(r'\s+', ' ', text).strip()
 
 
+_PREPRINT_VENUES = frozenset({
+    'arxiv',
+    'arxiv.org',
+    'arxiv (cornell university)',
+    'corr',
+    'biorxiv',
+    'medrxiv',
+    'chemrxiv',
+    'techrxiv',
+    'research square',
+    'preprints.org',
+    'ssrn',
+})
+
+
+def _is_preprint_venue(venue: str | None) -> bool:
+    if not isinstance(venue, str) or not venue.strip():
+        return False
+    return venue.strip().lower() in _PREPRINT_VENUES
+
+
 def is_preprint_doi(doi: str | None) -> bool:
     norm = normalize_doi(doi)
     return bool(norm and ARXIV_DOI_RE.match(norm))
@@ -715,8 +736,9 @@ def parse(source, data):
                 arxiv_id = normalize_arxiv_id(ids.get('ArXiv')) if ids.get('ArXiv') else None
                 oa_pdf = paper.get('openAccessPdf') if isinstance(paper.get('openAccessPdf'), dict) else {}
                 venue = paper.get('venue') or None
+                venue_is_preprint = not venue or _is_preprint_venue(venue)
                 preprint_only = bool(
-                    (arxiv_id and not venue and (not doi or is_preprint_doi(doi)))
+                    ((arxiv_id or (doi and is_preprint_doi(doi))) and venue_is_preprint and (not doi or is_preprint_doi(doi)))
                     or (pub_types and all(t == 'preprint' for t in pub_types))
                 )
                 out.append(_base_record(

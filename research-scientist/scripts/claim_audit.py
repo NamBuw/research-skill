@@ -732,6 +732,8 @@ def audit_suite(
     parent_root = suite_root / SUITE_PARENT
     if not parent_root.is_dir() or not (parent_root / "SKILL.md").is_file():
         raise FileNotFoundError(f"Suite root missing parent skill `{SUITE_PARENT}/SKILL.md`: {suite_root}")
+    if not parent_root.resolve().is_relative_to(suite_root):
+        raise ValueError(f"Parent skill `{SUITE_PARENT}/` resolves outside suite root `{suite_root}`")
 
     parent_report = audit_skill(
         parent_root,
@@ -782,6 +784,16 @@ def audit_suite(
                 "detail": f"Missing sibling sub-skill directory `{sub_name}/`",
             })
             continue
+        sub_dir_resolved = sub_dir.resolve()
+        if not sub_dir_resolved.is_relative_to(suite_root):
+            findings.append({
+                "file": sub_name,
+                "line": 1,
+                "kind": "outside-root-symlink",
+                "token": sub_name,
+                "detail": f"Sub-skill directory `{sub_name}/` resolves outside suite root",
+            })
+            continue
 
         if f"../{sub_name}/SKILL.md" not in parent_skill_text:
             findings.append({
@@ -820,7 +832,7 @@ def audit_suite(
                 "token": "SKILL.md",
                 "detail": f"Missing `{sub_name}/SKILL.md`",
             })
-        elif not sub_skill_md.resolve().is_relative_to(sub_dir):
+        elif not sub_skill_md.resolve().is_relative_to(sub_dir_resolved):
             findings.append({
                 "file": f"{sub_name}/SKILL.md",
                 "line": 1,
@@ -872,7 +884,7 @@ def audit_suite(
             sub_docs.append(("SKILL.md", raw_skill))
 
         refs_dir = sub_dir / "references"
-        if refs_dir.is_symlink() and not refs_dir.resolve().is_relative_to(sub_dir):
+        if refs_dir.is_symlink() and not refs_dir.resolve().is_relative_to(sub_dir_resolved):
             findings.append({
                 "file": f"{sub_name}/references",
                 "line": 1,
@@ -887,7 +899,7 @@ def audit_suite(
                 except OSError:
                     continue
                 rel_e = entry.relative_to(sub_dir).as_posix()
-                if not resolved.is_relative_to(sub_dir):
+                if not resolved.is_relative_to(sub_dir_resolved):
                     findings.append({
                         "file": f"{sub_name}/{rel_e}",
                         "line": 1,

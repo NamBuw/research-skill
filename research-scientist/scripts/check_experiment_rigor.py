@@ -452,8 +452,8 @@ def _norm_tokens(text: str) -> list[str]:
 def check_contamination(train_path: Path, eval_path: Path, ngram: int = 8, threshold: float = 0.05) -> dict[str, Any]:
     if ngram < 3:
         raise ValueError("--ngram must be >= 3")
-    if not (0.0 <= threshold <= 1.0):
-        raise ValueError("--threshold must be in [0, 1]")
+    if not math.isfinite(threshold) or not (0.0 <= threshold <= 1.0):
+        raise ValueError("--threshold must be finite and in [0, 1]")
     train_texts = _load_texts(train_path)
     eval_texts = _load_texts(eval_path)
 
@@ -558,7 +558,10 @@ def main(argv: list[str] | None = None) -> int:
             spath = Path(_validate_nonempty_str(args.scores_json, "scores_json"))
             if not spath.is_file():
                 raise FileNotFoundError(f"Scores JSON not found: {spath}")
-            raw = json.loads(spath.read_text(encoding="utf-8"))
+            raw = json.loads(
+                spath.read_text(encoding="utf-8"),
+                parse_constant=lambda tok: (_ for _ in ()).throw(ValueError(f"Non-finite JSON constant not allowed: {tok}")),
+            )
             if not isinstance(raw, dict):
                 raise ValueError("Scores JSON root must be a JSON object")
             res = compute_rliable_stats(

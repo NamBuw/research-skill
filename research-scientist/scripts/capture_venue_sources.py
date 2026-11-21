@@ -329,10 +329,26 @@ def extract_cfp_signals(structured_text: str, raw_html: str = '', links: list[st
         if had_strike and not _DATE_TIME_CUE_RE.search(active_plain):
             continue
         if _DEADLINE_LINE_RE.search(active_plain):
-            deadlines.append(active_line if had_strike else line)
+            if len(active_plain) <= 260 or _DATE_TIME_CUE_RE.search(active_plain):
+                deadlines.append(active_line if had_strike else line)
         if len(deadlines) >= 20:
             break
-    timezones = sorted(set(re.findall(r'\b(?:AoE|UTC[+-]\d{1,2}(?::\d{2})?|PST|PDT|PT|EST|EDT|ET|GMT|UTC)\b', structured_text)))
+    tz_matches = re.findall(
+        r'\b(?:AoE|anywhere\s+on\s+earth|UTC\s*[+-]\s*\d{1,2}(?::\d{2})?h?|PST|PDT|PT|EST|EDT|ET|GMT|UTC)\b',
+        structured_text,
+        re.I,
+    )
+    norm_tzs: list[str] = []
+    for tz in tz_matches:
+        t_clean = re.sub(r'\s+', ' ', tz.strip())
+        low = t_clean.lower()
+        if low in {'aoe', 'anywhere on earth'}:
+            norm_tzs.append('AoE')
+        elif low.startswith('utc'):
+            norm_tzs.append(re.sub(r'\s+', '', t_clean.upper()))
+        else:
+            norm_tzs.append(t_clean.upper())
+    timezones = sorted(set(norm_tzs))
     page_limits = [
         line for line in lines
         if re.search(r'\b(?:\d+\s+pages?|page\s+limit|references|appendi(?:x|ces)|checklist|impact\s+statement)\b', line, re.I)

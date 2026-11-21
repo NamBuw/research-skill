@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -138,26 +139,31 @@ def _analyze_string_ablation(text, metric_direction='higher'):
     return positive, False
 
 
+def _reject_nonfinite(token):
+    raise ValueError(f'Non-finite JSON constant not allowed: {token}')
+
+
+def _is_finite_number(val):
+    return isinstance(val, (int, float)) and not isinstance(val, bool) and math.isfinite(float(val))
+
+
 def _has_numeric_ablation(ablation):
     if not isinstance(ablation, dict):
         return False
-    mg = ablation.get('marginal_gain')
-    if isinstance(mg, (int, float)) and not isinstance(mg, bool):
+    if _is_finite_number(ablation.get('marginal_gain')):
         return True
-    b_val, p_val = ablation.get('baseline_score'), ablation.get('proposed_score')
-    return (
-        isinstance(b_val, (int, float)) and not isinstance(b_val, bool)
-        and isinstance(p_val, (int, float)) and not isinstance(p_val, bool)
-    )
+    return _is_finite_number(ablation.get('baseline_score')) and _is_finite_number(ablation.get('proposed_score'))
 
 
 def _parse_leading_number(val):
-    if isinstance(val, (int, float)) and not isinstance(val, bool):
+    if _is_finite_number(val):
         return float(val)
     if isinstance(val, str):
         m = re.match(r'^\s*([+-]?\d+(?:\.\d+)?)\b', val)
         if m:
-            return float(m.group(1))
+            parsed = float(m.group(1))
+            if math.isfinite(parsed):
+                return parsed
     return None
 
 
@@ -165,6 +171,8 @@ def _check_component_item(item, metric_direction):
     if isinstance(item, bool) or item is None:
         return False, False
     if isinstance(item, (int, float)):
+        if not math.isfinite(float(item)):
+            return True, True
         return True, item <= 0
     if isinstance(item, str):
         return _analyze_string_ablation(item, metric_direction)
@@ -174,12 +182,16 @@ def _check_component_item(item, metric_direction):
         return True, False
     raw_mg = item.get('marginal_gain')
     if isinstance(raw_mg, (int, float)) and not isinstance(raw_mg, bool):
+        if not math.isfinite(float(raw_mg)):
+            return True, True
         return True, float(raw_mg) <= 0
     if isinstance(raw_mg, str):
         return _analyze_string_ablation(raw_mg, metric_direction)
     b_val, p_val = item.get('baseline_score'), item.get('proposed_score')
     if (isinstance(b_val, (int, float)) and not isinstance(b_val, bool)
             and isinstance(p_val, (int, float)) and not isinstance(p_val, bool)):
+        if not (math.isfinite(float(b_val)) and math.isfinite(float(p_val))):
+            return True, True
         delta = (b_val - p_val) if metric_direction == 'lower' else (p_val - b_val)
         return True, delta <= 0
     return False, False
@@ -263,15 +275,18 @@ def _check_parsimony(plan, candidate, roles, metric_direction, errors):
     if isinstance(ablation, dict):
         mg = ablation.get('marginal_gain')
         if isinstance(mg, (int, float)) and not isinstance(mg, bool):
-            if mg <= 0:
+            if not math.isfinite(float(mg)) or mg <= 0:
                 errors.append('plan:parsimony_nonpositive_marginal_gain')
         else:
             b_val, p_val = ablation.get('baseline_score'), ablation.get('proposed_score')
             if (isinstance(b_val, (int, float)) and not isinstance(b_val, bool)
                     and isinstance(p_val, (int, float)) and not isinstance(p_val, bool)):
-                delta = (b_val - p_val) if metric_direction == 'lower' else (p_val - b_val)
-                if delta <= 0:
+                if not (math.isfinite(float(b_val)) and math.isfinite(float(p_val))):
                     errors.append('plan:parsimony_nonpositive_marginal_gain')
+                else:
+                    delta = (b_val - p_val) if metric_direction == 'lower' else (p_val - b_val)
+                    if delta <= 0:
+                        errors.append('plan:parsimony_nonpositive_marginal_gain')
             else:
                 errors.append('plan:parsimony_missing_ablation_over_simplest_baseline')
     elif has_ablation_key:
@@ -534,13 +549,18 @@ def main():
     parser.add_argument('--campaign', help='Optional search_campaign.py JSON to cross-check gap query rows')
     args = parser.parse_args()
     try:
-        docs = [json.loads(Path(path).read_text(encoding='utf-8')) for path in
+        for arg_val in (args.gap_record_json, args.question_card_json, args.ai_cs_plan_json):
+            if not isinstance(arg_val, str) or not arg_val.strip():
+                raise ValueError('Input JSON file path must be non-empty')
+        if args.campaign is not None and (not isinstance(args.campaign, str) or not args.campaign.strip()):
+            raise ValueError('--campaign path must be non-empty')
+        docs = [json.loads(Path(path).read_text(encoding='utf-8'), parse_constant=_reject_nonfinite) for path in
                 (args.gap_record_json, args.question_card_json, args.ai_cs_plan_json)]
         campaign = None
         digest = None
         if args.campaign:
             raw = Path(args.campaign).read_bytes()
-            campaign = json.loads(raw)
+            campaign = json.loads(raw, parse_constant=_reject_nonfinite)
             digest = hashlib.sha256(raw).hexdigest()
         report = check(*docs, campaign=campaign, campaign_sha256=digest)
         print(json.dumps(report, ensure_ascii=False))

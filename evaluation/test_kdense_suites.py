@@ -501,7 +501,8 @@ class HypothesisGenerationTests(unittest.TestCase):
         self.assertEqual(ok.returncode, 0, ok.stderr)
 
         with tempfile.TemporaryDirectory() as tmp:
-            rows = list(csv.DictReader((assets / "prediction_rival_matrix_template.csv").open(encoding="utf-8")))
+            with (assets / "prediction_rival_matrix_template.csv").open(encoding="utf-8") as fh:
+                rows = list(csv.DictReader(fh))
             rows[0]["rival_hypothesis_ids"] = rows[0]["hypothesis_id"]
             rows[0]["expected_if_rivals"] = rows[0]["expected_if_focal"]
             bad_csv = Path(tmp) / "bad_matrix.csv"
@@ -732,7 +733,8 @@ class PeerReviewTests(unittest.TestCase):
         self.assertEqual(ok.returncode, 0, ok.stderr)
 
         with tempfile.TemporaryDirectory() as tmp:
-            rows = list(csv.DictReader((assets / "reporting_checklist_template.csv").open(encoding="utf-8")))
+            with (assets / "reporting_checklist_template.csv").open(encoding="utf-8") as fh:
+                rows = list(csv.DictReader(fh))
             rows[0]["status"] = "reported"
             rows[0]["location"] = ""
             bad_csv = Path(tmp) / "bad_cov.csv"
@@ -755,7 +757,8 @@ class PeerReviewTests(unittest.TestCase):
         self.assertEqual(ok.returncode, 0, ok.stderr)
 
         with tempfile.TemporaryDirectory() as tmp:
-            rows = list(csv.DictReader((assets / "claim_evidence_matrix_template.csv").open(encoding="utf-8")))
+            with (assets / "claim_evidence_matrix_template.csv").open(encoding="utf-8") as fh:
+                rows = list(csv.DictReader(fh))
             rows[0]["support_level"] = "supported"
             rows[0]["evidence_ids"] = ""
             rows[0]["alignment_issue"] = "scope"
@@ -949,7 +952,8 @@ class ScholarEvaluationTests(unittest.TestCase):
         self.assertIn("exact_agreement_rate", json.loads(ok.stdout)["overall"])
 
         with tempfile.TemporaryDirectory() as tmp:
-            rows = list(csv.DictReader((assets / "ratings_template.csv").open(encoding="utf-8")))
+            with (assets / "ratings_template.csv").open(encoding="utf-8") as fh:
+                rows = list(csv.DictReader(fh))
             single_rater = [r for r in rows if r["rater_id"] == rows[0]["rater_id"]]
             bad_csv = Path(tmp) / "one_rater.csv"
             with bad_csv.open("w", encoding="utf-8", newline="") as handle:

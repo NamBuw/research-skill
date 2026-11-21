@@ -401,6 +401,16 @@ def _compact_output(result: dict, out_path: str | None = None) -> dict:
     }
 
 
+def _reject_nonfinite(token):
+    raise ValueError(f'Non-finite JSON constant not allowed: {token}')
+
+
+def _require_nonempty_path(val, flag):
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError(f'Empty or invalid path for {flag}')
+    return val.strip()
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('profile_json')
@@ -410,12 +420,19 @@ def main(argv=None):
     parser.add_argument('--compact', action='store_true', help='Emit compact bounded summary JSON to stdout')
     args = parser.parse_args(argv)
     try:
-        profile = json.loads(Path(args.profile_json).read_text(encoding='utf-8'))
+        prof_path = Path(_require_nonempty_path(args.profile_json, 'profile_json'))
+        if args.out is not None:
+            _require_nonempty_path(args.out, '--out')
+        if args.sources_dir is not None:
+            _require_nonempty_path(args.sources_dir, '--sources-dir')
+        if args.quality_refs_dir is not None:
+            _require_nonempty_path(args.quality_refs_dir, '--quality-refs-dir')
+        profile = json.loads(prof_path.read_text(encoding='utf-8'), parse_constant=_reject_nonfinite)
         result = check(profile, sources_dir=args.sources_dir, quality_refs_dir=args.quality_refs_dir)
         full_rendered = json.dumps(result, ensure_ascii=False)
         out_str = None
-        if args.out:
-            out_path = Path(args.out)
+        if args.out is not None:
+            out_path = Path(args.out.strip())
             out_path.parent.mkdir(parents=True, exist_ok=True)
             out_path.write_text(full_rendered + '\n', encoding='utf-8')
             out_str = str(out_path)

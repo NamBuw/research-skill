@@ -799,6 +799,16 @@ def _compact_output(result, out_path=None):
     }
 
 
+def _reject_nonfinite(token):
+    raise ValueError(f'Non-finite JSON constant not allowed: {token}')
+
+
+def _require_nonempty_path(val, flag):
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError(f'Empty or invalid path for {flag}')
+    return val.strip()
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('scorecards_json')
@@ -807,14 +817,19 @@ def main(argv=None):
     parser.add_argument('--compact', action='store_true', help='Emit compact bounded summary JSON to stdout')
     args = parser.parse_args(argv)
     try:
+        sc_path = Path(_require_nonempty_path(args.scorecards_json, 'scorecards_json'))
+        if args.out is not None:
+            _require_nonempty_path(args.out, '--out')
+        if args.sources_dir is not None:
+            _require_nonempty_path(args.sources_dir, '--sources-dir')
         result = compare(
-            json.loads(Path(args.scorecards_json).read_text(encoding='utf-8')),
+            json.loads(sc_path.read_text(encoding='utf-8'), parse_constant=_reject_nonfinite),
             sources_dir=args.sources_dir,
         )
         full_rendered = json.dumps(result, ensure_ascii=False)
         out_str = None
-        if args.out:
-            out_path = Path(args.out)
+        if args.out is not None:
+            out_path = Path(args.out.strip())
             out_path.parent.mkdir(parents=True, exist_ok=True)
             out_path.write_text(full_rendered + '\n', encoding='utf-8')
             out_str = str(out_path)

@@ -2368,7 +2368,20 @@ def _live_probe(url: str, timeout: int = 20) -> dict[str, Any]:
     req = Request(url, headers={"User-Agent": "ResearchScientistSkill/2.8 (live-tier4-audit)"})
     try:
         with urlopen(req, timeout=timeout) as resp:
-            return {"url": url, "final_url": resp.geturl(), "status": resp.status, "provider_state": "ok"}
+            status = getattr(resp, "status", 200)
+            ct = (resp.headers.get("Content-Type", "") if getattr(resp, "headers", None) else "").lower()
+            head = resp.read(4096)
+            if status == 202 and (
+                "html" in ct
+                or b"anubis" in head.lower()
+                or b"making sure you" in head.lower()
+            ):
+                state = "bot_challenge_202"
+            elif status == 202:
+                state = "http_202"
+            else:
+                state = "ok"
+            return {"url": url, "final_url": resp.geturl(), "status": status, "provider_state": state}
     except HTTPError as exc:
         state = {429: "rate_limited_429", 202: "bot_challenge_202", 403: "waf_blocked_403"}.get(
             exc.code, f"http_{exc.code}"

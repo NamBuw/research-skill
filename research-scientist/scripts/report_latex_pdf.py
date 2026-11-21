@@ -2579,19 +2579,27 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     try:
-        in_path = Path(args.input)
+        if not isinstance(args.input, str) or not args.input.strip():
+            raise ValueError("Empty or invalid path for --input")
+        if not isinstance(args.out, str) or not args.out.strip():
+            raise ValueError("Empty or invalid path for --out")
+        if args.tex_out is not None and (not isinstance(args.tex_out, str) or not args.tex_out.strip()):
+            raise ValueError("Empty or invalid path for --tex-out")
+        if not isinstance(args.lang, str) or not args.lang.strip():
+            raise ValueError("Empty or invalid value for --lang")
+        in_path = Path(args.input.strip())
         if not in_path.is_file():
             raise FileNotFoundError(f"Input JSON file not found: {args.input}")
         raw_text = in_path.read_text(encoding="utf-8")
         if not raw_text.strip():
             raise ValueError(f"Input JSON file is empty: {args.input}")
-        payload = json.loads(raw_text)
+        payload = json.loads(raw_text, parse_constant=lambda tok: (_ for _ in ()).throw(ValueError(f"Non-finite JSON constant not allowed: {tok}")))
         if not isinstance(payload, dict):
             raise ValueError("Input JSON root must be an object.")
         receipt = generate_report(
-            payload, Path(args.out),
-            tex_out=Path(args.tex_out) if args.tex_out else None,
-            lang=args.lang, input_text=args.input_text,
+            payload, Path(args.out.strip()),
+            tex_out=Path(args.tex_out.strip()) if args.tex_out is not None else None,
+            lang=args.lang.strip(), input_text=args.input_text,
             engine=args.engine, strict=args.strict, compact=args.compact,
         )
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError, RuntimeError) as exc:
