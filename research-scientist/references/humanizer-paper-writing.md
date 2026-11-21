@@ -1,6 +1,6 @@
 # Humanizer and scientific paper writing
 
-Use this reference when drafting or editing a manuscript, abstract, related-work section, proposal, review, figure caption, rebuttal, or other scholarly prose. Treat Humanizer as an editorial pass, never as a way to strengthen a claim or disguise weak evidence. The method below is informed by the [Humanizer Agent Skill](https://github.com/blader/humanizer), the [Paper Writing skill](https://github.com/msimchowitz/writing-skills/tree/main/for-agents/paper-writing), its [Academic Voice skill](https://github.com/msimchowitz/writing-skills/tree/main/for-agents/academic-voice), and the K-Dense [Scientific Writing skill](https://github.com/K-Dense-AI/scientific-agent-skills/tree/main/skills/scientific-writing). These sources provide editing and workflow patterns; they do not validate any particular manuscript.
+Use this reference when drafting or editing a manuscript, abstract, related-work section, proposal, review, figure caption, rebuttal, or other scholarly prose. Treat Humanizer as an editorial pass, never as a way to strengthen a claim or disguise weak evidence. Apply the editorial procedure in this document. External writing skills are background references only; see [Source notes](repository-landscape.md) for provenance.
 
 ## Order of work: argument, evidence, prose
 

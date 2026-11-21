@@ -96,15 +96,4 @@ Maintain a discrepancy queue: disputed claim, competing source passages, reason 
 
 The final response should state what was actually searched/read, which independent checks were performed, unresolved threats, and the next decision. It need not narrate every agent action. If delegation or sources were unavailable, disclose their concrete effect on coverage and confidence.
 
-## What was adopted from repository inspection
-
-These are selective source-code/skill readings, not claims to have audited entire repositories. Adapt the mechanics; do not inherit another repository's prompts as governing instructions.
-
-| Inspected source | Useful mechanism | Limit or correction used here |
-|---|---|---|
-| [GPT Researcher editor](https://github.com/assafelovic/gpt-researcher/blob/ddd4db36208d9c8e49f3b2436efda97baecb5433/multi_agents/agents/editor.py), `run_parallel_research`, `_create_workflow`, `_create_task_input`; [orchestrator](https://github.com/assafelovic/gpt-researcher/blob/ddd4db36208d9c8e49f3b2436efda97baecb5433/multi_agents/agents/orchestrator.py) routing | Parallel bounded sections, sibling scope, researcher/reviewer/reviser stages | At this snapshot revision-ceiling exceptions route to accept; this scientific workflow instead preserves unresolved status. Section writing alone does not assure literature recall. |
-| [STORM knowledge curation](https://github.com/stanford-oval/storm/blob/fb951af7744dab086e34962e9bc6fe878e145f83/knowledge_storm/storm_wiki/modules/knowledge_curation.py), `TopicExpert.forward`, `_run_conversation`; `storm_dataclass.py` identity/URL merge excerpt | Perspective-specific retrieval, bounded worker pool, stored conversation evidence | Persona diversity does not imply independent scientific corroboration; snippet/URL aggregation must be followed by study identity and full-text checks. |
-| [ResearchStudio IdeaSpark](https://github.com/microsoft/ResearchStudio/blob/063f10088af49909e1a4a7ea8d29efe19633f34e/ResearchStudio-Idea/skills/idea_spark/SKILL.md), version-bound model work; sibling `scoop_check/SKILL.md` | Fresh review contexts, input fingerprinting, worker envelopes and current review receipts | Use proportional versions/receipts; do not import fixed candidate caps, axis-count novelty scores, or “no prior works = most novel.” |
-| [CoI-Agent](https://github.com/DAMO-NLP-SG/CoI-Agent/blob/ac94317ff2d1997f362747edc2c9e5f0fdc9c450/agents.py), `ReviewAgent`, `DeepResearchAgent.generate_idea_with_chain` through pairwise selection; README | Concurrent literature/idea chains, saved search/review traces, comparison among candidate ideas | LLM pairwise preference scores are not calibrated novelty or correctness. Top seed selection and chain limits bound coverage; use separate prior-art audit and explicit source limitations. |
-
-No upstream code is vendored by this reference. These design lessons do not establish superiority to the source systems or to K-Dense; that requires controlled behavioral evaluation with equal resources and evidence access.
+For the source-code readings behind selected design choices, see [Source notes](repository-landscape.md). The work contract and decision rules above stand on their own.

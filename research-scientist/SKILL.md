@@ -52,6 +52,18 @@ For field-specific, current, gap, novelty, or “deep research” requests, retr
 7. **Stress-test and operationalize.** For each promising question, name the strongest rival explanation, assumptions, closest precedent, answerable evidence, feasibility/resource constraints, ethical review needs, falsifying or disconfirming result, and a cheap first pilot. If the signal comes from a failed implementation, reproduce and diagnose it before considering a research gap; read [engineering failure versus research gap](references/engineering-vs-gap.md). If no candidate clears the bar, say so and explain what evidence or constraint blocks it.
 8. **Deliver at the requested depth.** Lead with the decision-relevant result. Include the boundary of the search, source-linked evidence, uncertainty, next action, and citations. Create files only when useful or requested; do not create an artificial complete artifact set for a small question.
 
+## Decision gates and deliverables
+
+| Requested result | Minimum reviewable output | Withhold or narrow the result when |
+|---|---|---|
+| Literature map | Search boundary, source and access log, deduplicated study map, decisive passages with locators | Retrieval failed, corpus is truncated, or key papers remain unread; report the actual boundary. |
+| Gap or novelty claim | Atomic contribution, closest direct and partial precedents, opposing evidence, engineering diagnosis if relevant, explicit claim status | A local implementation or evaluation defect explains the signal; an equivalent precedent exists; or a close work remains unresolved. |
+| Research question | One answerable question, target and unit, measurement/estimand, rival explanations, distinguishing test, indeterminate outcome, feasible pilot | The question presupposes the answer, has no valid measurement or discriminating evidence, or merely renames an engineering fix. |
+| Paper or idea score | Same disclosed /10 rubric and reading basis, claim-level novelty evidence, dimension reasons, confidence, fatal gates | A requested dimension lacks evidence; mark it unassessed and do not calculate a full overall score. |
+| Venue recommendation | Current official CFP/policies, exact edition and track, fit, deadlines and timezone, mandatory and optional costs, backward schedule | Official dates or hard budget/eligibility facts are unknown; show a conditional option, not an affordable or ready-to-submit verdict. |
+
+Each gate is an output contract for this skill, not a claim that any particular external tool has verified it. Reopen affected gates when the question, method, corpus, or venue cycle changes.
+
 ## Modes and detailed references
 
 Load only what the task needs:
@@ -59,7 +71,6 @@ Load only what the task needs:
 - [Gap audit](references/gap-audit.md): mandatory deep protocol whenever a user asks to identify, compare, validate, or claim a research gap or novelty. Treat it as a gate, not a scoring rubric.
 - [Research workflow](references/research-workflow.md): source selection, query design, review protocols, evidence extraction, RQ design, study planning, and field adaptation.
 - [Artifact templates](references/artifact-templates.md): reusable brief, search log, evidence ledger, gap register, question card, and review protocol formats.
-- [Repository landscape](references/repository-landscape.md): findings from the supplied repositories and additional tools/skills/benchmarks; consult it when choosing a tool or adapting a method. It includes scope and validation limits for each project.
 - [Research integrity and quality](references/integrity-and-quality.md): always-on standards for verification, anti-sycophancy, uncertainty, counterevidence, study-design integrity, and explicit correction of errors.
 - [Prior-art search](references/precedent-search.md): use for any novelty or research-gap claim; contains query families, coverage checks, contribution-level comparisons, and a kill-search procedure.
 - [Engineering failure versus research gap](references/engineering-vs-gap.md): use when a gap claim starts from failed code, reproduction, evaluation, pipeline, or method performance.
@@ -76,4 +87,4 @@ For substantial tasks with independent work, read [Agent orchestration](referenc
 
 The skill assists scientific judgment; it cannot certify field-wide completeness, novelty, importance, correctness, ethics approval, or publishability. Make uncertainty actionable by identifying which source, paper, expert review, or observation would most change the conclusion. Human/domain review remains necessary for consequential scientific decisions.
 
-For maintenance and behavioral checks, see [Quality evaluation](references/quality-evaluation.md). Structural validation alone does not demonstrate research quality or parity with another skill suite.
+For maintenance and behavioral checks, see [Quality evaluation](references/quality-evaluation.md). External projects are listed only as provenance in [Source notes](references/repository-landscape.md); their tools or skills are not required to use this skill. Structural validation alone does not demonstrate research quality.

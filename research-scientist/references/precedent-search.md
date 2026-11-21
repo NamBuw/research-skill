@@ -180,7 +180,7 @@ Return the actual search funnel: sources queried, query families run, records re
 
 ### Preserve evidence when updating a corpus
 
-Use separate old/new search labels and immutable source record IDs. Retain a merge map from every raw record to its canonical paper/version and study, and keep prior screening decisions linked to their original evidence. Review changed versions, corrections and eligibility criteria before carrying old decisions forward. Ambiguous fuzzy duplicate pairs remain available for manual review. Audit both false merges (lost distinct work) and missed duplicates (inflated evidence). For known-seed checks, confirm identifiers and content, not just a nearest-title similarity score. These practices are illustrated by the targeted [litsearchr, revtools and ASySD readings](repository-landscape.md).
+Use separate old/new search labels and immutable source record IDs. Retain a merge map from every raw record to its canonical paper/version and study, and keep prior screening decisions linked to their original evidence. Review changed versions, corrections and eligibility criteria before carrying old decisions forward. Ambiguous fuzzy duplicate pairs remain available for manual review. Audit both false merges (lost distinct work) and missed duplicates (inflated evidence). For known-seed checks, confirm identifiers and content, not just a nearest-title similarity score. The source-reading provenance is in [Source notes](repository-landscape.md).
 
 ### Do not collapse retrieval and novelty into one Boolean
 

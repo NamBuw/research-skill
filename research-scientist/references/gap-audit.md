@@ -226,7 +226,6 @@ Reject or downgrade a candidate when its only basis is:
 ## Methodological anchors
 
 - Sandberg & Alvesson's critique of gap-spotting motivates an assumption/challenge lens alongside coverage claims: <https://doi.org/10.1177/1350508410372151>.
-- ResearchRadar's inspected gap/novelty playbooks offer useful exact-quote, independent-work, adversarial-search, and abstention patterns, while its README discloses no independent benchmark: <https://github.com/diptiman-mohanta/ResearchRadar>.
 - RINoBench provides a human-expert-centered novelty-judgment benchmark; use it as a reminder that judge performance must be evaluated, not as a runtime certificate: <https://arxiv.org/abs/2603.10303>.
 - CKM-HypoGen demonstrates a temporal future-literature evaluation design with explicit topic/corpus boundaries: <https://github.com/TaoJinkai/ckm-hypogen>.
 - Paper-Lector's novelty workflow is a useful model for freezing the claim and kill rule before search, recording a bounded verdict, and separating literature originality from technical feasibility. Its paper-specific implementation is not a general novelty benchmark: <https://github.com/huguryildiz/paper-lector>.

@@ -1,4 +1,4 @@
-# Research-agent and research-ideation repository landscape
+# Source notes: research-agent repositories
 
 ## Scope and how to read this inventory
 
@@ -99,19 +99,9 @@ These are worth knowing because they implement the literal requested feature. Th
 
 Other relevant research/review resources include [AgentSLR](https://github.com/OxRML/AgentSLR), [ASReview](https://github.com/asreview/asreview), [OpenScholar](https://github.com/AkariAsai/OpenScholar), and [PaperQA2](https://github.com/Future-House/paper-qa). They help with screening, retrieval, or synthesis; none by itself certifies a field-wide research gap.
 
-## Recommended composition for this skill
+## Implemented design decisions
 
-Use tools as interchangeable stages rather than hard dependencies:
-
-1. **Discover papers:** PaperSeek or available scholarly databases (OpenAlex, Semantic Scholar, PubMed/Europe PMC, arXiv, Crossref, field-specific indexes); general web and GPT Researcher/Vane can add leads.
-2. **Read the corpus:** user PDFs/local search; MinerU or another parser for structure/locators; PaperQA2/Khoj/local corpus RAG to find candidate evidence. Verify key passages in original papers.
-3. **Map claims:** K-Dense-style discipline-specific appraisal and structured notes; STORM/Co-STORM-style perspective exploration and editable map where useful.
-4. **Find gaps:** ResearchRadar's audit/abstention and quote provenance; Lit-Gap's author-limitation mining as a lead; problematisation and rival-explanation search; manually compare direct/partial precedents.
-5. **Form questions:** Good Question's evidence gate and Question Card; IRIS-style human steering; IdeaScientist's same-problem and cross-field mechanisms only after problem/challenge are specified; generate distinct, quality-controlled candidates (IDEAgent-style diversity) without treating LLM judge scores as facts.
-6. **Evaluate:** separate (a) source/coverage validity, (b) expert-rated novelty/importance/feasibility, (c) question answerability, and (d) outcomes after execution. Human review (Stanford AI-Researcher) and temporal holdout (CKM) are stronger evidence than a same-run LLM novelty score, but remain bounded by discipline, sample, judges, and time. RINoBench, HypoBench, IdeaBench, and AgentIdeaBench offer complementary evaluation designs; none alone certifies a particular new gap.
-7. **Execute later, if requested:** FOREST/AI Scientist/ResearchOS/AutoResearch illustrate persistent artifacts and experimental loops; isolate generated code, preserve runs and results, and independently verify scientific methods/results.
-
-No single checked repository combines cross-domain search completeness, full-text fidelity, human-validated gap discovery, robust RQ selection, and safe experiments. The skill therefore keeps these as separate inspectable claims and stages.
+The runnable instructions live in this skill's own [research workflow](research-workflow.md), [prior-art audit](precedent-search.md), [gap gate](gap-audit.md), [question cards](artifact-templates.md), [engineering diagnostic](engineering-vs-gap.md), [scoring and venue rules](scoring-and-venue-fit.md), and [agent task contracts](agent-orchestration.md). The repositories above are provenance and critique material. Their code, accounts, APIs, or skills are not dependencies.
 
 ## Compatibility of this skill package
 
