@@ -12,7 +12,7 @@ Codex and Gemini share the canonical `.agents/skills` directory. Claude Code's u
 cp -a ~/.agents/skills/research-scientist/. ~/.claude/skills/research-scientist/
 ```
 
-Start a new session or refresh the skill list. Gemini CLI supports `/skills list` and `/skills reload`; Codex and Claude Code discover user skills from their documented directories. The agent still needs appropriate search/PDF/database tools to perform live research. The skill adapts to available tools and does not install or assume a particular backend.
+Start a new session or refresh the skill list. On the locally checked Gemini CLI 0.65.0, `gemini skills list` reported `research-scientist [Enabled]` at `~/.agents/skills/research-scientist/SKILL.md`; its interactive `/skills list` and `/skills reload` commands are also available. Codex and Claude Code discover user skills from their documented directories. The agent still needs appropriate search/PDF/database tools to perform live research. The skill adapts to available tools and does not install or assume a particular backend.
 
 ## Package contents
 
@@ -22,6 +22,7 @@ Start a new session or refresh the skill list. Gemini CLI supports `/skills list
 - `references/artifact-templates.md` — formats for durable, auditable research artifacts.
 - `references/repository-landscape.md` — source-reading provenance, outside the runtime workflow.
 - `scripts/search_papers.py` — bounded six-source scholarly discovery with source-status logging.
+- `scripts/search_campaign.py` — sequential multi-query discovery campaign with query-family and known-seed provenance; see `references/search-campaign.example.json`.
 - `scripts/citation_trails.py` — bounded OpenAlex one-hop backward/forward citation leads for a verified work ID.
 - `scripts/local_evidence.py` — local lexical passage leads from text and MinerU Content List V2 exports.
 - `scripts/extract_pdf_blocks.py` — optional local text-based PDF block/page extraction using PyMuPDF; no OCR.
@@ -30,6 +31,8 @@ Start a new session or refresh the skill list. Gemini CLI supports `/skills list
 - `scripts/check_experiment_manifest.py` — structural run-receipt and baseline/candidate comparison checks.
 - `scripts/check_question_card.py` — structural RQ/rival/measurement check; an example JSON card is under `references/`.
 - `scripts/check_venue_plan.py` — deadline conversion and fee completeness; official facts still require review.
+- `scripts/capture_venue_sources.py` — dated HTML/plain/PDF snapshots of supplied venue source URLs.
+- `scripts/check_venue_sources.py` — exact quote matching from dossier facts to captured source text; interpretation still requires review.
 - `scripts/venue_leads.py` — bounded related-paper publication-source leads, requiring official venue verification.
 - `scripts/check_manuscript_ledger.py` — structural claim, numeric fact, and method-lineage checks for a manuscript.
 - `scripts/compare_scorecards.py` — declared reading/locator basis and weight-sensitivity checks across papers.
