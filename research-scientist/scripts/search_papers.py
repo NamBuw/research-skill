@@ -223,7 +223,9 @@ def search(query, sources=SOURCES, size=20, pages=1, transport=fetch, source_que
         if paper['doi']:
             doi_groups.setdefault(paper['doi'], []).append(index)
     result['doi_duplicate_groups'] = {doi: positions for doi, positions in doi_groups.items() if len(positions) > 1}
-    result['warning'] = 'Discovery records only. DOI groups are candidate duplicates; resolve versions and study identity manually. Failures and bounded pages are unchecked coverage, never evidence of no prior work.'
+    result['warning'] = ('Discovery records only. A complete status covers only the executed query, not the topic or known relevant works; '
+                         'test known seeds and reformulate missed queries. DOI groups are candidate duplicates; resolve versions and study identity manually. '
+                         'Failures and bounded pages are unchecked coverage, never evidence of no prior work.')
     return result
 
 if __name__ == '__main__':
