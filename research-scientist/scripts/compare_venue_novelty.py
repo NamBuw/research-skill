@@ -14,6 +14,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from compare_scorecards import _snapshot_is_blocked, index_sources_dir, verify_locator
+from venue_leads import load_venue_quality_refs, lookup_venue_quality
+
 AXES = ('scope_audience', 'contribution_track', 'evidence_maturity',
         'format_eligibility', 'user_constraints')
 HARD_CONSTRAINTS = ('deadline', 'budget', 'eligibility')
@@ -62,13 +69,16 @@ def _check_rating(item, prefix, errors):
         errors.append(f'{prefix}:score_outside_interval')
 
 
-def check(profile, as_of=None):
+def check(profile, as_of=None, sources_dir=None, quality_refs_dir=None):
     if not isinstance(profile, dict):
         raise ValueError('profile must be an object')
     errors, warnings = [], []
     as_of = as_of or datetime.now(timezone.utc)
     if as_of.utcoffset() is None:
         raise ValueError('as_of must have timezone')
+
+    refs = load_venue_quality_refs(quality_refs_dir)
+
     venue = profile.get('venue')
     if not isinstance(venue, dict):
         errors.append('venue:must_be_object')
@@ -91,6 +101,8 @@ def check(profile, as_of=None):
             venue_fresh = 0 <= age <= max_age
             if not venue_fresh:
                 warnings.append('venue:cfp_source_stale_or_future;_fit_score_withheld')
+
+    venue_quality_context = lookup_venue_quality(venue.get('name'), refs) if _filled(venue.get('name')) else None
 
     target = profile.get('target')
     if not isinstance(target, dict):
@@ -189,6 +201,80 @@ def check(profile, as_of=None):
     if set(constraint_map) != set(HARD_CONSTRAINTS):
         errors.append('hard_constraints:deadline_budget_eligibility_required')
 
+    locator_verification = None
+    if sources_dir is not None:
+        source_index = index_sources_dir(sources_dir)
+        checked = 0
+        verified = 0
+        failed = 0
+
+        if _filled(target.get('closest_work_locator')):
+            checked += 1
+            ok, reason = verify_locator(
+                target['closest_work_locator'],
+                source_index,
+                default_source_ids=(target.get('closest_work_id'), target.get('id')),
+                extra_quotes=(target.get('closest_work_quote'), target.get('quote')),
+            )
+            if ok:
+                verified += 1
+            else:
+                failed += 1
+                errors.append(f'target:closest_work_locator_unverified:{reason}')
+
+        for index, item in enumerate(panel):
+            if not isinstance(item, dict) or not _filled(item.get('closest_work_locator')):
+                continue
+            checked += 1
+            ok, reason = verify_locator(
+                item['closest_work_locator'],
+                source_index,
+                default_source_ids=(item.get('closest_work_id'), item.get('id')),
+                extra_quotes=(item.get('closest_work_quote'), item.get('quote')),
+            )
+            if ok:
+                verified += 1
+            else:
+                failed += 1
+                errors.append(f'accepted_panel:{index}:closest_work_locator_unverified:{reason}')
+
+        for index, item in enumerate(axes):
+            if not isinstance(item, dict) or not _filled(item.get('locator')):
+                continue
+            checked += 1
+            ok, reason = verify_locator(
+                item['locator'],
+                source_index,
+                source_url=item.get('source_url'),
+                extra_quotes=(item.get('quote'),),
+                require_url_snapshot=True,
+            )
+            if ok:
+                verified += 1
+            else:
+                failed += 1
+                errors.append(f'fit_axes:{index}:locator_unverified:{reason}')
+
+        for index, item in enumerate(constraints):
+            if not isinstance(item, dict) or item.get('status') not in ('met', 'failed'):
+                continue
+            url = item.get('source_url')
+            if not _https(url):
+                continue
+            if url not in source_index['venue_snapshots']:
+                errors.append(f'hard_constraints:{index}:source_snapshot_missing')
+            elif _snapshot_is_blocked(source_index['venue_snapshots'][url]):
+                errors.append(f'hard_constraints:{index}:unverified_or_stale_venue_snapshot')
+
+        locator_verification = {
+            'sources_dir': str(source_index['root']),
+            'sources_indexed': source_index['sources_indexed'],
+            'skipped_files': source_index['skipped_files'],
+            'checked': checked,
+            'verified': verified,
+            'failed': failed,
+        }
+
     recent_panel_count = sum(type(item.get('year')) is int and item['year'] >= as_of.year - 3
                              for item in panel if isinstance(item, dict))
     if recent_panel_count < 5:
@@ -218,26 +304,88 @@ def check(profile, as_of=None):
             warnings.append('venue:hard_constraint_conflict; do_not_recommend_as_feasible')
         else:
             warnings.append('venue:hard_constraint_unverified;_fit_score_withheld')
-    return {'status': 'invalid' if errors else 'structurally_checked',
-            'errors': errors, 'warnings': warnings,
-            'fit_score_out_of_10': fit_score,
-            'novelty_comparison': comparison,
-            'disclaimer': ('All novelty and fit ratings are supplied reviewer judgments. Verify original papers, '
-                           'closest work, official accepted-paper/CFP records, fees and constraints. A venue has no '
-                           'intrinsic novelty score; a selected panel is not an acceptance threshold or probability.')}
+    out = {
+        'status': 'invalid' if errors else 'structurally_checked',
+        'errors': errors,
+        'warnings': warnings,
+        'fit_score_out_of_10': fit_score,
+        'novelty_comparison': comparison,
+        'venue_quality_context': venue_quality_context,
+        'disclaimer': (
+            'All novelty and fit ratings are supplied reviewer judgments. Verify original papers, '
+            'closest work, official accepted-paper/CFP records, fees and constraints. A venue has no '
+            'intrinsic novelty score; a selected panel is not an acceptance threshold or probability. '
+            'Advisory venue_quality_context tiers (S/A/B/C/Unknown) reflect local reference lookup only '
+            'and never contribute to fit_score_out_of_10 or novelty_comparison.'
+        ),
+    }
+    if locator_verification is not None:
+        out['locator_verification'] = locator_verification
+    return out
 
 
-def main():
+def _compact_output(result: dict, out_path: str | None = None) -> dict:
+    comp = result.get('novelty_comparison')
+    comp_summary = None
+    if isinstance(comp, dict):
+        comp_summary = {
+            'target_novelty_score': comp.get('target_novelty_score'),
+            'target_interval': comp.get('target_interval'),
+            'accepted_panel_size': comp.get('accepted_panel_size'),
+            'accepted_panel_median_score': comp.get('accepted_panel_median_score'),
+            'accepted_panel_score_range': comp.get('accepted_panel_score_range'),
+        }
+    vqc = result.get('venue_quality_context')
+    vqc_summary = None
+    if isinstance(vqc, dict):
+        vqc_summary = {
+            'quality_tier': vqc.get('quality_tier'),
+            'matched_name': vqc.get('matched_name'),
+            'matched_source': vqc.get('matched_source'),
+        }
+    errors = result.get('errors') or []
+    warnings = result.get('warnings') or []
+    return {
+        'compact': True,
+        'status': result.get('status'),
+        'fit_score_out_of_10': result.get('fit_score_out_of_10'),
+        'novelty_comparison': comp_summary,
+        'venue_quality_context': vqc_summary,
+        'locator_verification': result.get('locator_verification'),
+        'error_count': len(errors),
+        'warning_count': len(warnings),
+        'errors': errors[:20],
+        'warnings': warnings[:20],
+        'artifact_path': out_path,
+    }
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('profile_json')
-    args = parser.parse_args()
+    parser.add_argument('--sources-dir', default=None, help='Optional directory of local source files (.txt, .md, .json, .pdf) for locator verification')
+    parser.add_argument('--quality-refs-dir', default=None, help='Optional directory containing paper-quality-filter reference JSON files')
+    parser.add_argument('--out', default=None, help='Optional output JSON file path for full report')
+    parser.add_argument('--compact', action='store_true', help='Emit compact bounded summary JSON to stdout')
+    args = parser.parse_args(argv)
     try:
         profile = json.loads(Path(args.profile_json).read_text(encoding='utf-8'))
-        print(json.dumps(check(profile), ensure_ascii=False))
-    except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+        result = check(profile, sources_dir=args.sources_dir, quality_refs_dir=args.quality_refs_dir)
+        full_rendered = json.dumps(result, ensure_ascii=False)
+        out_str = None
+        if args.out:
+            out_path = Path(args.out)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(full_rendered + '\n', encoding='utf-8')
+            out_str = str(out_path)
+        if args.compact:
+            print(json.dumps(_compact_output(result, out_str), ensure_ascii=False))
+        else:
+            print(full_rendered)
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError, RuntimeError) as exc:
         print(json.dumps({'error': str(exc)}), file=sys.stderr)
         return 2
-    return 0
+    return 0 if result['status'] == 'structurally_checked' else 1
 
 
 if __name__ == '__main__':
