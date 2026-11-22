@@ -25,5 +25,6 @@ Evaluate novelty against same-track accepted papers, verify live venue CFPs/fees
 | Rebuttal budget & coverage | [check_rebuttal.py](../research-scientist/scripts/check_rebuttal.py) (`budget`, `coverage`) | OpenReview char / CVPR-1p PDF + `R1.1`/`AC.1` anchors |
 | K-Dense evaluation | [calculate_scores.py](../research-scientist/modules/kdense-scholar-evaluation/scripts/calculate_scores.py), [validate_claim_evidence.py](../research-scientist/modules/kdense-peer-review/scripts/validate_claim_evidence.py) | Weighted rubric & review claim-evidence audit |
 | Connected submission pipeline | [evaluate_submission.py](../research-scientist/scripts/evaluate_submission.py) (`--out`, `--compact`, `--subfield-preset`) | Cross-tool gates, desk-reject & retarget plan |
+| Mock review & post-reject | [triage_reviews.py](../research-scientist/scripts/triage_reviews.py) (`mock-review`, `post-reject`, `--subfield-preset`, `--strict`) | 3-persona defect ledger, H1–H17 triage & Venue B plan |
 
-Load [novelty, venue & rebuttal protocol](references/novelty-venue-rebuttal-protocol.md) on demand for H1–H17 fairness rules, readiness bands, two-axis panel/tier calibration, portfolio gates, and rebuttal templates.
+Load [novelty, venue & rebuttal protocol](references/novelty-venue-rebuttal-protocol.md) and [review triage & calibration guide](references/review-triage-calibration.md) on demand for H1–H17 fairness rules, readiness bands, two-axis panel/tier calibration, portfolio gates, mock/post-reject triage, `F30#5–8` diagnostics, and rebuttal templates.

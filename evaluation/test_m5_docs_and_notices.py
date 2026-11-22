@@ -1,4 +1,4 @@
-"""Unmocked tests for Milestone M5/M8C: Docs, Notices, Attribution, 35-Script Inventory & License Isolation."""
+"""Unmocked tests for Milestone M5/M8C/M10: Docs, Notices, Attribution, 41-Script Inventory & License Isolation."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ ALL_SKILLS = (
 
 REQUESTED_23_REPOS = (
     ("GPT Researcher", ("gpt researcher", "gpt-researcher")),
-    ("Stanford STORM / Co-STORM", ("storm",)),
+    ("Stanford STORM / Co-STORM", ("stanford storm",)),
     ("PaperQA2", ("paperqa2", "paper-qa")),
     ("The AI Scientist", ("ai scientist", "ai-scientist")),
     ("Perplexica / Vane", ("perplexica", "vane")),
@@ -102,6 +102,12 @@ class TestM5DocsAndNotices(unittest.TestCase):
         self.assertNotIn("HKUDS/IRIS", self.gap_src)
         self.assertNotIn("without functional changes", self.radar_vendor.casefold())
         self.assertIn("conn.close()", self.radar_vendor)
+        self.assertIn("https://github.com/SGHA-Research/sgha", self.retrieval_src)
+        self.assertIn("https://github.com/cheerss/SciPIP", self.retrieval_src)
+        self.assertIn("https://github.com/saulmcphd/lit-gap", self.retrieval_src)
+        self.assertNotIn("https://github.com/Azeem2002/SGHA", self.retrieval_src)
+        self.assertNotIn("https://github.com/scipip)", self.retrieval_src)
+        self.assertNotIn("https://github.com/lit-gap)", self.retrieval_src)
 
     def test_paper_quality_filter_mit_attribution_and_exclusion_consistent(self) -> None:
         for doc_name, text in (
@@ -137,7 +143,7 @@ class TestM5DocsAndNotices(unittest.TestCase):
         self.assertEqual(list(MODULES_DIR.rglob("SKILL.md")), [])
 
     def test_zero_restricted_license_code_leaks_across_all_7_skills(self) -> None:
-        prohibited = (
+        unconditional_prohibited = (
             re.compile(r"\bfrom\s+magic_pdf\b"),
             re.compile(r"\bimport\s+magic_pdf\b"),
             re.compile(r"\bfrom\s+khoj\b"),
@@ -146,27 +152,74 @@ class TestM5DocsAndNotices(unittest.TestCase):
             re.compile(r"\bimport\s+ai_scientist\b"),
             re.compile(r"GNU AFFERO GENERAL PUBLIC LICENSE", re.IGNORECASE),
             re.compile(r"Creative Commons Attribution-NonCommercial", re.IGNORECASE),
-            re.compile(r"CC\s*BY-NC\s*4\.0", re.IGNORECASE),
-            re.compile(r"\bRAILS\s+License\b", re.IGNORECASE),
         )
+        boundary_token_prohibited = (
+            ("AGPL-3.0", re.compile(r"\bAGPL-3\.0\b", re.IGNORECASE)),
+            ("CC BY-NC 4.0", re.compile(r"CC\s*BY-NC\s*4\.0", re.IGNORECASE)),
+            ("RAILS License", re.compile(r"\bRAILS\s+License\b", re.IGNORECASE)),
+            ("magic_pdf", re.compile(r"\bmagic_pdf\b")),
+            ("journal_scores.json", re.compile(r"\bjournal_scores\.json\b")),
+        )
+        boundary_disclaimer_docs = {
+            "research-scientist/THIRD_PARTY_NOTICES.md",
+            "research-scientist/references/repository-landscape.md",
+            "research-scientist/references/retrieval-source-details.md",
+            "research-scientist/references/writing-score-venue-source-details.md",
+            "research-precedent-corpus/references/corpus-retrieval-protocol.md",
+        }
+        # Clean-room .py exceptions: AGPL-3.0 detector/boundary comment & optional external --quality-refs-dir filename
+        py_token_exceptions = {
+            "AGPL-3.0": {
+                "research-scientist/scripts/check_artifact_readiness.py",
+                "research-scientist/scripts/local_evidence.py",
+            },
+            "journal_scores.json": {
+                "research-scientist/scripts/venue_leads.py",
+            },
+        }
+        scanned_files = 0
         for sname in ALL_SKILLS:
             sdir = REPO_ROOT / sname
             self.assertTrue(sdir.is_dir(), f"Missing skill dir: {sdir}")
-            for py_file in sdir.rglob("*.py"):
-                code = py_file.read_text(encoding="utf-8", errors="replace")
-                for pat in prohibited:
-                    self.assertIsNone(pat.search(code), f"Restricted license/code leak in {py_file}: {pat.pattern}")
+            for path in sorted(sdir.rglob("*")):
+                if not path.is_file() or "__pycache__" in path.parts or path.suffix == ".pyc":
+                    continue
+                self.assertNotEqual(path.name, "journal_scores.json", f"Excluded file present: {path}")
+                try:
+                    content = path.read_text(encoding="utf-8")
+                except UnicodeDecodeError:
+                    continue
+                scanned_files += 1
+                rel = path.relative_to(REPO_ROOT).as_posix()
+                for pat in unconditional_prohibited:
+                    self.assertIsNone(
+                        pat.search(content),
+                        f"Restricted license/code leak in {rel}: {pat.pattern}",
+                    )
+                in_modules = rel.startswith("research-scientist/modules/")
+                is_skill_md = path.name == "SKILL.md"
+                for tok_name, pat in boundary_token_prohibited:
+                    if in_modules or is_skill_md:
+                        allowed = False
+                    elif path.suffix == ".py":
+                        allowed = rel in py_token_exceptions.get(tok_name, set())
+                    else:
+                        allowed = rel in boundary_disclaimer_docs
+                    if not allowed:
+                        self.assertIsNone(
+                            pat.search(content),
+                            f"Restricted boundary token `{tok_name}` leaked in {rel}",
+                        )
+        self.assertGreater(scanned_files, 150)
 
     def test_all_relative_markdown_links_resolve(self) -> None:
-        doc_paths = (
-            REPO_ROOT / "README.md",
-            PARENT_DIR / "INSTALL.md",
-            PARENT_DIR / "THIRD_PARTY_NOTICES.md",
-            REFS_DIR / "repository-landscape.md",
-            REFS_DIR / "retrieval-source-details.md",
-            REFS_DIR / "gap-rq-source-details.md",
-            MODULES_DIR / "researchradar" / "VENDOR.md",
-        )
+        doc_paths = [REPO_ROOT / "README.md"]
+        for sname in ALL_SKILLS:
+            sdir = REPO_ROOT / sname
+            for md_path in sorted(sdir.rglob("*.md")):
+                if "modules" not in md_path.parts:
+                    doc_paths.append(md_path)
+        self.assertGreaterEqual(len(doc_paths), 38)
         for doc_path in doc_paths:
             text = doc_path.read_text(encoding="utf-8")
             for match in MD_LINK_RE.finditer(text):
@@ -179,11 +232,14 @@ class TestM5DocsAndNotices(unittest.TestCase):
                     f"Broken relative markdown link in {doc_path.relative_to(REPO_ROOT)}: {target} -> {resolved}",
                 )
 
-    def test_all_35_scripts_m8a_flags_router_bound_and_claim_audit_pass(self) -> None:
-        expected_35_scripts = (
+    def test_all_41_scripts_f23_f32_flags_router_bound_and_claim_audit_pass(self) -> None:
+        expected_41_scripts = (
+            "analyze_experiment_outcome.py",
             "audit_alignment.py",
+            "build_research_inputs.py",
             "capture_venue_sources.py",
             "check_ai_cs_research_plan.py",
+            "check_artifact_readiness.py",
             "check_engineering_diagnostics.py",
             "check_evidence_map.py",
             "check_experiment_manifest.py",
@@ -202,11 +258,13 @@ class TestM5DocsAndNotices(unittest.TestCase):
             "claim_audit.py",
             "compare_scorecards.py",
             "compare_venue_novelty.py",
+            "evaluate_submission.py",
             "extract_pdf_blocks.py",
             "fulltext_mining.py",
             "gap_pipeline.py",
             "humanizer_lint.py",
             "local_evidence.py",
+            "project_state.py",
             "report_latex_pdf.py",
             "resolve_fulltext.py",
             "score_math.py",
@@ -214,22 +272,48 @@ class TestM5DocsAndNotices(unittest.TestCase):
             "search_papers.py",
             "storm_explorer.py",
             "sync_skills.py",
+            "triage_reviews.py",
             "venue_leads.py",
             "venue_panel_collector.py",
         )
         scripts = sorted(p.name for p in SCRIPTS_DIR.glob("*.py") if p.name != "__init__.py")
-        self.assertGreaterEqual(len(scripts), 35, f"Expected >=35 scripts, found {len(scripts)}: {scripts}")
-        for script_name in expected_35_scripts:
-            self.assertIn(script_name, scripts, f"Missing expected M5 script on disk: {script_name}")
+        self.assertEqual(set(scripts), set(expected_41_scripts), f"Expected exact 41 scripts, got {scripts}")
+        for script_name in expected_41_scripts:
             self.assertIn(script_name, self.readme, f"README.md missing script {script_name}")
             self.assertIn(script_name, self.install, f"INSTALL.md missing script {script_name}")
 
-        for flag in ("--check", "--prune-unused", "--verify-online"):
-            self.assertIn(flag, self.readme, f"README.md missing M8A flag {flag}")
+        for flag in (
+            "--check",
+            "--prune-unused",
+            "--verify-online",
+            "--strict-related-panel",
+            "--portfolio",
+            "--venue-type",
+            "--revision-diff",
+            "--subfield-preset",
+            "--audit-arguments",
+            "--anonymous",
+            "--strict-triage",
+            "--advise",
+            "mock-review",
+            "post-reject",
+        ):
+            self.assertIn(flag, self.readme, f"README.md missing F23-F32/M8A flag or subcommand {flag}")
         self.assertIn("--check", self.install)
         self.assertIn("--out", self.install)
         self.assertNotIn("<95", self.readme, "README.md still has stale <95-line router bound")
+        self.assertNotIn("21–41", self.readme, "README.md still has stale 21-41 line bound")
         self.assertIn("<50", self.readme)
+        self.assertIn("22–41", self.readme)
+
+        novelty_skill = (REPO_ROOT / "research-novelty-venue" / "SKILL.md").read_text(encoding="utf-8")
+        novelty_proto = (REPO_ROOT / "research-novelty-venue" / "references" / "novelty-venue-rebuttal-protocol.md").read_text(encoding="utf-8")
+        self.assertIn("references/review-triage-calibration.md", novelty_skill)
+        self.assertIn("triage_reviews.py", novelty_skill)
+        self.assertIn("review-triage-calibration.md", novelty_proto)
+        self.assertIn("xf686/Meet-Reviewer-2", self.notices)
+        self.assertIn("scripts/triage_reviews.py", self.notices)
+        self.assertIn("scripts/triage_reviews.py", self.landscape)
 
         for args in (
             ["--suite-root", str(REPO_ROOT), "--readme", str(REPO_ROOT / "README.md"), "--json"],
@@ -241,6 +325,12 @@ class TestM5DocsAndNotices(unittest.TestCase):
             data = json.loads(proc.stdout)
             self.assertEqual(data["status"], "passed")
             self.assertEqual(data["finding_count"], 0)
+            if "skills_audited" in data:
+                for sk in data["skills_audited"]:
+                    fp = sk["footprint"]
+                    self.assertLess(fp["lines"], 50, f"{sk['name']} SKILL.md lines >= 50: {fp}")
+                    self.assertLess(fp["est_tokens"], 900, f"{sk['name']} SKILL.md est_tokens >= 900: {fp}")
+                    self.assertLess(fp["frontmatter_est_tokens"], 140, f"{sk['name']} SKILL.md fm_tokens >= 140: {fp}")
 
 
 if __name__ == "__main__":

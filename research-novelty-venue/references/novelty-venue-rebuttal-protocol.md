@@ -1,6 +1,6 @@
 # Novelty, Venue Verification & Rebuttal Protocol (AI/CS/CV/NLP)
 
-Load this guide only for `/10` scoring, accepted-panel novelty comparisons, live venue CFP/fee audits, peer-review fairness checks, or rebuttal drafting and verification.
+Load this guide only for `/10` scoring, accepted-panel novelty comparisons, live venue CFP/fee audits, peer-review fairness checks, or rebuttal drafting and verification. For deterministic pre-submission 3-persona mock reviews, post-reject `H1–H17` Venue B scheduling (`../../research-scientist/scripts/triage_reviews.py`), `F30#5–8` deep scoring diagnostics, `F31#2` subfield presets, and the monotonic calibration benchmark, also load [review triage & calibration guide](review-triage-calibration.md).
 
 ## 1. Full H1–H17 Reviewer Fairness Firewall (`Meet-Reviewer-2` & ACL Rolling Review)
 

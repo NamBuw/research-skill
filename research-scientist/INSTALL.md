@@ -68,14 +68,14 @@ Every check must exit `0` with `finding_count: 0`.
 - `agents/openai.yaml` — Codex UI metadata (present in `research-scientist/` and all 6 sibling sub-skills).
 - `THIRD_PARTY_NOTICES.md` — consolidated MIT and Apache-2.0 attributions plus excluded/clean-room license boundaries.
 - `references/` — modular on-demand workflow guides, schemas, fixtures, and `repository-landscape.md` (33-repo triage matrix).
-- `scripts/` — runnable Python CLIs supporting `--help` and `--compact` disk-offloaded workflows:
+- `scripts/` — 41 runnable Python CLIs supporting `--help` and `--compact` disk-offloaded workflows:
   - **Retrieval & Corpus (`research-precedent-corpus`):** `search_papers.py`, `search_campaign.py`, `resolve_fulltext.py`, `citation_trails.py`, `citation_graph.py`, `fulltext_mining.py`, `extract_pdf_blocks.py`, `local_evidence.py`, `check_evidence_map.py`
   - **Gap, RQ & Parsimony (`research-gap-rq-audit`):** `storm_explorer.py`, `gap_pipeline.py`, `check_gap_record.py`, `check_gap_campaign.py`, `check_question_card.py`, `check_ai_cs_research_plan.py`
-  - **Experiment Coding & Rigor (`research-experiment-coding`):** `check_engineering_diagnostics.py`, `audit_alignment.py`, `check_experiment_manifest.py`, `check_experiment_rigor.py` (`repro`, `rliable`, `contamination`)
-  - **Novelty, Venue & Rebuttal (`research-novelty-venue`):** `venue_leads.py`, `venue_panel_collector.py`, `capture_venue_sources.py`, `check_venue_sources.py`, `check_venue_plan.py`, `compare_scorecards.py`, `compare_venue_novelty.py`, `score_math.py`, `check_rebuttal.py` (`budget`, `coverage`)
-  - **Paper Writing, Figures & Preflight (`research-paper-writing`):** `humanizer_lint.py`, `check_manuscript_ledger.py`, `check_figure_qa.py` (`palette`, `figure`), `check_submission_preflight.py` (`anonymize`, `arxiv-clean`, `bibtex`)
+  - **Experiment Coding & Rigor (`research-experiment-coding`):** `check_engineering_diagnostics.py`, `audit_alignment.py`, `check_experiment_manifest.py`, `check_experiment_rigor.py` (`repro`, `rliable`, `contamination`), `analyze_experiment_outcome.py`
+  - **Novelty, Venue & Rebuttal (`research-novelty-venue`):** `venue_leads.py`, `venue_panel_collector.py`, `capture_venue_sources.py`, `check_venue_sources.py`, `check_venue_plan.py`, `compare_scorecards.py` (`paper`/`idea`), `compare_venue_novelty.py`, `score_math.py`, `triage_reviews.py` (`mock-review`, `post-reject`), `evaluate_submission.py`, `check_rebuttal.py` (`budget`, `coverage`)
+  - **Paper Writing, Figures & Preflight (`research-paper-writing`):** `humanizer_lint.py`, `check_manuscript_ledger.py` (claims, lineage & argument audits), `check_artifact_readiness.py` (license, PII, repro, secrets, anonymization), `check_figure_qa.py` (`palette`, `figure`), `check_submission_preflight.py` (`anonymize`, `arxiv-clean`, `bibtex`)
   - **Multilingual User Report (`research-user-report`):** `report_latex_pdf.py`
-  - **Suite Governance & Sync:** `claim_audit.py`, `sync_skills.py`
+  - **Suite Lifecycle, Auto-Builder & Sync (`research-scientist`):** `build_research_inputs.py`, `project_state.py`, `claim_audit.py`, `sync_skills.py`
 - `modules/` — bundled MIT-licensed offline/tool suites (`kdense-scientific-writing/`, `kdense-peer-review/`, `kdense-scholar-evaluation/`, `kdense-hypothesis-generation/`, `kdense-literature-review/`, `humanizer/`, `researchradar/`), each with `VENDOR.md` and `LICENSE.md`.
 
 ## Runtime Dependencies, Optional Tools & API Keys

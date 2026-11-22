@@ -83,7 +83,7 @@ Each directory below contains an explicit `VENDOR.md` and `LICENSE.md` preservin
 | [Master-cai/Research-Paper-Writing-Skills](https://github.com/Master-cai/Research-Paper-Writing-Skills) | `MIT` | Reverse outlining (one message per paragraph) & module motivation triad | `research-paper-writing/` |
 | [zLanqing/codex-claude-academic-skills](https://github.com/zLanqing/codex-claude-academic-skills) | `MIT` | 7 late-stage compression patterns & metric-backed anti-vagueness rules | `research-paper-writing/` |
 | [chtc66/academic-skills](https://github.com/chtc66/academic-skills) | `MIT` | Peer-review rebuttal non-fabrication guard & per-point (`R1.1`/`AC.1`) anchor enforcement (never present unrun experiments as completed) | `research-novelty-venue/`, `scripts/check_rebuttal.py` |
-| [xf686/Meet-Reviewer-2](https://github.com/xf686/Meet-Reviewer-2) | `MIT` | H1–H17 ACL reviewer legitimacy & fairness firewall | `research-novelty-venue/` |
+| [xf686/Meet-Reviewer-2](https://github.com/xf686/Meet-Reviewer-2) | `MIT` | H1–H17 ACL reviewer legitimacy & fairness firewall | `research-novelty-venue/`, `scripts/triage_reviews.py` |
 | [yilaai/paper-quality-filter](https://github.com/yilaai/paper-quality-filter) | `MIT` (Copyright (c) 2026 yilaai, snapshot `679cdf3`) | Ported two-stage venue normalization, compact matching, and `S`/`A`/`B`/`C`/`Unknown` advisory classification rules (raw `journal_scores.json` excluded; optional `--quality-refs-dir` only; never substitutes for live CFP + accepted panels) | `scripts/venue_leads.py`, `scripts/compare_venue_novelty.py` |
 
 ---
