@@ -2,7 +2,7 @@
   "https://icml.cc/Conferences/2027/CallForPapers": {
     "status": 200,
     "content_type": "text/html; charset=utf-8",
-    "body": "<!DOCTYPE html><html><head><title>ICML 2027 Call For Papers</title></head><body><h1>ICML 2027</h1><p>Forty-fourth International Conference on Machine Learning</p><p>Track: Main Conference Track</p><p>Abstract Submission Deadline: January 14, 2027 23:59 AoE</p><p>Full Paper Submission Deadline: January 22, 2027 23:59 AoE</p><p>Main body page limit: 8 pages excluding references and appendices.</p></body></html>"
+    "body": "<!DOCTYPE html><html><head><title>ICML 2027 Call For Papers</title></head><body><h1>ICML 2027 Call For Papers</h1><p>We invite submissions of papers on original and rigorous research for the main conference proceedings.</p><p>Abstract submission deadline: January 14, 2027 11:59 PM AOE</p><p>Full paper submission deadline: January 22, 2027 11:59 PM AOE</p><p>Main body page limit: 8 pages excluding references and appendices.</p></body></html>"
   },
   "https://icml.cc/Conferences/2026/Pricing": {
     "status": 200,
@@ -12,17 +12,17 @@
   "https://2027.aclweb.org/": {
     "status": 200,
     "content_type": "text/html; charset=utf-8",
-    "body": "<!DOCTYPE html><html><head><title>ACL 2027</title></head><body><h1>ACL 2027</h1><p>65th Annual Meeting of the Association for Computational Linguistics</p><p>Track: Main Conference (via ACL Rolling Review)</p><p>ACL Rolling Review Submission Deadline: January 4, 2027 23:59 AoE</p><p>Conference Dates: August 20-22, 2027</p></body></html>"
+    "body": "<!DOCTYPE html><html><head><title>ACL 2027</title></head><body><h1>ACL 2027</h1><p>65th Annual Meeting of the Association for Computational Linguistics</p><p>ARR submission deadline January 4, 2027</p><p>Main Conference August 20-22, 2027</p><p>All deadlines are 11.59 pm UTC -12h (anywhere on earth).</p></body></html>"
   },
   "https://www.jmlr.org/author-info.html": {
     "status": 200,
     "content_type": "text/html; charset=utf-8",
-    "body": "<!DOCTYPE html><html><head><title>JMLR Information for Authors</title></head><body><h1>Journal of Machine Learning Research (JMLR)</h1><p>Edition: 2026-2027 Rolling</p><p>Track: Regular Articles</p><p>Submissions are accepted on a rolling basis with no fixed deadline.</p><p>There are no publication fees associated with this journal. Submission, publication, author registration, overlength, and tax fees are $0 USD.</p></body></html>"
+    "body": "<!DOCTYPE html><html><head><title>JMLR Information for Authors</title></head><body><h1>JMLR Information for Authors</h1><p>JMLR seeks previously unpublished papers on machine learning.</p><p>There are no publication fees associated with this journal and all papers are freely available to readers.</p><p>© JMLR 2026.</p></body></html>"
   },
   "https://cvpr.thecvf.com/Conferences/2027/CallForPapers": {
     "status": 200,
     "content_type": "text/html; charset=utf-8",
-    "body": "<!DOCTYPE html><html><head><title>CVPR 2027 Call For Papers</title></head><body><h1>CVPR 2027</h1><p>IEEE/CVF Conference on Computer Vision and Pattern Recognition 2027</p><p>Track: Main Conference</p><p>Paper Registration Deadline: November 11, 2026 23:59 AoE</p><p>Full Paper Submission Deadline: November 16, 2026 23:59 AoE</p><p>Supplementary Material Deadline: November 23, 2026 23:59 AoE</p></body></html>"
+    "body": "<!DOCTYPE html><html><head><title>CVPR 2027 Call For Papers</title></head><body><h1>CVPR 2027 Call for Papers</h1><p>Papers in the main technical program must describe high-quality, original research.</p><p>Paper Enrollment Deadline* Nov 10, 2026 AOE</p><p>Submission Deadline* Nov 16, 2026 AOE</p><p>Supplementary Materials Deadline Nov 23, 2026 11:59 PM AOE</p></body></html>"
   },
   "https://aaai.org/conference/aaai/aaai-27/registration/": {
     "status": 302,

@@ -1433,7 +1433,7 @@ def test_t1_g6_radar_verify_quote_matching(tmp_path: Path) -> None:
 
 def test_t1_g7_upstream_attribution_and_claim_audit_repo() -> None:
     """T1-G7 (F16): README, THIRD_PARTY_NOTICES, repository-landscape map all upstream repos & pass claim_audit.py."""
-    res = run_cli(SCRIPTS_DIR / "claim_audit.py", ["--root", str(SKILL_DIR), "--readme", str(REPO_ROOT / "README.md")])
+    res = run_cli(SCRIPTS_DIR / "claim_audit.py", ["--suite-root", str(REPO_ROOT), "--readme", str(REPO_ROOT / "README.md")])
     assert res.returncode == 0, f"stderr={res.stderr} stdout={res.stdout}"
 
     combined = (
@@ -1447,8 +1447,12 @@ def test_t1_g7_upstream_attribution_and_claim_audit_repo() -> None:
         "gpt researcher", "storm", "paperqa2", "ai-scientist", "perplexica",
         "mineru", "khoj", "k-dense", "humanizer", "researchradar",
         "ai-researcher", "good question", "lit-gap", "scipip", "researchagent", "iris", "ckm-hypogen",
+        "obra/superpowers", "affaan-m/ecc", "agent-skills-for-context-engineering",
+        "tw93/waza", "scipilot-figure-skill", "codex-claude-academic-skills",
+        "yilaai/paper-quality-filter",
     ):
         assert repo_token in combined or repo_token.replace("-", " ") in combined, f"missing attribution for {repo_token}"
+    assert "journal_scores.json" in combined
     assert "agpl" in combined and "rails" in combined
 
 

@@ -6,7 +6,7 @@
   "checked_at": "2026-11-21T10:00:00+00:00",
   "user_timezone": "Asia/Saigon",
   "milestones": {
-    "abstract_registration": "2026-11-11T23:59:00 AoE",
+    "abstract_registration": "2026-11-10T23:59:00 AoE",
     "full_paper": "2026-11-16T23:59:00 AoE",
     "supplementary_material": "2026-11-23T23:59:00 AoE",
     "notification": null,
@@ -19,9 +19,9 @@
   "evidence_claims": [
     {"field": "venue", "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "quote": "CVPR 2027"},
     {"field": "edition", "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "quote": "CVPR 2027"},
-    {"field": "track", "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "quote": "Main Conference"},
-    {"field": "milestones.abstract_registration", "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "quote": "Paper Registration Deadline: November 11, 2026 23:59 AoE"},
-    {"field": "milestones.full_paper", "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "quote": "Full Paper Submission Deadline: November 16, 2026 23:59 AoE"}
+    {"field": "track", "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "quote": "main technical program"},
+    {"field": "milestones.abstract_registration", "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "quote": "Paper Enrollment Deadline* Nov 10, 2026 AOE"},
+    {"field": "milestones.full_paper", "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "quote": "Submission Deadline* Nov 16, 2026 AOE"}
   ],
   "work_plan": {
     "buffer_days": 2,
@@ -31,8 +31,8 @@
     ]
   },
   "fees": [
-    {"category": "submission", "name": "Submission fee", "mandatory": true, "amount": 0, "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"},
-    {"category": "publication", "name": "Publication fee", "mandatory": true, "amount": 0, "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "submission", "name": "Submission fee", "mandatory": true, "amount": null, "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "publication", "name": "Publication fee", "mandatory": true, "amount": null, "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"},
     {"category": "author_registration", "name": "Author registration", "mandatory": true, "amount": null, "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"},
     {"category": "overlength", "name": "Overlength charge", "mandatory": false, "amount": null},
     {"category": "tax", "name": "Tax", "mandatory": true, "amount": null, "source_url": "https://cvpr.thecvf.com/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"}

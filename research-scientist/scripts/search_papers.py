@@ -1472,13 +1472,41 @@ def search(
             _ft_spec.loader.exec_module(_ft_mod)
             check_retraction = _ft_mod.check_retraction
             fetch_scite_tallies = _ft_mod.fetch_scite_tallies
+        scite_cache: dict[str, dict] = {}
+        retraction_cache: dict[str, str] = {}
+        by_src_sid: dict[tuple[str | None, str | None], dict] = {}
         for item in merged_results:
-            doi = item.get('doi')
+            doi = normalize_doi(item.get('doi'))
             if enrich_scite and doi:
-                item['scite_tallies'] = fetch_scite_tallies(doi)
+                if doi not in scite_cache:
+                    scite_cache[doi] = fetch_scite_tallies(doi)
+                item['scite_tallies'] = dict(scite_cache[doi])
             if enrich_retraction and doi and item.get('retraction_status') != 'retracted':
-                ret = check_retraction(doi)
-                item['retraction_status'] = ret['status']
+                if doi not in retraction_cache:
+                    retraction_cache[doi] = check_retraction(doi)['status']
+                item['retraction_status'] = retraction_cache[doi]
+            for sid_entry in item.get('source_ids') or []:
+                by_src_sid[(sid_entry.get('source'), sid_entry.get('source_id'))] = item
+        for rec in result['records']:
+            merged_item = by_src_sid.get((rec.get('source'), rec.get('source_id')))
+            rec_doi = normalize_doi(rec.get('doi'))
+            if enrich_scite:
+                if rec_doi:
+                    if rec_doi not in scite_cache:
+                        scite_cache[rec_doi] = fetch_scite_tallies(rec_doi)
+                    rec['scite_tallies'] = dict(scite_cache[rec_doi])
+                elif merged_item and merged_item.get('scite_tallies'):
+                    rec['scite_tallies'] = dict(merged_item['scite_tallies'])
+            if enrich_retraction:
+                if merged_item and merged_item.get('retraction_status') == 'retracted':
+                    rec['retraction_status'] = 'retracted'
+                elif rec.get('retraction_status') != 'retracted':
+                    if rec_doi:
+                        if rec_doi not in retraction_cache:
+                            retraction_cache[rec_doi] = check_retraction(rec_doi)['status']
+                        rec['retraction_status'] = retraction_cache[rec_doi]
+                    elif merged_item and merged_item.get('retraction_status') and merged_item['retraction_status'] != 'unchecked':
+                        rec['retraction_status'] = merged_item['retraction_status']
 
     result['results'] = merged_results
     result['dedup_groups'] = dedup_groups

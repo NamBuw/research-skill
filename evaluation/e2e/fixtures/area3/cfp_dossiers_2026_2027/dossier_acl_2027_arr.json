@@ -18,9 +18,9 @@
   "evidence_claims": [
     {"field": "venue", "source_url": "https://2027.aclweb.org/", "quote": "ACL 2027"},
     {"field": "edition", "source_url": "https://2027.aclweb.org/", "quote": "ACL 2027"},
-    {"field": "track", "source_url": "https://2027.aclweb.org/", "quote": "Main Conference (via ACL Rolling Review)"},
-    {"field": "milestones.abstract_registration", "source_url": "https://2027.aclweb.org/", "quote": "ACL Rolling Review Submission Deadline: January 4, 2027 23:59 AoE"},
-    {"field": "milestones.full_paper", "source_url": "https://2027.aclweb.org/", "quote": "ACL Rolling Review Submission Deadline: January 4, 2027 23:59 AoE"}
+    {"field": "track", "source_url": "https://2027.aclweb.org/", "quote": "Main Conference"},
+    {"field": "milestones.abstract_registration", "source_url": "https://2027.aclweb.org/", "quote": "ARR submission deadline January 4, 2027"},
+    {"field": "milestones.full_paper", "source_url": "https://2027.aclweb.org/", "quote": "ARR submission deadline January 4, 2027"}
   ],
   "work_plan": {
     "buffer_days": 2,

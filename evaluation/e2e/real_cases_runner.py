@@ -2169,8 +2169,8 @@ def run_area2_offline(work_dir: Path) -> dict[str, Any]:
         res_ledger_clean,
     )
 
-    # 2b: Zero-sycophancy grader + SKILL.md + claim_audit.py
-    res_claim = run_cli("claim_audit.py", ["--root", str(REPO_ROOT / "research-scientist"), "--readme", str(README_PATH)])
+    # 2b: Zero-sycophancy grader + 7-skill SKILL.md audit + claim_audit.py --suite-root
+    res_claim = run_cli("claim_audit.py", ["--suite-root", str(REPO_ROOT), "--readme", str(README_PATH)])
     _record_check(
         checks,
         "2b_claim_audit_passes",
@@ -2180,15 +2180,33 @@ def run_area2_offline(work_dir: Path) -> dict[str, Any]:
     )
 
     skill_text = SKILL_MD_PATH.read_text(encoding="utf-8").casefold()
+    all_7_skills = (
+        "research-scientist",
+        "research-precedent-corpus",
+        "research-gap-rq-audit",
+        "research-experiment-coding",
+        "research-novelty-venue",
+        "research-paper-writing",
+        "research-user-report",
+    )
+    all_7_enforced = all(
+        (REPO_ROOT / sname / "SKILL.md").is_file()
+        and any(
+            tok in (REPO_ROOT / sname / "SKILL.md").read_text(encoding="utf-8").casefold()
+            for tok in ("sycophancy", "refuse", "never", "zero", "unverified", "fabricated", "parsimony")
+        )
+        for sname in all_7_skills
+    )
     skill_has_strict_ban = (
-        any(tok in skill_text for tok in ("sycophancy", "flattery", "praise", "cheerleading"))
+        all_7_enforced
+        and any(tok in skill_text for tok in ("sycophancy", "flattery", "praise", "cheerleading"))
         and any(tok in skill_text for tok in ("falsification-first", "attack", "disprove"))
     )
     _record_check(
         checks,
         "2b_skill_md_enforces_zero_sycophancy_and_falsification_first",
         skill_has_strict_ban,
-        f"skill_has_strict_ban={skill_has_strict_ban}",
+        f"skill_has_strict_ban={skill_has_strict_ban}, all_7_enforced={all_7_enforced}",
     )
 
     fail_resp = (a2_dir / "sycophancy" / "response_sycophantic_fail.txt").read_text(encoding="utf-8")
@@ -2459,8 +2477,226 @@ def run_live_audits(
             area_reports["area1"] = {"area": "area1", "mode": "live", "checks": checks}
 
         if 2 in areas:
-            area_reports["area2"] = run_area2_offline(work_dir)
-            area_reports["area2"]["mode"] = "live"
+            area2_rep = run_area2_offline(work_dir)
+            area2_checks = list(area2_rep.get("checks", []))
+
+            # Live 2a: Online BibTeX verification (valid Crossref + arXiv/OpenAlex eprint vs fabricated mismatch)
+            live_a2_dir = work_dir / "live_area2"
+            live_a2_dir.mkdir(parents=True, exist_ok=True)
+            valid_bib = live_a2_dir / "live_valid.bib"
+            valid_bib.write_text(
+                "@inproceedings{cormack2009rrf,\n"
+                "  author = {Gordon V. Cormack and Charles L. A. Clarke and Stefan Buettcher},\n"
+                "  title = {Reciprocal rank fusion outperforms condorcet and individual rank learning methods},\n"
+                "  booktitle = {Proceedings of the 32nd international ACM SIGIR conference on Research and development in information retrieval},\n"
+                "  year = {2009},\n"
+                "  doi = {10.1145/1571941.1572114}\n"
+                "}\n\n"
+                "@article{kipf2017gcn,\n"
+                "  author = {Thomas N. Kipf and Max Welling},\n"
+                "  title = {{Semi-Supervised} Classification with Graph Convolutional Networks},\n"
+                "  journal = {arXiv preprint arXiv:1609.02907},\n"
+                "  eprint = {1609.02907},\n"
+                "  archivePrefix = {arXiv},\n"
+                "  year = {2017},\n"
+                "  doi = {10.48550/arxiv.1609.02907}\n"
+                "}\n",
+                encoding="utf-8",
+            )
+            bad_bib = live_a2_dir / "live_mismatch.bib"
+            bad_bib.write_text(
+                "@inproceedings{fake2025,\n"
+                "  author = {A. Author},\n"
+                "  title = {Quantum Hyperbolic Graph Memory Networks},\n"
+                "  booktitle = {Proceedings of the 32nd international ACM SIGIR conference},\n"
+                "  year = {2025},\n"
+                "  doi = {10.1145/1571941.1572114}\n"
+                "}\n",
+                encoding="utf-8",
+            )
+            res_bib_ok = run_cli(
+                "check_submission_preflight.py",
+                ["bibtex", str(valid_bib), "--verify-online", "--json"],
+            )
+            bib_ok_j = res_bib_ok["json"] or {}
+            res_bib_bad = run_cli(
+                "check_submission_preflight.py",
+                ["bibtex", str(bad_bib), "--verify-online", "--json"],
+            )
+            bib_bad_j = res_bib_bad["json"] or {}
+            bad_checks = {f.get("check") for f in (bib_bad_j.get("findings") or [])}
+            _record_check(
+                area2_checks,
+                "live_2a_bibtex_verify_online_valid_and_mismatch",
+                res_bib_ok["returncode"] == 0
+                and (bib_ok_j.get("summary") or {}).get("ERROR") == 0
+                and res_bib_bad["returncode"] == 1
+                and bib_bad_j.get("verdict") == "FAIL"
+                and "bibtex/online-mismatch" in bad_checks,
+                f"ok_verdict={bib_ok_j.get('verdict')}, bad_verdict={bib_bad_j.get('verdict')}, bad_checks={sorted(x for x in bad_checks if x)}",
+                res_bib_bad,
+            )
+            time.sleep(api_pause)
+
+            # Live 2b: Live Crossref/Scite retraction check + live downloaded arXiv PDF manuscript ledger audit
+            ft_out = live_a2_dir / "live_ft.json"
+            res_ft = run_cli(
+                "fulltext_mining.py",
+                ["--dois", "10.1145/1571941.1572114", "--out", str(ft_out), "--compact"],
+                timeout=120,
+            )
+            ft_j = res_ft["json"] or {}
+            ft_item = (ft_j.get("items") or [{}])[0]
+
+            gcn_blocks_path = work_dir / "live_gcn_blocks.json"
+            if not gcn_blocks_path.is_file():
+                dl_dir = live_a2_dir / "gcn_dl"
+                res_dl2 = run_cli(
+                    "resolve_fulltext.py",
+                    ["10.48550/arxiv.1609.02907", "--download-dir", str(dl_dir)],
+                    timeout=120,
+                )
+                dl2_path = ((res_dl2["json"] or {}).get("download") or {}).get("path")
+                if dl2_path and Path(dl2_path).is_file():
+                    run_cli("extract_pdf_blocks.py", [dl2_path, "--out", str(gcn_blocks_path)])
+
+            ledger_live_ok = False
+            ledger_live_detail = "gcn_blocks_unavailable"
+            if gcn_blocks_path.is_file():
+                src_dir = live_a2_dir / "sources"
+                src_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(gcn_blocks_path, src_dir / "kipf_2017.json")
+                live_ms = live_a2_dir / "live_clean_draft.md"
+                live_ms.write_text(
+                    "# Method Lineage\n\n"
+                    "We use the two-layer spectral propagation rule from Kipf and Welling (2017), keeping the "
+                    "renormalized adjacency matrix and linear layer weights separate without inventing a new method name.\n\n"
+                    "## Empirical Setup\n\n"
+                    "Across repeated runs on Cora, validation accuracy reached 81.5% under the recorded split.\n",
+                    encoding="utf-8",
+                )
+                live_ledger = live_a2_dir / "live_ledger.json"
+                live_ledger.write_text(
+                    json.dumps({
+                        "sources": [
+                            {
+                                "id": "E1",
+                                "type": "prior_paper",
+                                "locator": "kipf_2017.json",
+                                "quote": "We present a scalable approach for semi-supervised learning on graph-structured data",
+                                "verified": True,
+                                "verified_by": "live_audit",
+                                "verified_at": "2026-11-22",
+                            }
+                        ],
+                        "claims": [
+                            {
+                                "id": "C1",
+                                "kind": "reported",
+                                "material": True,
+                                "source_ids": ["E1"],
+                            }
+                        ],
+                        "methods": [
+                            {
+                                "id": "M1",
+                                "origin": "reused",
+                                "source_ids": ["E1"],
+                                "exact_change": "Applies the two-layer spectral GCN propagation rule without architectural additions",
+                                "simplest_alternative": "Two-layer GCN propagation from Kipf and Welling (2017)",
+                                "ablation_evidence": "Direct replication of Cora split baseline (81.5% accuracy)",
+                                "novelty_claimed": False,
+                                "grand_name": False,
+                            }
+                        ],
+                        "numeric_facts": [
+                            {
+                                "id": "N1",
+                                "occurrences": [
+                                    {"location": "live_clean_draft.md", "value": 81.5, "unit": "%"},
+                                    {"location": "kipf_2017.json", "value": 81.5, "unit": "%"},
+                                ],
+                            }
+                        ],
+                    }),
+                    encoding="utf-8",
+                )
+                res_hl_live = run_cli("humanizer_lint.py", [str(live_ms), "--strict", "--json"])
+                res_ml_ok = run_cli(
+                    "check_manuscript_ledger.py",
+                    ["--ledger", str(live_ledger), "--manuscript", str(live_ms), "--sources-dir", str(src_dir)],
+                )
+                bad_ledger = live_a2_dir / "live_ledger_bad.json"
+                bad_ledger.write_text(
+                    json.dumps({
+                        "sources": [
+                            {
+                                "id": "E1",
+                                "type": "prior_paper",
+                                "locator": "kipf_2017.json",
+                                "quote": "99.9% nonexistent quote",
+                                "verified": True,
+                                "verified_by": "live_audit",
+                                "verified_at": "2026-11-22",
+                            }
+                        ],
+                        "claims": [
+                            {
+                                "id": "C1",
+                                "kind": "reported",
+                                "material": True,
+                                "source_ids": ["E1"],
+                            }
+                        ],
+                        "methods": [
+                            {
+                                "id": "M1",
+                                "origin": "reused",
+                                "source_ids": ["E1"],
+                                "exact_change": "Rebrands Kipf and Welling (2017) as ApexGraphNet",
+                                "novelty_claimed": True,
+                                "grand_name": True,
+                            }
+                        ],
+                        "numeric_facts": [
+                            {
+                                "id": "N1",
+                                "occurrences": [
+                                    {"location": "live_clean_draft.md", "value": 81.5, "unit": "%"},
+                                    {"location": "kipf_2017.json", "value": 99.9, "unit": "%"},
+                                ],
+                            }
+                        ],
+                    }),
+                    encoding="utf-8",
+                )
+                res_ml_bad = run_cli(
+                    "check_manuscript_ledger.py",
+                    ["--ledger", str(bad_ledger), "--manuscript", str(live_ms), "--sources-dir", str(src_dir)],
+                )
+                ml_ok_status = (res_ml_ok["json"] or {}).get("status")
+                ledger_live_ok = (
+                    res_hl_live["returncode"] == 0
+                    and res_ml_ok["returncode"] == 0
+                    and ml_ok_status == "structure_passed"
+                    and res_ml_bad["returncode"] == 1
+                )
+                ledger_live_detail = (
+                    f"hl_rc={res_hl_live['returncode']}, ml_ok={ml_ok_status}, ml_bad_rc={res_ml_bad['returncode']}"
+                )
+
+            _record_check(
+                area2_checks,
+                "live_2b_fulltext_mining_and_live_pdf_ledger",
+                res_ft["returncode"] == 0
+                and ft_item.get("retraction_status") == "clean"
+                and (ft_item.get("scite_tallies") or {}).get("status") == "ok"
+                and ledger_live_ok,
+                f"retraction={ft_item.get('retraction_status')}, scite={(ft_item.get('scite_tallies') or {}).get('status')}, {ledger_live_detail}",
+                res_ft,
+            )
+
+            area_reports["area2"] = {"area": "area2", "mode": "live", "checks": area2_checks}
 
         if 3 in areas:
             checks = []
@@ -2479,7 +2715,7 @@ def run_live_audits(
             )
             time.sleep(api_pause)
 
-            # Live 3b: Capture live venue dossiers + detect AAAI redirect & ICML pricing JS + log date drift
+            # Live 3b: Capture live venue dossiers AND enforce check_venue_sources.py + http/extraction + expired warning
             cfp_dir = FIXTURES_DIR / "area3" / "cfp_dossiers_2026_2027"
             for name in (
                 "dossier_icml_2027.json",
@@ -2489,11 +2725,15 @@ def run_live_audits(
                 "dossier_aaai_2027_trap.json",
             ):
                 dossier_path = cfp_dir / name
-                res_cap = run_cli("capture_venue_sources.py", [str(dossier_path)])
-                cap_json = res_cap["json"] or {}
-                drift_note = "LIVE_DATE_DRIFT_CHECKED" if datetime.now(timezone.utc).year >= 2027 else "ok"
+                bundle_path = work_dir / f"{dossier_path.stem}_live_bundle.json"
+                res_cap = run_cli("capture_venue_sources.py", [str(dossier_path), "--out", str(bundle_path)])
+                cap_json = json.loads(bundle_path.read_text(encoding="utf-8")) if bundle_path.is_file() else (res_cap["json"] or {})
+                sources = cap_json.get("sources") or []
+                res_chk = run_cli("check_venue_sources.py", [str(dossier_path), str(bundle_path)])
+                chk_json = res_chk["json"] or {}
+
                 if name == "dossier_aaai_2027_trap.json":
-                    src0 = (cap_json.get("sources") or [{}])[0]
+                    src0 = sources[0] if sources else {}
                     _record_check(
                         checks,
                         "live_3b_aaai_redirect_trap",
@@ -2501,17 +2741,61 @@ def run_live_audits(
                         and (
                             src0.get("same_host_path_redirect_year_mismatch") is True
                             or src0.get("extraction_status") == "fetch_failed"
-                        ),
-                        f"final_url={src0.get('final_url')}, mismatch={src0.get('same_host_path_redirect_year_mismatch')}",
-                        res_cap,
+                        )
+                        and res_chk["returncode"] != 0
+                        and chk_json.get("source_text_status") == "verification_blocked",
+                        f"final_url={src0.get('final_url')}, mismatch={src0.get('same_host_path_redirect_year_mismatch')}, chk_status={chk_json.get('source_text_status')}",
+                        res_chk,
                     )
-                else:
+                elif name == "dossier_icml_2027.json":
+                    cfp_src = next((s for s in sources if "CallForPapers" in s.get("requested_url", "")), {})
+                    pricing_src = next((s for s in sources if "Pricing" in s.get("requested_url", "")), {})
+                    issues = {i.get("issue") for i in (chk_json.get("blocking_source_issues") or [])}
                     _record_check(
                         checks,
-                        f"live_3b_{dossier_path.stem}_capture",
-                        res_cap["returncode"] == 0,
-                        f"sources={len(cap_json.get('sources', []))}, note={drift_note}",
-                        res_cap,
+                        "live_3b_dossier_icml_2027_cfp_and_js_pricing",
+                        res_cap["returncode"] == 0
+                        and cfp_src.get("http_status") == 200
+                        and cfp_src.get("extraction_status") == "html_text_extracted"
+                        and pricing_src.get("http_status") == 200
+                        and pricing_src.get("js_rendered_suspected") is True
+                        and res_chk["returncode"] == 1
+                        and chk_json.get("source_text_status") == "verification_blocked"
+                        and chk_json.get("critical_fields_without_matched_quote") == []
+                        and "unverified_dynamic_page" in issues,
+                        f"cfp_http={cfp_src.get('http_status')}, pricing_js={pricing_src.get('js_rendered_suspected')}, missing={chk_json.get('critical_fields_without_matched_quote')}, issues={sorted(x for x in issues if x)}",
+                        res_chk,
+                    )
+                else:
+                    all_ok_http = bool(sources) and all(
+                        s.get("http_status") == 200 and s.get("extraction_status") == "html_text_extracted"
+                        for s in sources
+                    )
+                    extra_plan_ok = True
+                    extra_detail = ""
+                    if name == "dossier_cvpr_2027_expired.json":
+                        res_plan = run_cli("check_venue_plan.py", [str(dossier_path), "--sources", str(bundle_path)])
+                        pj = res_plan["json"] or {}
+                        p_warns = pj.get("warnings") or []
+                        sched_st = (pj.get("backward_schedule") or {}).get("status")
+                        extra_plan_ok = (
+                            res_plan["returncode"] == 0
+                            and "full_paper_deadline_already_passed" in p_warns
+                            and "abstract_registration_deadline_already_passed" in p_warns
+                            and sched_st == "start_already_passed_under_serial_assumption"
+                        )
+                        extra_detail = f", plan_warnings={p_warns}, sched={sched_st}"
+                    _record_check(
+                        checks,
+                        f"live_3b_{dossier_path.stem}_verified",
+                        res_cap["returncode"] == 0
+                        and all_ok_http
+                        and res_chk["returncode"] == 0
+                        and chk_json.get("verification_passed") is True
+                        and chk_json.get("source_text_status") == "all_supplied_critical_quotes_found"
+                        and extra_plan_ok,
+                        f"http_ok={all_ok_http}, chk_status={chk_json.get('source_text_status')}{extra_detail}",
+                        res_chk,
                     )
                 time.sleep(api_pause)
 

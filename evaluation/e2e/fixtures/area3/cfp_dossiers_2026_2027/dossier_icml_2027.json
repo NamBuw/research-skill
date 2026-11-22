@@ -18,9 +18,9 @@
   "evidence_claims": [
     {"field": "venue", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "ICML 2027"},
     {"field": "edition", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "ICML 2027"},
-    {"field": "track", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "Main Conference Track"},
-    {"field": "milestones.abstract_registration", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "Abstract Submission Deadline: January 14, 2027 23:59 AoE"},
-    {"field": "milestones.full_paper", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "Full Paper Submission Deadline: January 22, 2027 23:59 AoE"}
+    {"field": "track", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "main conference proceedings"},
+    {"field": "milestones.abstract_registration", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "Abstract submission deadline: January 14, 2027 11:59 PM AOE"},
+    {"field": "milestones.full_paper", "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "quote": "Full paper submission deadline: January 22, 2027 11:59 PM AOE"}
   ],
   "additional_source_urls": [
     "https://icml.cc/Conferences/2026/Pricing"
@@ -33,8 +33,8 @@
     ]
   },
   "fees": [
-    {"category": "submission", "name": "Submission fee", "mandatory": true, "amount": 0, "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"},
-    {"category": "publication", "name": "Publication fee", "mandatory": true, "amount": 0, "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "submission", "name": "Submission fee", "mandatory": true, "amount": null, "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"},
+    {"category": "publication", "name": "Publication fee", "mandatory": true, "amount": null, "source_url": "https://icml.cc/Conferences/2027/CallForPapers", "checked_at": "2026-11-21T10:00:00+00:00"},
     {"category": "author_registration", "name": "Author registration", "mandatory": true, "amount": null, "source_url": "https://icml.cc/Conferences/2026/Pricing", "checked_at": "2026-11-21T10:00:00+00:00"},
     {"category": "overlength", "name": "Overlength charge", "mandatory": false, "amount": null},
     {"category": "tax", "name": "Tax", "mandatory": true, "amount": null, "source_url": "https://icml.cc/Conferences/2026/Pricing", "checked_at": "2026-11-21T10:00:00+00:00"}

@@ -368,3 +368,89 @@ def test_t5_8_m8a_adversarial_bypasses_and_redos_fail_closed(tmp_path: Path) -> 
     assert r_fig.returncode == 1
     fig_checks = {f["check"] for f in json.loads(r_fig.stdout)["findings"]}
     assert {"figure/type3-font", "figure/corrupt-png", "figure/missing-truetype-rcparam"}.issubset(fig_checks)
+
+
+def test_t5_9_check_venue_plan_emits_explicit_expired_deadline_warnings(tmp_path: Path) -> None:
+    """Tier-5 regression (Live Area 3): Expired abstract/full_paper deadlines emit explicit warnings."""
+    from datetime import datetime, timezone
+
+    vp = _load_mod("check_venue_plan_t5", SCRIPTS_DIR / "check_venue_plan.py")
+    cvpr_path = REPO_ROOT / "evaluation" / "e2e" / "fixtures" / "area3" / "cfp_dossiers_2026_2027" / "dossier_cvpr_2027_expired.json"
+    dossier = json.loads(cvpr_path.read_text(encoding="utf-8"))
+    as_of = datetime(2026, 11, 22, 0, 0, tzinfo=timezone.utc)
+    res = vp.check(dossier, as_of=as_of)
+    warnings = res.get("warnings") or []
+    assert "abstract_registration_deadline_already_passed" in warnings
+    assert "full_paper_deadline_already_passed" in warnings
+    assert res["backward_schedule"]["status"] == "start_already_passed_under_serial_assumption"
+
+    # CLI also emits explicit warnings on expired dossier
+    proc = _run_cli("check_venue_plan.py", [str(cvpr_path)])
+    assert proc.returncode == 0
+    cli_warnings = json.loads(proc.stdout).get("warnings") or []
+    assert "abstract_registration_deadline_already_passed" in cli_warnings
+    assert "full_paper_deadline_already_passed" in cli_warnings
+
+    # Non-expired future dossier must NOT emit *_deadline_already_passed
+    future_dossier = json.loads(json.dumps(dossier))
+    future_dossier["milestones"]["abstract_registration"] = "2027-01-14T23:59:00 AoE"
+    future_dossier["milestones"]["full_paper"] = "2027-01-22T23:59:00 AoE"
+    future_res = vp.check(future_dossier, as_of=as_of)
+    assert not any("deadline_already_passed" in w for w in (future_res.get("warnings") or []))
+
+
+def test_t5_10_search_papers_records_and_results_enrichment_parity(tmp_path: Path) -> None:
+    """Tier-5 regression (Live Area 1): --enrich-scite & --enrich-retraction enrich BOTH results[] and records[]."""
+    sp = _load_mod("search_papers_enrich_t5", SCRIPTS_DIR / "search_papers.py")
+    ft = _load_mod("fulltext_mining_enrich_t5", SCRIPTS_DIR / "fulltext_mining.py")
+    oa_payload = {
+        "meta": {"count": 1},
+        "results": [
+            {
+                "id": "https://openalex.org/W2123456789",
+                "display_name": "Graph Verification Study",
+                "publication_year": 2021,
+                "doi": "https://doi.org/10.1016/j.measurement.2021.110084",
+                "type": "article",
+                "primary_location": {"source": {"display_name": "Measurement"}},
+                "authorships": [{"author": {"display_name": "A. Researcher"}}],
+            }
+        ],
+    }
+
+    def fake_transport(source: str, params: dict[str, Any]) -> dict[str, Any]:
+        assert source == "openalex"
+        return oa_payload
+
+    scite_calls: list[str] = []
+    ret_calls: list[str] = []
+
+    def fake_scite(doi: str) -> dict[str, Any]:
+        scite_calls.append(doi)
+        return {"supporting": 2, "mentioning": 5, "contradicting": 0, "total": 7, "status": "ok"}
+
+    def fake_retraction(doi: str) -> dict[str, str]:
+        ret_calls.append(doi)
+        return {"doi": doi, "status": "clean"}
+
+    with patch.object(ft, "fetch_scite_tallies", side_effect=fake_scite), patch.object(
+        ft, "check_retraction", side_effect=fake_retraction
+    ):
+        # Ensure search_papers imports the patched fulltext_mining module
+        with patch.dict(sys.modules, {"fulltext_mining": ft}):
+            res = sp.search(
+                "graph verification",
+                sources=("openalex",),
+                size=1,
+                pages=1,
+                transport=fake_transport,
+                enrich_scite=True,
+                enrich_retraction=True,
+            )
+
+    assert len(res["results"]) == 1 and len(res["records"]) == 1
+    assert res["results"][0]["scite_tallies"]["status"] == "ok"
+    assert res["records"][0]["scite_tallies"]["status"] == "ok"
+    assert res["results"][0]["retraction_status"] == "clean"
+    assert res["records"][0]["retraction_status"] == "clean"
+    assert len(scite_calls) == 1 and len(ret_calls) == 1

@@ -35,7 +35,7 @@ Each directory below contains an explicit `VENDOR.md` and `LICENSE.md` preservin
      - `texprose.py` → `scripts/humanizer_lint.py` (LaTeX/Markdown masking, hedging/booster/rhythm rules, 8-gram overlap).
      - `skills/verify-results/scripts/{compare_metrics.py,audit_repo.py}` → `scripts/check_experiment_manifest.py`.
      - `skills/test-research-code/scripts/repro_check.py` → `scripts/check_experiment_rigor.py` (`repro`).
-     - `skills/write-rebuttal/scripts/{check_budget.py,check_coverage.py}` → `scripts/check_rebuttal.py`.
+     - `skills/write-rebuttal/scripts/{check_budget.py,check_coverage.py}` → `scripts/check_rebuttal.py` (hardened with per-point `R1.1`/`AC.1` evidence-anchor & per-claim new-experiment non-fabrication checks).
      - `skills/anonymize-paper/scripts/scan_anonymization.py` & `skills/preflight-check/scripts/run_preflight.py` → `scripts/check_submission_preflight.py`.
 
 2. **`Future-House/paper-qa` (PaperQA2)** — <https://github.com/Future-House/paper-qa>
@@ -56,7 +56,7 @@ Each directory below contains an explicit `VENDOR.md` and `LICENSE.md` preservin
 
 6. **`google-research/arxiv-latex-cleaner`** — <https://github.com/google-research/arxiv-latex-cleaner>
    - **License:** Apache License 2.0 (`Apache-2.0`).
-   - **Adapted components:** `%` comment stripping (preserving `\%`), unused `.tex`/figure pruning checks, and oversized image checks in `scripts/check_submission_preflight.py` (`arxiv-clean`).
+   - **Adapted components:** `%` comment stripping (preserving `\%`), unused `.tex`/figure pruning (`arxiv-clean --prune-unused`), unsafe-symlink exclusion, and oversized image checks in `scripts/check_submission_preflight.py` (`arxiv-clean`).
 
 ### 2.2 MIT Attributions
 
@@ -79,11 +79,12 @@ Each directory below contains an explicit `VENDOR.md` and `LICENSE.md` preservin
 | [K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills) | `MIT` (Copyright (c) 2025 K-Dense Inc.) | `palette_audit.py` WCAG + CIE L* grayscale rules; statistical assumption checks & GPU benchmarking parity | `scripts/check_figure_qa.py`, `research-experiment-coding/` |
 | [Haojae/scipilot-figure-skill](https://github.com/Haojae/scipilot-figure-skill) | `MIT` | Figure & plotting-script QA rules (blocks JPEG, Type3 fonts, rainbow colormaps, low DPI; `pdf.fonttype=42`) | `scripts/check_figure_qa.py` |
 | [yuchenlin/rebiber](https://github.com/yuchenlin/rebiber) | `MIT` | `protect_title_caps` BibTeX acronym preservation (`BERT`, `ResNet`, `3D`) without `{{...}}` | `scripts/check_submission_preflight.py` |
-| [amos689/paper-preflight](https://github.com/amos689/paper-preflight) & [Altman-conquer/bibtex-verifier](https://github.com/Altman-conquer/bibtex-verifier) | `MIT` | Deterministic BibTeX hygiene & online Crossref/OpenAlex DOI field verification (`--verify-online`) | `scripts/check_submission_preflight.py` |
+| [amos689/paper-preflight](https://github.com/amos689/paper-preflight) & [Altman-conquer/bibtex-verifier](https://github.com/Altman-conquer/bibtex-verifier) | `MIT` | Deterministic BibTeX hygiene & online Crossref/arXiv/OpenAlex DOI field verification (`--verify-online` with `eprint` fallback) | `scripts/check_submission_preflight.py` |
 | [Master-cai/Research-Paper-Writing-Skills](https://github.com/Master-cai/Research-Paper-Writing-Skills) | `MIT` | Reverse outlining (one message per paragraph) & module motivation triad | `research-paper-writing/` |
 | [zLanqing/codex-claude-academic-skills](https://github.com/zLanqing/codex-claude-academic-skills) | `MIT` | 7 late-stage compression patterns & metric-backed anti-vagueness rules | `research-paper-writing/` |
-| [chtc66/academic-skills](https://github.com/chtc66/academic-skills) | `MIT` | Peer-review rebuttal non-fabrication guard (never present unrun experiments as completed) | `research-novelty-venue/`, `scripts/check_rebuttal.py` |
+| [chtc66/academic-skills](https://github.com/chtc66/academic-skills) | `MIT` | Peer-review rebuttal non-fabrication guard & per-point (`R1.1`/`AC.1`) anchor enforcement (never present unrun experiments as completed) | `research-novelty-venue/`, `scripts/check_rebuttal.py` |
 | [xf686/Meet-Reviewer-2](https://github.com/xf686/Meet-Reviewer-2) | `MIT` | H1–H17 ACL reviewer legitimacy & fairness firewall | `research-novelty-venue/` |
+| [yilaai/paper-quality-filter](https://github.com/yilaai/paper-quality-filter) | `MIT` (Copyright (c) 2026 yilaai, snapshot `679cdf3`) | Ported two-stage venue normalization, compact matching, and `S`/`A`/`B`/`C`/`Unknown` advisory classification rules (raw `journal_scores.json` excluded; optional `--quality-refs-dir` only; never substitutes for live CFP + accepted panels) | `scripts/venue_leads.py`, `scripts/compare_venue_novelty.py` |
 
 ---
 
@@ -115,8 +116,9 @@ No source code from any repository in this section is copied or bundled inside `
 | `TingxiYu/academic-figure-skill` | `Apache-2.0` | **Overlap & domain mismatch:** 217-file CNS/bio asset pack superseded by `scipilot-figure-skill` QA rules. |
 | `lishix520/academic-paper-skills` | `MIT` | **Low signal:** manual score summing superseded by deterministic `humanizer_lint.py` & `check_manuscript_ledger.py`. |
 | `appautomaton/latex-arxiv-SKILL` | `MIT` | **Redundant:** superseded by `search_papers.py` + `check_submission_preflight.py`. |
-| `WenyuChiou/academic-writing-skills`, `xingtaxueshu/literature-review-skills`, `msimchowitz/writing-skills`, `rand/cc-polymath`, `JosephElvisMaman1/ResearchPilot-Skills`, `Research-Equality/RE-research-design` | `MIT` | **Overlap / non-AI-CS focus / catalog bloat:** prompt-only workflows or general software catalogs duplicating existing gates. |
-| `stephenturner/skill-research-question-validator` & `yilaai/paper-quality-filter` | `MIT` | **External paid key / static heuristic:** requires `CONSENSUS_API_KEY`; static JCR/CCF tables superseded by live CFP + accepted panels. |
+| `WenyuChiou/academic-writing-skills`, `xingtaxueshu/literature-review-skills`, `msimchowitz/writing-skills`, `rand/cc-polymath`, `JosephElvisMaman1/ResearchPilot-Skills`, `Research-Equality/RE-research-design` (`RE-idea-generation`) | `MIT` | **Overlap / non-AI-CS focus / catalog bloat:** prompt-only workflows or general software catalogs duplicating existing gates. |
+| `stephenturner/skill-research-question-validator` | `MIT` | **External paid key + weaker:** wraps paid Consensus API (`CONSENSUS_API_KEY`); superseded by local/multi-source `research-gap-rq-audit`. |
+| `yilaai/paper-quality-filter` *(data & ranking excluded; normalization/tiering ported in §2.2)* | `MIT` | **Partial exclusion boundary:** raw `journal_scores.json` (Clarivate JCR/CAS metrics) is never redistributed (optional local `scripts/venue_leads.py` / `scripts/compare_venue_novelty.py` `--quality-refs-dir` only); static JCR/CCF tables never substitute for live CFP + accepted panels (`scripts/venue_panel_collector.py`). |
 
 ---
 

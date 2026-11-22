@@ -1021,7 +1021,7 @@ def test_t2_g5_radar_limits_no_html_or_insufficient_text(mock_server: MockSchola
 
 
 def test_t2_g6_restricted_license_isolation_audit() -> None:
-    """T2-G6 (F16): Zero AGPL Khoj, RAILS AI-Scientist, or MinerU copied source files inside research-scientist/."""
+    """T2-G6 (F16): Zero AGPL Khoj, RAILS AI-Scientist, MinerU, or CC BY-NC copied source across all 7 skills."""
     prohibited_patterns = (
         re.compile(r"\bfrom\s+magic_pdf\b"),
         re.compile(r"\bimport\s+magic_pdf\b"),
@@ -1030,11 +1030,24 @@ def test_t2_g6_restricted_license_isolation_audit() -> None:
         re.compile(r"\bfrom\s+ai_scientist\b"),
         re.compile(r"\bimport\s+ai_scientist\b"),
         re.compile(r"GNU AFFERO GENERAL PUBLIC LICENSE", re.IGNORECASE),
+        re.compile(r"Creative Commons Attribution-NonCommercial", re.IGNORECASE),
     )
-    for py_file in list((SKILL_DIR / "scripts").rglob("*.py")) + list((SKILL_DIR / "modules").rglob("*.py")):
-        text = py_file.read_text(encoding="utf-8", errors="replace")
-        for pat in prohibited_patterns:
-            assert not pat.search(text), f"prohibited restricted dependency/license in {py_file}: {pat.pattern}"
+    suite_root = SKILL_DIR.parent
+    all_skill_dirs = [
+        SKILL_DIR,
+        suite_root / "research-precedent-corpus",
+        suite_root / "research-gap-rq-audit",
+        suite_root / "research-experiment-coding",
+        suite_root / "research-novelty-venue",
+        suite_root / "research-paper-writing",
+        suite_root / "research-user-report",
+    ]
+    for sdir in all_skill_dirs:
+        assert sdir.is_dir(), f"Missing skill directory: {sdir}"
+        for py_file in sdir.rglob("*.py"):
+            text = py_file.read_text(encoding="utf-8", errors="replace")
+            for pat in prohibited_patterns:
+                assert not pat.search(text), f"prohibited restricted dependency/license in {py_file}: {pat.pattern}"
 
     notices = (SKILL_DIR / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8").casefold()
     assert "mit" in notices

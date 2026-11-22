@@ -43,6 +43,7 @@ def _resolve_tier_targets(tier: str) -> tuple[list[Path], str | None]:
         "2": E2E_DIR / "test_e2e_tier2.py",
         "3": E2E_DIR / "test_e2e_tier3.py",
         "4": E2E_DIR / "test_e2e_tier4_real_cases.py",
+        "5": E2E_DIR / "test_e2e_tier5_adversarial.py",
     }
     targets: list[Path] = []
     primary = tier_map[tier]
@@ -202,7 +203,7 @@ def run_pytest_tier(tier: str, *, live: bool) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Unified E2E runner for research-scientist.")
-    parser.add_argument("--tier", choices=["1", "2", "3", "4", "all"], default="all")
+    parser.add_argument("--tier", choices=["1", "2", "3", "4", "5", "all"], default="all")
     parser.add_argument("--live", action="store_true", help="Enable @pytest.mark.live external network audits.")
     parser.add_argument("--structural-check", action="store_true", help="Validate syntax, imports, collection, fixtures, and unit parity.")
     parser.add_argument("--json-report", type=Path, help="Optional path to write JSON execution summary.")

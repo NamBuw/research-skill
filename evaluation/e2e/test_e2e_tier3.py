@@ -556,8 +556,8 @@ def test_t3_9_kdense_scaffold_audit_claims_ledger_and_humanizer_chain(tmp_path: 
 
 
 def test_t3_10_skill_md_claim_audit_and_docs_consistency(tmp_path: Path) -> None:
-    """T3-10: F1 SKILL.md + F4 claim_audit.py + F16 README/THIRD_PARTY_NOTICES full consistency check."""
-    res = run_cli(SCRIPTS_DIR / "claim_audit.py", ["--root", str(SKILL_DIR), "--readme", str(REPO_ROOT / "README.md")])
+    """T3-10: F1 SKILL.md + F4 claim_audit.py --suite-root + F16 README/THIRD_PARTY_NOTICES full consistency check."""
+    res = run_cli(SCRIPTS_DIR / "claim_audit.py", ["--suite-root", str(REPO_ROOT), "--readme", str(REPO_ROOT / "README.md")])
     assert res.returncode == 0, f"claim_audit failed on live repo: {res.stdout} {res.stderr}"
 
     # Verify status tokens referenced in docs/contracts actually exist in scripts/

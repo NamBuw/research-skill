@@ -6,7 +6,7 @@ See [parent orchestrator instructions](research-scientist/SKILL.md), [installati
 
 ## Architecture: Hub-and-Spoke Suite & Core Guarantees
 
-The suite uses **3-layer progressive disclosure (F20)**—compact YAML frontmatter, lean `<95`-line `SKILL.md` routers, and on-demand `references/`—with all shared Python CLI tools under `research-scientist/scripts/` and bundled MIT modules under `research-scientist/modules/` (zero script duplication in sub-skills). All 7 skills include `agents/openai.yaml` metadata for Codex discovery.
+The suite uses **3-layer progressive disclosure (F20)**—compact YAML frontmatter, lean `<50`-line (`<900`-token; `21–41` lines actual) `SKILL.md` routers, and on-demand `references/`—with all shared Python CLI tools under `research-scientist/scripts/` and bundled MIT modules under `research-scientist/modules/` (zero script duplication in sub-skills). All 7 skills include `agents/openai.yaml` metadata for Codex discovery.
 
 | Skill | Role | Core Capabilities & Gates |
 |---|---|---|
@@ -14,7 +14,7 @@ The suite uses **3-layer progressive disclosure (F20)**—compact YAML frontmatt
 | [`research-precedent-corpus`](research-precedent-corpus/SKILL.md) | **Spoke 1: Retrieval & Corpus** | 9-source discovery (`search_papers.py`, `search_campaign.py`), 4-ID + bare-arXiv dedup, known-seed checks, co-citation graph, JATS/scite/retractions, PyMuPDF/OCR MinerU-V2 blocks, PaperQA2 BM25+MMR Q&A (`ABSTAIN` gate) |
 | [`research-gap-rq-audit`](research-gap-rq-audit/SKILL.md) | **Spoke 2: Gap, RQ & Parsimony** | STORM/Co-STORM exploration, `gap_pipeline.py` (read-before-cite, kill-search, temporal cutoff, 5-role skeptic), engineering-vs-gap separation, **Parsimony/anti-inflation gate (F19)**, falsifiable RQ cards |
 | [`research-experiment-coding`](research-experiment-coding/SKILL.md) | **Spoke 3: Coding & Rigor (F22)** | 4-phase root-cause debugging, TDD, verification-before-completion, PyTorch/leakage AST diagnostics, `repro` essentials, `rliable` IQM + stratified bootstrap 95% CIs, n-gram contamination checks, SHA-256 run receipts |
-| [`research-novelty-venue`](research-novelty-venue/SKILL.md) | **Spoke 4: Novelty, Venue & Rebuttal (F22)** | Locator-verified /10 scorecards, `>=5` same-track accepted-panel novelty (PMLR/ACL/DBLP), live CFP/fee capture (stale-redirect & JS-SPA traps), OpenReview/CVPR rebuttal budget/coverage (`R1.1`/`AC.1`) & H1–H17 fairness |
+| [`research-novelty-venue`](research-novelty-venue/SKILL.md) | **Spoke 4: Novelty, Venue & Rebuttal (F22)** | Locator-verified /10 scorecards, `>=5` same-track accepted-panel novelty (PMLR/ACL/DBLP), live CFP/fee capture (stale-redirect & JS-SPA traps), OpenReview/CVPR rebuttal budget & per-point (`R1.1`/`AC.1`) evidence-anchor/non-fabrication checks (`check_rebuttal.py`) + H1–H17 fairness |
 | [`research-paper-writing`](research-paper-writing/SKILL.md) | **Spoke 5: Writing, Figures & Preflight (F22)** | Humanizer §1–§26 + anti-sycophancy/padding/overlap lint, anti-fabrication & anti-grandiose method ledger, WCAG/grayscale/DPI/Type3 figure QA, double-blind anonymization, arXiv cleaner, BibTeX cap protection & online DOI check |
 | [`research-user-report`](research-user-report/SKILL.md) | **Spoke 6: Multilingual PDF Report (F18)** | Concise, plain-language executive LaTeX-to-PDF reports auto-matching user input language (`vi`, `en`, etc.) with verified intact UTF-8/Vietnamese diacritics and `--strict` conciseness linting |
 
@@ -30,7 +30,8 @@ Install or sync all 7 skills to Codex, Claude Code, and Gemini CLI, then audit t
 
 ```bash
 python3 research-scientist/scripts/sync_skills.py --dry-run --compact
-python3 research-scientist/scripts/claim_audit.py --suite-root . --compact
+python3 research-scientist/scripts/sync_skills.py --suite-root . --check --compact --out /tmp/sync-check.json
+python3 research-scientist/scripts/claim_audit.py --suite-root . --readme README.md --compact
 python3 research-scientist/scripts/claim_audit.py --root research-scientist --readme README.md --compact
 ```
 
@@ -47,20 +48,24 @@ python3 scripts/citation_graph.py --seeds W100,W200 --direction both --top 20 --
 python3 scripts/fulltext_mining.py --dois 10.48550/arxiv.1609.02907 --out fulltext.json --compact
 python3 scripts/extract_pdf_blocks.py /path/to/paper.pdf --out /path/to/paper.blocks.json --tables --ocr --compact
 python3 scripts/local_evidence.py --question "mechanism or outcome" --inputs /path/to/extracted/papers --limit 20 --compact
+python3 scripts/check_evidence_map.py /path/to/evidence-map.json
 
 # 2. STORM exploration, gap pipeline, RQ & experiment-bug diagnostics
 python3 scripts/storm_explorer.py --topic "your topic" --corpus corpus.json --out storm.json --compact
 python3 scripts/gap_pipeline.py --topic "your topic" --corpus corpus.json --digests digests.json --candidates candidates.json --out gap_out.json --compact
 python3 scripts/check_gap_record.py /path/to/gap-record.json --evidence-dir /path/to/blocks
+python3 scripts/check_gap_campaign.py /path/to/gap-record.json campaign.json
 python3 scripts/check_question_card.py /path/to/question-card.json
 python3 scripts/check_ai_cs_research_plan.py /path/to/gap-record.json /path/to/question-card.json /path/to/ai-cs-experiment-plan.json --campaign campaign.json
 python3 scripts/check_engineering_diagnostics.py --code-dir /path/to/repo --splits /path/to/splits.csv --metrics /path/to/metrics.json --compact
+python3 scripts/audit_alignment.py /path/to/features.csv /path/to/labels.csv --compact
 python3 scripts/check_experiment_manifest.py /path/to/experiment-manifest.json --verify-files --compact
 python3 scripts/check_experiment_rigor.py repro /path/to/repo --strict --compact
 python3 scripts/check_experiment_rigor.py rliable /path/to/scores.json --strict --compact
 python3 scripts/check_experiment_rigor.py contamination --train train.jsonl --eval eval.jsonl --compact
 
 # 3. /10 scoring, live venue CFP/fee audit, accepted-panel novelty & rebuttal checks
+python3 scripts/score_math.py /path/to/score-input.json
 python3 scripts/compare_scorecards.py /path/to/scorecards.json --sources-dir /path/to/sources --compact
 python3 scripts/venue_leads.py "specific contribution and field" --page-size 50 --pages 2 --compact
 python3 scripts/venue_panel_collector.py --source pmlr --venue-id v235 --limit 5 --out panel.json --compact
@@ -75,6 +80,8 @@ python3 scripts/humanizer_lint.py /path/to/manuscript.md --strict --compact
 python3 scripts/check_manuscript_ledger.py --ledger /path/to/manuscript-ledger.json --manuscript /path/to/manuscript.md --sources-dir /path/to/sources --compact
 python3 scripts/check_figure_qa.py figure /path/to/figures --strict --compact
 python3 scripts/check_submission_preflight.py anonymize /path/to/paper.tex --strict --compact
+python3 scripts/check_submission_preflight.py arxiv-clean /path/to/tex_dir --strip-comments-out /path/to/clean-arxiv --prune-unused --strict --compact
+python3 scripts/check_submission_preflight.py bibtex /path/to/refs.bib --tex /path/to/paper.tex --protect-caps --verify-online --compact
 python3 scripts/report_latex_pdf.py --input /path/to/findings.json --out /path/to/report.pdf --lang auto --strict --compact
 python3 modules/kdense-scientific-writing/scripts/scaffold_manuscript.py --output-dir ./draft-workspace --document-id local-draft --study-design observational
 python3 modules/researchradar/problem-statement-finder/scripts/radar.py check
@@ -90,7 +97,7 @@ Example DOIs, OpenAlex IDs, and JSON fixtures are syntax examples only; replace 
 | PDF/OCR & corpus Q&A | PyMuPDF + optional `pdfplumber` (`--tables`) + optional `tesseract` (`--ocr`) emitting MinerU Content List V2 JSON with Shannon entropy gating (`extract_pdf_blocks.py`); stemmed BM25 + MMR + `min_studies` `ABSTAIN` gate (`local_evidence.py`) | Optional external `mineru` CLI (`--use-mineru`) and user-hosted `khoj` server (`--khoj-url`) are not bundled; visual verification of complex tables/equations remains required |
 | Gap, RQ, parsimony & experiment rigor | STORM explorer, read-before-cite/kill-search/temporal-leak/5-role skeptic `gap_pipeline.py`, engineering-bug AST/split checks (`check_engineering_diagnostics.py`), `repro`/`rliable`/`contamination` (`check_experiment_rigor.py`), SHA-256 run receipts | Actual ML training execution runs externally; deterministic checks verify receipts and structural contracts, not causal truth |
 | /10 scoring, venue CFP & rebuttal | Guarded 6-dimension scorecards with local locator checks, PMLR/ACL/DBLP same-track panel builder, dated CFP/fee snapshotter catching stale redirects and JS-SPA shells, OpenReview/CVPR rebuttal budget & anchor checks | Live HTTPS access needed for fresh CFP/panel fetches; JS-rendered fee portals still require manual inspection; final track/fit judgment rests with authors |
-| Writing, figures, preflight & PDF report | Humanizer §1–§26 + anti-sycophancy/padding/overlap lint, method-lineage & numeric ledger, WCAG/grayscale/DPI/Type3 figure QA, double-blind anonymization, arXiv cleaner, BibTeX cap/DOI check, multilingual LaTeX-to-PDF generator (`report_latex_pdf.py`) | PDF compilation requires a local TeX engine (`xelatex`, `lualatex`, or `pdflatex` with UTF-8/T5 `vntex` support for Vietnamese) plus `PyMuPDF` (`fitz`) for text/diacritic verification |
+| Writing, figures, preflight & PDF report | Humanizer §1–§26 + anti-sycophancy/padding/overlap lint, method-lineage & numeric ledger, WCAG/grayscale/DPI/Type3 figure QA, double-blind anonymization, arXiv cleaner (`--prune-unused` + unsafe-symlink exclusion), BibTeX cap/DOI check (`--verify-online` with arXiv/OpenAlex `eprint` fallback), multilingual LaTeX-to-PDF generator (`report_latex_pdf.py`) | PDF compilation requires a local TeX engine (`xelatex`, `lualatex`, or `pdflatex` with UTF-8/T5 `vntex` support for Vietnamese) plus `PyMuPDF` (`fitz`) for text/diacritic verification |
 
 ## Upstream Pipeline Map & 33-Repo Triage Summary (Include / Absorb / Reject)
 
@@ -124,10 +131,11 @@ Full stars, SPDX licenses, and per-repo rationales are recorded in [repository-l
   - *Novelty & rebuttal (`research-novelty-venue`):* `ShaishavMaisuria/research-paper-lifecycle-skills` (`Apache-2.0`, CFP/DBLP + rebuttal budget/coverage), `chtc66/academic-skills` (`MIT`, anti-fabrication rebuttal), `xf686/Meet-Reviewer-2` (`MIT`, H1–H17 fairness firewall).
   - *Writing, figures & preflight (`research-paper-writing`):* `Haojae/scipilot-figure-skill` (`MIT`), `K-Dense-AI/scientific-agent-skills` (`MIT`, WCAG/CIE L* palette audit), `ShaishavMaisuria/research-paper-lifecycle-skills` (`Apache-2.0`, anonymize + preflight), `google-research/arxiv-latex-cleaner` (`Apache-2.0`), `yuchenlin/rebiber` (`MIT`), `amos689/paper-preflight` (`MIT`), `Altman-conquer/bibtex-verifier` (`MIT`), `Master-cai/Research-Paper-Writing-Skills` (`MIT`), `zLanqing/codex-claude-academic-skills` (`MIT`).
   - *Note on `KalarisLabs/research-agent-skills` (`MIT`):* `claim_audit.py` was ported in M1; the remaining 280+ general catalog was rejected to prevent frontmatter bloat.
+  - *Note on `yilaai/paper-quality-filter` (`MIT`, snapshot `679cdf3`):* Two-stage venue normalization & `S`/`A`/`B`/`C`/`Unknown` advisory classification rules were ported into `venue_leads.py` & `compare_venue_novelty.py`; raw `journal_scores.json` (Clarivate JCR/CAS metrics) is never redistributed (optional local `--quality-refs-dir` only) and static ranking is rejected as a substitute for live CFP + accepted panels.
 - **`REJECT` (19 repos — 17 from the 33-repo matrix + 2 prompt-only overlap catalogs, excluded for integrity, license, hallucination, or bloat):**
   - *License blocks:* `Imbad0202/academic-research-skills` (`CC BY-NC 4.0`), `CHB-learner/Awesome-Conference-Skills` (`None`).
   - *Scientific-integrity / auditability conflicts:* `Adkid-Zephyr/anti-defensive-writing-Skill` (instructs hiding weaknesses), `KINGSTAR-OMEGA/claude-token-optimizer` (strips explanatory provenance).
-  - *Hallucination / external-API / domain-mismatch / redundancy:* `PaperBanana` (`dwzhu-pku` & `llmsresearch`), `K-Dense-AI/claude-scientific-writer`, `TingxiYu/academic-figure-skill`, `lishix520/academic-paper-skills`, `appautomaton/latex-arxiv-SKILL`, `WenyuChiou/academic-writing-skills`, `rand/cc-polymath`, `KalarisLabs/research-agent-skills` (280+ catalog), `xingtaxueshu/literature-review-skills`, `msimchowitz/writing-skills`, `stephenturner/skill-research-question-validator`, `yilaai/paper-quality-filter`, `JosephElvisMaman1/ResearchPilot-Skills`, `Research-Equality/RE-research-design`.
+  - *Hallucination / external-API / domain-mismatch / redundancy:* `PaperBanana` (`dwzhu-pku` & `llmsresearch`), `K-Dense-AI/claude-scientific-writer`, `TingxiYu/academic-figure-skill`, `lishix520/academic-paper-skills`, `appautomaton/latex-arxiv-SKILL`, `WenyuChiou/academic-writing-skills`, `rand/cc-polymath`, `KalarisLabs/research-agent-skills` (280+ catalog), `xingtaxueshu/literature-review-skills`, `msimchowitz/writing-skills`, `stephenturner/skill-research-question-validator`, `yilaai/paper-quality-filter` (`journal_scores.json` & static ranking), `JosephElvisMaman1/ResearchPilot-Skills`, `Research-Equality/RE-research-design` (`RE-idea-generation`).
 
 ## Evaluate and Contribute
 

@@ -382,6 +382,9 @@ def check(dossier, as_of=None, source_bundle=None):
             warnings.append(f'{name}_unknown')
     if all(name in parsed for name in REQUIRED_MILESTONES) and parsed['abstract_registration'] > parsed['full_paper']:
         warnings.append('abstract_deadline_after_full_paper; verify official CFP')
+    for name in REQUIRED_MILESTONES:
+        if name in parsed and parsed[name] < as_of:
+            warnings.append(f'{name}_deadline_already_passed')
 
     edition_year = _edition_years(dossier)
     source_issues = []

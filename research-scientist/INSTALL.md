@@ -37,15 +37,21 @@ Use `research-scientist/scripts/sync_skills.py` to install or update all 7 skill
      --compact
    ```
 
+4. **Verify installed parity non-destructively (exits `0` if in sync, `1` if out of sync):**
+
+   ```bash
+   python3 research-scientist/scripts/sync_skills.py --suite-root . --check --compact --out /tmp/sync-check.json
+   ```
+
 Start a new session or refresh the skill list in your client (e.g., `gemini skills list` or `/skills reload` in Gemini CLI).
 
 ## Post-Install Verification (`claim_audit.py`)
 
-Verify documentation, script/flag consistency, `agents/openai.yaml` metadata, token budgets, and non-duplication after syncing:
+Verify documentation, script/flag consistency, `agents/openai.yaml` metadata, token budgets (`<50` lines / `<900` est. tokens per `SKILL.md`), and non-duplication after syncing:
 
 ```bash
-# Verify repository suite (all 7 skills)
-python3 research-scientist/scripts/claim_audit.py --suite-root . --compact
+# Verify repository suite (all 7 skills) + README.md
+python3 research-scientist/scripts/claim_audit.py --suite-root . --readme README.md --compact
 
 # Verify parent skill + README.md
 python3 research-scientist/scripts/claim_audit.py --root research-scientist --readme README.md --compact
