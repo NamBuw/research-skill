@@ -1051,7 +1051,7 @@ class TestBuildResearchInputs(unittest.TestCase):
                 build_research_inputs.build_inputs(tex_path=str(tex_dir / "evil.tex"), offline=True, out_dir=t / "evil_out")
 
     def test_all_four_subfield_presets_and_invalid_cli_exit_2(self):
-        for preset in ("nlp_llm", "cv_multimodal", "ml_theory", "ai_systems"):
+        for preset in ("nlp_llm", "cv_multimodal", "ml_theory", "ai_systems", "speech_audio"):
             with tempfile.TemporaryDirectory() as tmp:
                 res = build_research_inputs.build_inputs(
                     topic=f"test topic for {preset}",

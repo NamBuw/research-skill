@@ -73,7 +73,7 @@ For a durable machine-readable record, copy [the fictional gap-record example](g
 | `root_cause_barrier` & `why_now_enabler` | `theoretical_limit`, `measurement_gap`, `data_supervision_gap`, `compute_infra_barrier`; warns `missing_or_weak_why_now_enabler` when missing or weak |
 | `evaluation_validity_gap` | `shortcut_exploitation`, `dataset_bias_or_contamination`, `metric_saturation`, `construct_validity_mismatch` |
 | `so_what_decision_impact` & `durability_12_24m` | `decision_changing` vs `marginal_gain`; `durable_structural_limit` vs `high_scaling_erasure_risk` |
-| `author_advantage_fit` & `subfield_preset` | Socratic fit (`math_theory` vs `systems_engineering`, data/GPU/time); presets `nlp_llm`, `cv_multimodal`, `ml_theory`, `ai_systems` |
+| `author_advantage_fit` & `subfield_preset` | Socratic fit (`math_theory` vs `systems_engineering`, data/GPU/time); presets `nlp_llm`, `cv_multimodal`, `ml_theory`, `ai_systems`, `speech_audio` |
 
 4. **F28 Portfolio, Pre-Mortem & `idea_seed_bundle`:** On `scripts/gap_pipeline.py`, pass `--require-idea-portfolio` (3–4 distinct ideas across `minimal_fix` / `minimal_fix_f19`, `high_novelty_mechanism` / `high_novelty_mechanism_q1`, `benchmark_diagnostic_analysis`, `low_gpu_fallback`), `--require-pre-mortem` (`>= 3` `top_failure_modes`, 1–2 day `killer_experiment` with `kill_threshold`, `pivot_path`), and `--require-code-prior-art`.
    Separately, `scripts/check_gap_record.py` validates these optional fields when present while keeping legacy M3 records compatible. Surviving gaps emit `idea_seed_bundle` (`research_scientist_idea_seed_bundle_v1`) with unassessed idea `ratings` left strictly `null`.

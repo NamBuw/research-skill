@@ -23,6 +23,7 @@ python3 ../../research-scientist/scripts/triage_reviews.py mock-review --input d
   - `cv_multimodal`: `backbone_resolution_augmentation_parity`, `flops_fps_memory_tradeoff`, `qualitative_failure_analysis`
   - `ml_theory`: `assumption_tightness_realism`, `lower_vs_upper_bound_gap`, `empirical_sanity_validation`
   - `ai_systems`: `end_to_end_vs_microbenchmark`, `tail_latency_p99`, `peak_vram_comm_overhead`, `matched_hardware`
+  - `speech_audio`: `speaker_session_disjoint_split`, `audio_metric_and_normalization_parity`, `decoding_vocoder_embedding_parity`, `speech_slice_significance_and_consent`
 
 | Status | Audit Meaning (`subfield_preset_audit` / `venue_b_checks`) |
 |---|---|

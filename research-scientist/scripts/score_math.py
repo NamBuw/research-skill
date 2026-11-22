@@ -552,6 +552,37 @@ SUBFIELD_PRESETS = {
             'communication overhead, and matched hardware parity.'
         ),
     },
+    'speech_audio': {
+        'label': 'Speech & Audio (STT/ASR, TTS, Speech-to-Vector)',
+        'required_checks': (
+            'speaker_session_disjoint_split',
+            'audio_metric_and_normalization_parity',
+            'decoding_vocoder_embedding_parity',
+            'speech_slice_significance_and_consent',
+        ),
+        'aliases': {
+            'speaker_and_session_disjoint_split': ('speaker_session_disjoint_split',),
+            'speaker_disjoint_split': ('speaker_session_disjoint_split',),
+            'audio_text_normalization_and_metric_parity': ('audio_metric_and_normalization_parity',),
+            'wer_cer_eer_mos_metric_parity': ('audio_metric_and_normalization_parity',),
+            'lm_vocoder_embedding_backend_parity': ('decoding_vocoder_embedding_parity',),
+            'decoding_and_vocoder_parity': ('decoding_vocoder_embedding_parity',),
+            'paired_utterance_significance_and_consent': ('speech_slice_significance_and_consent',),
+            'low_resource_speech_slices_and_consent': ('speech_slice_significance_and_consent',),
+        },
+        'recommended_weights_paper': {
+            'importance': 15,
+            'novelty': 15,
+            'soundness': 20,
+            'evidence': 25,
+            'transparency': 15,
+            'clarity': 10,
+        },
+        'readiness_guidance': (
+            'Verify speaker/session-disjoint splits, unified WER/CER/PER/EER/MOS/SECS normalization, '
+            'matched LM-decoding/vocoder/embedding backends, and paired utterance significance with speaker consent.'
+        ),
+    },
 }
 
 

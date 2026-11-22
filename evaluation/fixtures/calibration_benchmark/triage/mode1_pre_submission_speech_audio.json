@@ -1,0 +1,107 @@
+{
+  "target_id": "triage_speech_audio",
+  "subfield_preset": "speech_audio",
+  "venue_tier": "q1_or_tier_a",
+  "scorecard": {
+    "weights": {
+      "importance": 15,
+      "novelty": 15,
+      "soundness": 20,
+      "evidence": 25,
+      "transparency": 15,
+      "clarity": 10
+    },
+    "ratings": {
+      "importance": 7,
+      "novelty": 6,
+      "soundness": 7,
+      "evidence": 5,
+      "transparency": 6,
+      "clarity": 6
+    }
+  },
+  "subfield_checks": {
+    "speaker_session_disjoint_split": "fail",
+    "audio_metric_and_normalization_parity": "pass",
+    "decoding_vocoder_embedding_parity": "fail",
+    "speech_slice_significance_and_consent": "pass"
+  },
+  "anchors": [
+    {
+      "anchor_id": "speech_audio_acc_1",
+      "topic_relation": "same_topic",
+      "overall_score": "7.20",
+      "benchmarks_count": 4,
+      "sota_baselines_covered": 4,
+      "ablation_depth": "full",
+      "theoretical_rigor": "ablation_bounds",
+      "effect_size_ci_stability": "mapsswe_5_seeds",
+      "code_artifact_openness": "public"
+    },
+    {
+      "anchor_id": "speech_audio_acc_2",
+      "topic_relation": "different_topic",
+      "overall_score": "6.95",
+      "benchmarks_count": 3,
+      "sota_baselines_covered": 4,
+      "ablation_depth": "full",
+      "theoretical_rigor": "error_slices",
+      "effect_size_ci_stability": "bootstrap_ci95",
+      "code_artifact_openness": "public"
+    }
+  ],
+  "engineering_diagnostics": {
+    "schema": "research_scientist_engineering_diagnostics_v1",
+    "verdict": "ENGINEERING_BUG_DETECTED",
+    "triage_classification": "engineering_bug",
+    "findings": [
+      {
+        "id": "ENG-001",
+        "category": "group_leakage_across_splits",
+        "severity": "error",
+        "location": "splits.csv",
+        "detail": "3 speaker_id group(s) span train and test splits.",
+        "remediation": "Enforce speaker_id disjoint splits."
+      },
+      {
+        "id": "ENG-002",
+        "category": "budget_or_config_mismatch",
+        "severity": "error",
+        "location": "lm_decoding",
+        "detail": "Mismatched lm_decoding between baseline (greedy) and candidate (4gram_kenlm_beam).",
+        "remediation": "Compare no-LM and with-LM decoding under matched LM settings."
+      }
+    ]
+  },
+  "rigor": [
+    {
+      "schema": "experiment_rigor_rliable_v1",
+      "verdict": "PASS_WITH_WARNINGS",
+      "warnings": [
+        "underpowered_seeds:2"
+      ]
+    }
+  ],
+  "ledger": {
+    "status": "passed",
+    "issues": [],
+    "grandiose_finding_count": 0
+  },
+  "preflight": [
+    {
+      "schema": "submission_anonymization_v1",
+      "verdict": "PASS",
+      "summary": {
+        "ERROR": 0,
+        "WARN": 0,
+        "INFO": 0
+      }
+    }
+  ],
+  "artifact_readiness": {
+    "schema": "artifact_readiness_v1",
+    "verdict": "PASS",
+    "ready_to_submit": true,
+    "recommended_transparency_cap": null
+  }
+}

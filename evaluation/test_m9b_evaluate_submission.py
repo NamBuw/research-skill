@@ -474,7 +474,7 @@ class TestM9BEvaluateSubmission(unittest.TestCase):
             triage = td / "triage.json"
             triage.write_text(json.dumps({"verdict": "PASS_WITH_REVISIONS", "blocking": False, "major_defects": [{"summary": "Add compute table"}], "minor_defects": []}), encoding="utf-8")
 
-            for preset in ("nlp_llm", "cv_multimodal", "ml_theory", "ai_systems"):
+            for preset in ("nlp_llm", "cv_multimodal", "ml_theory", "ai_systems", "speech_audio"):
                 res = _run_cli([
                     "--scorecard", str(sc),
                     "--prior-scorecard", str(prior_sc),

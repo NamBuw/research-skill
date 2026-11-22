@@ -142,12 +142,13 @@ def test_t1_m10c_cli_help_compact_and_5_tier_monotonic_calibration(tmp_path: Pat
 
 
 def test_t2_m10c_mode1_mock_review_all_4_subfield_presets_and_strict_exit_1(tmp_path: Path) -> None:
-    presets = ("nlp_llm", "cv_multimodal", "ml_theory", "ai_systems")
+    presets = ("nlp_llm", "cv_multimodal", "ml_theory", "ai_systems", "speech_audio")
     files = {
         "nlp_llm": BENCHMARK_DIR / "triage" / "mode1_pre_submission_nlp_llm.json",
         "cv_multimodal": BENCHMARK_DIR / "triage" / "mode1_pre_submission_cv_multimodal.json",
         "ml_theory": BENCHMARK_DIR / "triage" / "mode1_pre_submission_ml_theory.json",
         "ai_systems": BENCHMARK_DIR / "triage" / "mode1_pre_submission_ai_systems.json",
+        "speech_audio": BENCHMARK_DIR / "triage" / "mode1_pre_submission_speech_audio.json",
     }
 
     for preset in presets:

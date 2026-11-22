@@ -292,19 +292,21 @@ class TestTriageReviewsUnitAndSubfields(unittest.TestCase):
             "cv_multimodal": {"backbone_resolution_augmentation_parity", "flops_fps_memory_tradeoff", "qualitative_failure_analysis"},
             "ml_theory": {"assumption_tightness_realism", "lower_vs_upper_bound_gap", "empirical_sanity_validation"},
             "ai_systems": {"end_to_end_vs_microbenchmark", "tail_latency_p99", "peak_vram_comm_overhead", "matched_hardware"},
+            "speech_audio": {"speaker_session_disjoint_split", "audio_metric_and_normalization_parity", "decoding_vocoder_embedding_parity", "speech_slice_significance_and_consent"},
         }
         fixture_map = {
             "nlp_llm": "mode1_pre_submission_nlp_llm.json",
             "cv_multimodal": "mode1_pre_submission_cv_multimodal.json",
             "ml_theory": "mode1_pre_submission_ml_theory.json",
             "ai_systems": "mode1_pre_submission_ai_systems.json",
+            "speech_audio": "mode1_pre_submission_speech_audio.json",
         }
         for preset, fname in fixture_map.items():
             doc = json.loads((BENCHMARK_DIR / "triage" / fname).read_text(encoding="utf-8"))
             res = triage_reviews.run_mock_review(doc, subfield_preset=preset)
             spa = res["subfield_preset_audit"]
             self.assertEqual(spa["active_preset"], preset)
-            self.assertEqual(set(spa["presets"].keys()), {"nlp_llm", "cv_multimodal", "ml_theory", "ai_systems"})
+            self.assertEqual(set(spa["presets"].keys()), {"nlp_llm", "cv_multimodal", "ml_theory", "ai_systems", "speech_audio"})
             self.assertEqual(set(spa["required_checks"]), expected_keys[preset])
             self.assertEqual(spa["status"], "FAIL", preset)
             self.assertTrue(spa["failed_checks"], preset)

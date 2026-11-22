@@ -46,10 +46,22 @@ _TUNER_CLASSES = frozenset({
     'GridSearchCV', 'RandomizedSearchCV', 'HalvingGridSearchCV',
     'HalvingRandomSearchCV', 'BayesSearchCV', 'create_study',
 })
-_LOWER_BETTER_TOKENS = frozenset({'loss', 'cross', 'entropy', 'mse', 'mae', 'rmse', 'perplexity', 'ppl', 'wer', 'cer', 'error', 'brier', 'ece', 'nll'})
-_HIGHER_BETTER_TOKENS = frozenset({'accuracy', 'acc', 'f1', 'auroc', 'auc', 'ndcg', 'map', 'miou', 'bleu', 'rouge', 'em'})
+_LOWER_BETTER_TOKENS = frozenset({
+    'loss', 'cross', 'entropy', 'mse', 'mae', 'rmse', 'perplexity', 'ppl',
+    'wer', 'cer', 'per', 'ter', 'eer', 'mindcf', 'dcf', 'der', 'mcd', 'rtf', 'lsd', 'fad',
+    'error', 'brier', 'ece', 'nll',
+})
+_HIGHER_BETTER_TOKENS = frozenset({
+    'accuracy', 'acc', 'f1', 'auroc', 'auc', 'ndcg', 'map', 'miou', 'bleu', 'rouge', 'em',
+    'mos', 'cmos', 'mushra', 'utmos', 'secs', 'pesq', 'stoi', 'sisdr', 'si_sdr', 'sdr', 'mrr', 'recall',
+})
 _SANITY_NAME_RE = re.compile(r'(?:dummy|constant|majority|shuffled|random)', re.I)
-_CONFIG_PARITY_KEYS = ('backbone', 'resolution', 'image_size', 'crop_size', 'augmentation', 'epochs', 'compute_budget', 'training_data_budget')
+_CONFIG_PARITY_KEYS = (
+    'backbone', 'resolution', 'image_size', 'crop_size', 'augmentation',
+    'epochs', 'compute_budget', 'training_data_budget',
+    'sample_rate', 'vocoder', 'lm_decoding', 'decoding_strategy',
+    'embedding_backend', 'score_normalization',
+)
 
 
 def _auto_artifact_path(prefix: str) -> Path:

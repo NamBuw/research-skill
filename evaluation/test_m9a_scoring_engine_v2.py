@@ -476,7 +476,7 @@ class TestM9ADeepScoringF30AndSubfieldPresetsF31(unittest.TestCase):
         self.assertEqual(dbs['worst_case_reviewer_floor']['basis'], 'single_axis_minus1_floor')
 
     def test_f31_all_four_subfield_presets_and_alias_interop(self):
-        expected = {'nlp_llm', 'cv_multimodal', 'ml_theory', 'ai_systems'}
+        expected = {'nlp_llm', 'cv_multimodal', 'ml_theory', 'ai_systems', 'speech_audio'}
         self.assertEqual(set(score_math.SUBFIELD_PRESETS.keys()), expected)
 
         # Alias mapping from build_research_inputs.py check names
@@ -494,6 +494,19 @@ class TestM9ADeepScoringF30AndSubfieldPresetsF31(unittest.TestCase):
         )
         self.assertIn('peak_vram_comm_overhead', sys_res['passed_checks'])
         self.assertIn('matched_hardware', sys_res['passed_checks'])
+
+        sp_res = score_math.evaluate_subfield_readiness(
+            'speech_audio',
+            {
+                'speaker_and_session_disjoint_split': True,
+                'audio_text_normalization_and_metric_parity': True,
+                'lm_vocoder_embedding_backend_parity': False,
+            },
+        )
+        self.assertIn('speaker_session_disjoint_split', sp_res['passed_checks'])
+        self.assertIn('audio_metric_and_normalization_parity', sp_res['passed_checks'])
+        self.assertIn('decoding_vocoder_embedding_parity', sp_res['failed_checks'])
+        self.assertEqual(sp_res['missing_checks'], ['speech_slice_significance_and_consent'])
 
     def test_decimal_trap_isolation_across_all_m9a_helpers(self):
         w = _paper_weights()

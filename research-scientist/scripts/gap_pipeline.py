@@ -154,6 +154,12 @@ SUBFIELD_PRESETS: dict[str, tuple[str, ...]] = {
         'peak_vram_comm_overhead',
         'matched_hardware',
     ),
+    'speech_audio': (
+        'speaker_session_disjoint_split',
+        'audio_metric_and_normalization_parity',
+        'decoding_vocoder_embedding_parity',
+        'speech_slice_significance_and_consent',
+    ),
 }
 _MECHANISM_SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
     frozenset({'reciprocal rank fusion', 'rrf', 'rank aggregation', 'multi-list score fusion'}),
@@ -162,6 +168,9 @@ _MECHANISM_SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
     frozenset({'test-time adaptation', 'test-time training', 'entropy minimization at test time'}),
     frozenset({'low-rank adaptation', 'lora', 'parameter-efficient fine-tuning', 'peft'}),
     frozenset({'adversarial training', 'minimax robust optimization', 'pgd training'}),
+    frozenset({'connectionist temporal classification', 'ctc', 'ctc alignment'}),
+    frozenset({'speaker embedding', 'utterance vector', 'd-vector', 'x-vector', 'ecapa-tdnn'}),
+    frozenset({'specaugment', 'time-frequency spectrogram masking', 'frequency masking'}),
 )
 _ALT_QUERY_FAMILIES = frozenset({
     'alternate_vocabulary', 'alternate-vocabulary', 'mechanism', 'closure',

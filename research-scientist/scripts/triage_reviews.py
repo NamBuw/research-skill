@@ -37,7 +37,7 @@ PERSONAS = ("method_theory", "experiments_baselines", "novelty_positioning")
 SECTIONS = ("abstract", "introduction", "related_work", "method", "experiments", "limitations")
 SCALES = ("native", "arr_1_5", "neurips_1_6", "iclr_1_10")
 
-# Exact 4 subfield preset keys matching gap_pipeline.py:134-157 & build_research_inputs.py:41-99
+# Exact 5 subfield preset keys matching gap_pipeline.py & build_research_inputs.py
 SUBFIELD_PRESETS: dict[str, tuple[str, ...]] = {
     "nlp_llm": (
         "contamination_check",
@@ -61,6 +61,12 @@ SUBFIELD_PRESETS: dict[str, tuple[str, ...]] = {
         "peak_vram_comm_overhead",
         "matched_hardware",
     ),
+    "speech_audio": (
+        "speaker_session_disjoint_split",
+        "audio_metric_and_normalization_parity",
+        "decoding_vocoder_embedding_parity",
+        "speech_slice_significance_and_consent",
+    ),
 }
 
 _PRESET_CRITICAL_CHECKS = frozenset({
@@ -69,6 +75,9 @@ _PRESET_CRITICAL_CHECKS = frozenset({
     "assumption_tightness_realism",
     "end_to_end_vs_microbenchmark",
     "matched_hardware",
+    "speaker_session_disjoint_split",
+    "audio_metric_and_normalization_parity",
+    "decoding_vocoder_embedding_parity",
 })
 
 _PRESET_PERSONA_MAP = {
@@ -76,6 +85,7 @@ _PRESET_PERSONA_MAP = {
     "cv_multimodal": "experiments_baselines",
     "ml_theory": "method_theory",
     "ai_systems": "experiments_baselines",
+    "speech_audio": "experiments_baselines",
 }
 
 _DEFAULT_WEIGHTS = {
@@ -956,6 +966,27 @@ def _eval_subfield_preset(
             if any(isinstance(w, str) and w.startswith("underpowered_seeds") for w in warns):
                 inferred.setdefault("multi_prompt_variance", "warn")
 
+    eng_diag = upstream.get("engineering_diagnostics")
+    if preset_key == "speech_audio" and isinstance(eng_diag, dict):
+        speech_cfg_tokens = (
+            "sample_rate",
+            "vocoder",
+            "lm_decoding",
+            "decoding_strategy",
+            "embedding_backend",
+            "score_normalization",
+        )
+        for finding in (eng_diag.get("findings") or []):
+            if not isinstance(finding, dict):
+                continue
+            cat = str(finding.get("category") or "")
+            loc = str(finding.get("location") or "").casefold()
+            det = str(finding.get("detail") or "").casefold()
+            if cat in ("group_leakage_across_splits", "split_overlap_leakage"):
+                inferred["speaker_session_disjoint_split"] = "fail"
+            elif cat == "budget_or_config_mismatch" and any(tok in loc or tok in det for tok in speech_cfg_tokens):
+                inferred["decoding_vocoder_embedding_parity"] = "fail"
+
     checks_input = subfield_checks if isinstance(subfield_checks, dict) else {}
     active_result: dict[str, Any] = {
         "active_preset": preset_key,
@@ -1033,7 +1064,7 @@ def _eval_subfield_preset(
             "failed_checks": failed if is_active else [],
         }
 
-    # Exact 4 preset keys guaranteed under `presets`
+    # Exact 5 preset keys guaranteed under `presets`
     active_result["presets"] = preset_catalog
     return active_result
 

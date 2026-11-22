@@ -96,6 +96,22 @@ SUBFIELD_PRESETS: dict[str, dict[str, Any]] = {
         ],
         'default_panel_sources': ['arxiv', 'openalex', 's2', 'dblp'],
     },
+    'speech_audio': {
+        'label': 'Speech & Audio (STT/ASR, TTS, Speech-to-Vector)',
+        'gap_vetting_checks': [
+            'speaker_and_session_disjoint_split',
+            'audio_text_normalization_and_metric_parity',
+            'lm_vocoder_embedding_backend_parity',
+            'paired_utterance_significance_and_consent',
+        ],
+        'required_controls': [
+            'speaker_disjoint_split',
+            'wer_cer_eer_mos_metric_parity',
+            'decoding_and_vocoder_parity',
+            'low_resource_speech_slices_and_consent',
+        ],
+        'default_panel_sources': ['acl', 'arxiv', 'openalex', 's2', 'dblp'],
+    },
 }
 
 _STOPWORDS = {

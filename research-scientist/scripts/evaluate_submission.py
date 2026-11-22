@@ -103,6 +103,22 @@ SUBFIELD_PRESETS: dict[str, dict[str, Any]] = {
             "excluded_failed_runs",
         ],
     },
+    "speech_audio": {
+        "label": "Speech & Audio (STT/ASR, TTS, Speech-to-Vector)",
+        "required_checks": [
+            "speaker_session_disjoint_split",
+            "audio_metric_and_normalization_parity",
+            "decoding_vocoder_embedding_parity",
+            "speech_slice_significance_and_consent",
+        ],
+        "critical_rigor_focus": [
+            "group_leakage_across_splits",
+            "split_overlap_leakage",
+            "budget_or_config_mismatch",
+            "metric_direction_mismatch",
+            "hpo_budget_asymmetry",
+        ],
+    },
 }
 
 CRITICAL_ENGINEERING_CATEGORIES = {
@@ -1302,10 +1318,24 @@ def _evaluate_rigor_and_engineering(
             critical_failures.append(msg)
             _apply_cap(caps, "soundness", 4, msg, cap_reasons)
             _apply_cap(caps, "evidence", 4, msg, cap_reasons)
+        speech_cfg_tokens = (
+            "sample_rate",
+            "vocoder",
+            "lm_decoding",
+            "decoding_strategy",
+            "embedding_backend",
+            "score_normalization",
+        )
         for f in findings:
             cat = str(f.get("category") or "")
+            loc = str(f.get("location") or "").casefold()
+            det = str(f.get("detail") or "").casefold()
             if cat == "nlp_prompt_template_sensitivity_missing":
                 warnings.append("missing_prompt_template_sensitivity")
+            if cat in ("group_leakage_across_splits", "split_overlap_leakage"):
+                failed_checks.add("speaker_session_disjoint_split")
+            elif cat == "budget_or_config_mismatch" and any(tok in loc or tok in det for tok in speech_cfg_tokens):
+                failed_checks.add("decoding_vocoder_embedding_parity")
         raw_fc = eng_doc.get("finding_count")
         eff_finding_count = max(len(findings), raw_fc) if type(raw_fc) is int and raw_fc >= 0 else len(findings)
         eng_summary = {
@@ -3612,7 +3642,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--idea-seed-bundle", default=None, help="Optional path to research_scientist_idea_seed_bundle_v1 JSON")
     parser.add_argument("--project-state", default=None, help="Optional path to project_state JSON")
     parser.add_argument("--triage-reviews", default=None, help="Optional path to triage_reviews JSON")
-    parser.add_argument("--subfield-preset", choices=("nlp_llm", "cv_multimodal", "ml_theory", "ai_systems"), default=None, help="Optional AI/CS subfield depth preset")
+    parser.add_argument("--subfield-preset", choices=tuple(SUBFIELD_PRESETS.keys()), default=None, help="Optional AI/CS subfield depth preset")
     parser.add_argument("--target-venue", default=None, help="Optional target venue name")
     parser.add_argument("--target-venue-tier", default=None, help="Optional target venue tier override")
     parser.add_argument("--out", default=None, help="Optional output JSON path (written atomically)")

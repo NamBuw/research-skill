@@ -46,7 +46,7 @@ SCHEMA_VERSION = 'research_scientist_project_state_v1'
 ADVISOR_SCHEMA = 'research_scientist_advisor_v1'
 MAX_COMPACT_BYTES = 4096
 
-ALLOWED_SUBFIELD_PRESETS = ('nlp_llm', 'cv_multimodal', 'ml_theory', 'ai_systems')
+ALLOWED_SUBFIELD_PRESETS = ('nlp_llm', 'cv_multimodal', 'ml_theory', 'ai_systems', 'speech_audio')
 FULL_TEXT_ACCESS_LEVELS = {'full_text', 'selected_full_text'}
 VALID_ACCESS_LEVELS = {'full_text', 'selected_full_text', 'abstract', 'metadata', 'metadata_only', 'unavailable'}
 ACCESS_RANK = {

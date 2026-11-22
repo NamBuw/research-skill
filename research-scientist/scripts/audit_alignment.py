@@ -9,7 +9,10 @@ import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
 
-_AUTO_GROUP_COLS = ('group_id', 'patient_id', 'user_id', 'subject_id', 'author_id', 'session_id')
+_AUTO_GROUP_COLS = (
+    'group_id', 'patient_id', 'user_id', 'subject_id', 'author_id',
+    'session_id', 'speaker_id', 'recording_id', 'channel_id',
+)
 
 
 def _auto_artifact_path(prefix):
@@ -60,8 +63,10 @@ def inspect_splits_csv(path, id_column='sample_id', split_column='split', group_
     with Path(path).open(newline='', encoding='utf-8-sig') as stream:
         reader = csv.DictReader(stream)
         fields = reader.fieldnames or []
-        if id_column not in fields and 'id' in fields:
-            id_column = 'id'
+        if id_column not in fields:
+            fallback = next((c for c in ('id', 'utterance_id', 'utt_id', 'audio_id') if c in fields), None)
+            if fallback:
+                id_column = fallback
         if group_column == 'auto':
             group_column = next((c for c in _AUTO_GROUP_COLS if c in fields), None)
         required = [id_column, split_column] + ([group_column] if group_column else [])

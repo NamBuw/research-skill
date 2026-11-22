@@ -319,7 +319,7 @@ Before recommending a research direction or venue, ask at most 3 concrete scopin
 ### 10.2 Six-Step Decision Loop & CLI Orchestration
 
 #### Step 1 — Zero-Friction Input Scaffolding (`../scripts/build_research_inputs.py`)
-Accept a `--topic` string OR a local `--pdf` / `--tex` / `--input` manuscript (plus optional `--target-venue`, `--subfield-preset` in `nlp_llm|cv_multimodal|ml_theory|ai_systems`, `--offline`, or `--mock-search-json` / `--corpus-json`) to scaffold `corpus.json`, `gap_record.json`, `scorecards.json`, and `dossier.json`.
+Accept a `--topic` string OR a local `--pdf` / `--tex` / `--input` manuscript (plus optional `--target-venue`, `--subfield-preset` in `nlp_llm|cv_multimodal|ml_theory|ai_systems|speech_audio`, `--offline`, or `--mock-search-json` / `--corpus-json`) to scaffold `corpus.json`, `gap_record.json`, `scorecards.json`, and `dossier.json`.
 
 - **Zero-fabrication invariant:** Unread papers remain `metadata_only` with `ratings: null` (or all-`null` dimensions in `scorecards.json` so `compare_scorecards.py` fails closed as `not_comparable`); unverified CFP deadlines and fees remain `unverified` until captured and checked.
 
