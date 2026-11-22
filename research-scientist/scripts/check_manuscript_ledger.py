@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+MAX_COMPACT_BYTES = 3800
+
 KINDS = {"reported", "inferred", "proposed", "unknown"}
 METHOD_ORIGINS = {"reused", "adapted", "combined", "newly_derived"}
 
@@ -2193,6 +2195,1148 @@ def _check_sources_dir(
 
 
 # ---------------------------------------------------------------------------
+# F29#4 Deep Paper Argument Audits (Claim-Scope, Contributions, Related Work)
+# ---------------------------------------------------------------------------
+
+_RAW_CITE_KEY_RE = re.compile(
+    r"\\(?:cite[a-zA-Z]*\*?|textcite|parencite|autocite|footcite|fullcite|nocite)"
+    r"(?:\[[^\[\]\n]{0,120}\]){0,2}\{([^{}\n]{1,300})\}"
+)
+_REF_TOKEN_CITE_RE = re.compile(r"\[ref:([^\]\n]{1,300})\]")
+_SCOPE_NEGATION_RE = re.compile(
+    r"\b(?:does\s+not\s+generalize|cannot\s+generalize|do\s+not\s+claim|"
+    r"do(?:es)?\s+not\s+(?:cover|support|address|include|evaluate|test)|"
+    r"only\s+(?:evaluated|tested|validated|applied)\s+(?:on|in|for)|"
+    r"restricted\s+to|limited\s+to|remain[s]?\s+limited\s+to|"
+    r"(?:leave|left|defer(?:red)?)\b[^.\n]{0,40}\bto\s+future\s+work|"
+    r"future\s+work|out\s+of\s+scope|not\s+(?:tested|evaluated|validated)\s+on)\b",
+    re.I,
+)
+_CONCESSIVE_LEAD_RE = re.compile(
+    r"^\s*(?:while|although|though|even\s+though|whereas|despite(?:\s+being)?|"
+    r"leaving|deferring|reserving|limited\s+to|restricted\s+to)\b",
+    re.I,
+)
+_CLAUSE_SPLIT_RE = re.compile(
+    r";|"
+    r"(?:,\s*|\b)(?:while|although|though|even\s+though|whereas|however|but|yet)\b|"
+    r",\s*(?=(?:leaving|deferring|reserving)\b)|"
+    r",\s*(?=(?:(?:it|this|which|our\s+(?:evaluation|work|study|method)|results?)\s+(?:is|are|remains?)\s+)?(?:only\s+(?:evaluated|tested|validated|applied)|limited\s+to|restricted\s+to|left\s+to\s+future\s+work)\b)|"
+    r",\s*(?=(?:and\s+(?:we\s+)?(?:leave|left|defer(?:red)?|remain[s]?)|(?:which|that)\s+(?:we\s+)?(?:leave|left|defer(?:red)?|remain[s]?|is\s+left|are\s+left))\b)|"
+    r"\b(?=(?:and\s+(?:we\s+)?(?:leave|left|defer(?:red)?|remain[s]?)|(?:which|that)\s+(?:we\s+)?(?:leave|left|defer(?:red)?|remain[s]?|is\s+left|are\s+left))\b)",
+    re.I,
+)
+_AND_POSITIVE_VERB_RE = re.compile(
+    r"(?:,\s*|\b)and\s+(?:achieves?|solves?|generalizes?|outperforms?|surpasses?|exceeds?|reaches?|attains?|works?|applies?|scales?)\b",
+    re.I,
+)
+_SCOPE_UNIVERSAL_RE = re.compile(
+    r"\b(?:across\s+all\s+(?:tasks|domains|modalities|languages|benchmarks|datasets|settings|regimes)|"
+    r"all\s+possible\s+(?:tasks|domains|inputs|datasets|regimes)|"
+    r"arbitrary\s+(?:datasets|tasks|domains|scales|inputs)|"
+    r"universal\s+generalization|any\s+downstream\s+task|"
+    r"provably\s+optimal\s+in\s+all\s+regimes|completely\s+solves|"
+    r"regardless\s+of\s+scale|every\s+(?:downstream\s+)?(?:task|domain|benchmark|language))\b",
+    re.I,
+)
+_OOD_CLAIM_RE = re.compile(
+    r"\b(?:out-of-distribution|ood|cross-domain)\s+generalization\b|\bgeneralizes?\s+(?:out-of-distribution|ood|across\s+domains)\b",
+    re.I,
+)
+_MULTILINGUAL_CLAIM_RE = re.compile(
+    r"\b(?:multilingual|cross-lingual|across\s+(?:all\s+)?languages|many\s+languages)\b",
+    re.I,
+)
+_LARGE_SCALE_CLAIM_RE = re.compile(
+    r"\b(?:100B|70B|frontier[- ]scale|arbitrary\s+scale|billion[- ]parameter\s+models?\s+universally)\b",
+    re.I,
+)
+_MULTIMODAL_CLAIM_RE = re.compile(
+    r"\b(?:multi[- ]?modal|vision[- ]language|audio[- ]visual)\b",
+    re.I,
+)
+_DATASET_COUNT_CLAIM_RE = re.compile(
+    r"\b(?:across|on|over)\s+(\d+|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty)\s+"
+    r"(?:diverse\s+|standard\s+)?(?:benchmarks?|datasets?|tasks?)\b",
+    re.I,
+)
+_LIMITATIONS_INLINE_RE = re.compile(
+    r"(?:^|\n)[ \t]*(?:\*\*|__)?limitations?(?:\*\*|__)?[.:]",
+    re.I,
+)
+_CONTRIB_CUE_RE = re.compile(
+    r"\bcontributions?\s+(?:are|include|can\s+be\s+summarized|as\s+follows)\b|"
+    r"\bfollowing\s+contributions?\b|"
+    r"(?:^|\n)[ \t]*(?:\*\*|__)?contributions?(?:\*\*|__)?[.:]",
+    re.I,
+)
+_INLINE_EVIDENCE_ANCHOR_RE = re.compile(
+    r"\b(?:tab(?:le)?\.?\s*[A-Z]?\d+|fig(?:ure)?\.?\s*[A-Z]?\d+|"
+    r"thm\.?(?:\s*[A-Z]?\d+)?|theorem\s+[A-Z]?\d+|lemma\s+[A-Z]?\d+|prop(?:osition)?\.?\s+[A-Z]?\d+|"
+    r"cor(?:ollary)?\.?\s+[A-Z]?\d+|proof\b|eq(?:uation)?\.?\s*\(?\d+\)?|"
+    r"sec(?:tion)?\.?\s*[A-Z]?\d+|app(?:endix)?\.?\s*[A-Z0-9]+|"
+    r"alg(?:orithm)?\.?\s*\d+|run[_-]?id\s*[:=]\s*[A-Za-z0-9._-]+|"
+    r"sha256\s*[:=]\s*[0-9a-f]{7,})\b|"
+    r"\[claim:[A-Za-z0-9_-]+\]|\\(?:eq)?ref\{[^{}\n]+\}",
+    re.I,
+)
+_DIFF_CONTRAST_RE = re.compile(
+    r"\b(?:unlike|in\s+contrast\s+(?:to|with)|whereas|while|however|"
+    r"differs?\s+from|different\s+from|compared\s+(?:to|with)|"
+    r"instead\s+of|rather\s+than|as\s+opposed\s+to|by\s+contrast|conversely|"
+    r"fails?\s+to|assumes?|lacks?|cannot|can't|restricted\s+to|"
+    r"higher\s+(?:cost|complexity|overhead)|outperforms?|surpass(?:es)?|"
+    r"limitations?|drawbacks?|shortcomings?|we\s+differ)\b",
+    re.I,
+)
+
+_NUMBER_WORDS = {
+    "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "twelve": 12, "twenty": 20,
+}
+
+
+def _reject_nonfinite(tok: str) -> Any:
+    raise ValueError(f"Non-finite JSON constant not allowed: {tok}")
+
+
+def _preserve_cite_normalize(text: str, is_tex: bool) -> str:
+    """Normalize text like _normalize_manuscript while preserving \\cite{k1,k2} keys as [ref:k1,k2]."""
+    out = text
+    out = re.sub(r"\\begin\{thebibliography\}[\s\S]*?\\end\{thebibliography\}", " ", out)
+    out = re.sub(r"\\bibliography\{[^{}]*\}", " ", out)
+    out = _RAW_CITE_KEY_RE.sub(lambda m: f" [ref:{m.group(1)}] ", out)
+    return _normalize_manuscript(out, is_tex=is_tex)
+
+
+def _classify_heading_bucket(heading_text: str) -> str:
+    low = re.sub(r"^(?:\d+(?:\.\d+)*|[A-Z])\.\s+", "", heading_text.strip().lower())
+    low = re.sub(r"[^a-z0-9\s]+", " ", low).strip()
+    if not low:
+        return "other"
+    if "abstract" in low:
+        return "abstract"
+    if "limitation" in low or "broader impact" in low or "ethical" in low:
+        return "limitations"
+    if "related work" in low or "prior work" in low or "literature" in low or low == "background":
+        return "related_work"
+    if "conclusion" in low or "concluding" in low:
+        return "conclusion"
+    if "introduction" in low or low == "intro":
+        return "introduction"
+    if "contribution" in low:
+        return "contributions"
+    if "experiment" in low or "evaluation" in low or "result" in low:
+        return "experiments"
+    if "method" in low or "approach" in low or "framework" in low or "model" in low:
+        return "method"
+    return "other"
+
+
+def _extract_bullets_from_text(raw_chunk: str, norm_chunk: str) -> list[str]:
+    bullets: list[str] = []
+    # Check LaTeX \item lines first if present
+    if "\\item" in raw_chunk:
+        parts = re.split(r"\\item\b(?:\[[^\]\n]{0,60}\])?", raw_chunk)
+        for p in parts[1:]:
+            end_m = re.search(r"\\end\{(?:itemize|enumerate)\}", p)
+            seg = p[: end_m.start()] if end_m else p
+            clean = _normalized_ws(_normalize_manuscript(seg, is_tex=True))
+            if clean:
+                bullets.append(clean)
+        if bullets:
+            return bullets
+
+    # Markdown / numbered bullets
+    cur: list[str] = []
+    for ln in norm_chunk.splitlines():
+        bm = re.match(r"^[ \t]*(?:[-*+]|(?:\(?\d{1,2}[.)]))[ \t]+(.+)$", ln)
+        if bm:
+            if cur:
+                bullets.append(_normalized_ws(" ".join(cur)))
+            cur = [bm.group(1).strip()]
+        elif cur and ln.strip() and not re.match(r"^[ \t]*#", ln):
+            cur.append(ln.strip())
+        elif cur and not ln.strip():
+            bullets.append(_normalized_ws(" ".join(cur)))
+            cur = []
+    if cur:
+        bullets.append(_normalized_ws(" ".join(cur)))
+    return [b for b in bullets if b]
+
+
+def _extract_first_list_bullets_with_span(
+    raw_tail: str,
+    *,
+    is_tex: bool,
+) -> tuple[list[str], tuple[int, int] | None]:
+    """Extract only the first contribution list (LaTeX or Markdown) immediately following a cue."""
+    tex_begin_m = re.search(r"\\begin\{(itemize|enumerate)\}", raw_tail)
+    md_bullet_m = re.search(r"(?m)^[ \t]*(?:[-*+]|(?:\(?\d{1,2}[.)]))[ \t]+", raw_tail)
+    sec_break_m = re.search(r"(?m)^[ \t]*#{1,6}[ \t]+|\\(?:sub)*section(?:\*|\b)", raw_tail)
+    sec_break_pos = sec_break_m.start() if sec_break_m else len(raw_tail)
+
+    if tex_begin_m and tex_begin_m.start() < sec_break_pos and (
+        md_bullet_m is None or tex_begin_m.start() <= md_bullet_m.start()
+    ):
+        prefix = raw_tail[: tex_begin_m.start()]
+        if not re.search(r"\n[ \t]*\n[ \t]*[^\s\\]", prefix):
+            depth = 0
+            env_end = len(raw_tail)
+            body_end = len(raw_tail)
+            for tag_m in re.finditer(r"\\(begin|end)\{(?:itemize|enumerate)\}", raw_tail[tex_begin_m.start() :]):
+                if tag_m.group(1) == "begin":
+                    depth += 1
+                else:
+                    depth -= 1
+                    if depth == 0:
+                        body_end = tex_begin_m.start() + tag_m.start()
+                        env_end = tex_begin_m.start() + tag_m.end()
+                        break
+            list_body = raw_tail[tex_begin_m.end() : body_end]
+            bullets: list[str] = []
+            if "\\item" in list_body:
+                parts = re.split(r"\\item\b(?:\[[^\]\n]{0,60}\])?", list_body)
+                for p in parts[1:]:
+                    clean = _normalized_ws(_normalize_manuscript(p, is_tex=True))
+                    if clean:
+                        bullets.append(clean)
+            if bullets:
+                return bullets, (tex_begin_m.start(), env_end)
+        return [], None
+
+    if "\\item" in raw_tail:
+        item_m = re.search(r"\\item\b", raw_tail)
+        if item_m and item_m.start() < sec_break_pos:
+            sub = raw_tail[:sec_break_pos]
+            end_m = re.search(r"\\end\{(?:itemize|enumerate)\}|\n[ \t]*\n", sub[item_m.start() :])
+            stop = item_m.start() + end_m.end() if end_m else len(sub)
+            parts = re.split(r"\\item\b(?:\[[^\]\n]{0,60}\])?", sub[item_m.start() : stop])
+            bullets = []
+            for p in parts[1:]:
+                clean = _normalized_ws(_normalize_manuscript(p, is_tex=True))
+                if clean:
+                    bullets.append(clean)
+            if bullets:
+                return bullets, (item_m.start(), stop)
+
+    bullets = []
+    cur: list[str] = []
+    in_list = False
+    saw_pre_blank = False
+    saw_list_blank = False
+    list_start = -1
+    last_end = -1
+    pos = 0
+    for raw_ln_nl in raw_tail.splitlines(keepends=True):
+        raw_ln = raw_ln_nl.rstrip("\r\n")
+        ln_len = len(raw_ln_nl)
+        if re.match(r"^[ \t]*#|^[ \t]*\\(?:sub)*section(?:\*|\b)", raw_ln):
+            break
+        bm = re.match(r"^[ \t]*(?:[-*+]|(?:\(?\d{1,2}[.)]))[ \t]+(.+)$", raw_ln)
+        if not in_list:
+            if not raw_ln.strip():
+                saw_pre_blank = True
+            elif bm:
+                in_list = True
+                list_start = pos
+                cur = [bm.group(1).strip()]
+                last_end = pos + ln_len
+                saw_list_blank = False
+            elif saw_pre_blank:
+                break
+        else:
+            if not raw_ln.strip():
+                if cur:
+                    clean = _normalized_ws(_preserve_cite_normalize(" ".join(cur), is_tex=is_tex))
+                    if clean:
+                        bullets.append(clean)
+                    cur = []
+                saw_list_blank = True
+            elif bm:
+                if cur:
+                    clean = _normalized_ws(_preserve_cite_normalize(" ".join(cur), is_tex=is_tex))
+                    if clean:
+                        bullets.append(clean)
+                cur = [bm.group(1).strip()]
+                last_end = pos + ln_len
+                saw_list_blank = False
+            elif saw_list_blank:
+                break
+            elif cur:
+                cur.append(raw_ln.strip())
+                last_end = pos + ln_len
+        pos += ln_len
+    if cur:
+        clean = _normalized_ws(_preserve_cite_normalize(" ".join(cur), is_tex=is_tex))
+        if clean:
+            bullets.append(clean)
+    if bullets and list_start >= 0 and last_end > list_start:
+        return bullets, (list_start, last_end)
+    return [], None
+
+
+def _extract_named_sections(raw_text: str, is_tex: bool | None = None) -> dict[str, Any]:
+    tex_mode = _looks_like_tex(raw_text) if is_tex is None else is_tex
+    if tex_mode:
+        clean_raw = "\n".join(re.sub(r"(?<!\\)%.*$", "", ln) for ln in raw_text.splitlines())
+    else:
+        clean_raw = raw_text
+
+    # Trim references/bibliography tail
+    split_positions: list[int] = []
+    md_ref_m = re.search(
+        r"(?m)^[ \t]*#{1,6}[ \t]+(?:\*{1,2})?(?:references|bibliography)(?:\*{1,2})?\b",
+        clean_raw,
+        flags=re.I,
+    )
+    if md_ref_m:
+        split_positions.append(md_ref_m.start())
+    bib_env_m = re.search(r"\\begin\{thebibliography\}", clean_raw, flags=re.I)
+    if bib_env_m:
+        split_positions.append(bib_env_m.start())
+    if re.search(r"\\section(?:\*|\b)", clean_raw, flags=re.I):
+        bc, brc = _build_latex_match_tables(clean_raw)
+        for sm in re.finditer(r"\\section(?:\*|\b)", clean_raw, flags=re.I):
+            if not _has_even_preceding_backslashes(clean_raw, sm.start()):
+                continue
+            matched = _match_cmd_args(clean_raw, sm.end(), bc, brc, allow_opt=True, num_braced=1)
+            if matched is not None:
+                _, spans = matched
+                s1, e1 = spans[0]
+                sec_txt = re.sub(
+                    r"\s+", " ", re.sub(r"(?<!\\)[{}]", "", _normalize_manuscript(clean_raw[s1:e1], is_tex=True))
+                ).strip().lower()
+                if sec_txt in {"references", "bibliography"}:
+                    split_positions.append(sm.start())
+                    break
+    raw_no_refs = clean_raw[: min(split_positions)] if split_positions else clean_raw
+
+    # Find all heading boundaries in raw_no_refs
+    boundaries: list[tuple[int, int, str]] = []  # (start_idx, body_start_idx, heading_text)
+    for m in re.finditer(r"(?m)^[ \t]{0,3}#{1,6}[ \t]+([^\n]+)$", raw_no_refs):
+        h_norm = _normalize_manuscript(m.group(1), is_tex=tex_mode).strip()
+        if h_norm:
+            boundaries.append((m.start(), m.end(), h_norm))
+    if tex_mode or "\\" in raw_no_refs:
+        bc, brc = _build_latex_match_tables(raw_no_refs)
+        for sm in _HEADING_CMD_RE.finditer(raw_no_refs):
+            if sm.group(0).startswith("\\title") or not _has_even_preceding_backslashes(raw_no_refs, sm.start()):
+                continue
+            matched = _match_cmd_args(raw_no_refs, sm.end(), bc, brc, allow_opt=True, num_braced=1)
+            if matched is not None:
+                next_pos, spans = matched
+                s1, e1 = spans[0]
+                h_norm = re.sub(
+                    r"\s+", " ", re.sub(r"(?<!\\)[{}]", "", _normalize_manuscript(raw_no_refs[s1:e1], is_tex=tex_mode))
+                ).strip()
+                if h_norm:
+                    boundaries.append((sm.start(), next_pos, h_norm))
+
+    boundaries.sort(key=lambda x: x[0])
+
+    buckets: dict[str, list[str]] = {
+        "abstract": [],
+        "introduction": [],
+        "related_work": [],
+        "method": [],
+        "experiments": [],
+        "limitations": [],
+        "conclusion": [],
+        "contributions": [],
+        "other": [],
+    }
+    ordered_sections: list[tuple[str, str, str]] = []  # (bucket, raw_chunk, norm_cite_chunk)
+    section_offsets: list[int] = []  # start offset of raw_chunk inside raw_no_refs
+    raw_contrib_chunks: list[tuple[str, str]] = []
+    contrib_spans: list[tuple[int, int]] = []
+
+    # Abstract from \begin{abstract}
+    am = re.search(r"\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}", raw_no_refs, re.I)
+    if am:
+        raw_abs = am.group(1)
+        norm_abs = _preserve_cite_normalize(raw_abs, is_tex=tex_mode)
+        buckets["abstract"].append(norm_abs)
+        ordered_sections.append(("abstract", raw_abs, norm_abs))
+        section_offsets.append(am.start(1))
+
+    for idx, (h_start, b_start, h_text) in enumerate(boundaries):
+        b_end = boundaries[idx + 1][0] if idx + 1 < len(boundaries) else len(raw_no_refs)
+        raw_chunk = raw_no_refs[b_start:b_end]
+        norm_chunk = _preserve_cite_normalize(raw_chunk, is_tex=tex_mode)
+        bucket = _classify_heading_bucket(h_text)
+        buckets[bucket].append(norm_chunk)
+        ordered_sections.append((bucket, raw_chunk, norm_chunk))
+        section_offsets.append(b_start)
+        if bucket == "contributions":
+            raw_contrib_chunks.append((raw_chunk, norm_chunk))
+            contrib_spans.append((h_start, b_end))
+
+    # Fallback if no headings detected
+    if not ordered_sections:
+        norm_all = _preserve_cite_normalize(raw_no_refs, is_tex=tex_mode)
+        ordered_sections.append(("other", raw_no_refs, norm_all))
+        section_offsets.append(0)
+        buckets["other"].append(norm_all)
+
+    # Extract contribution bullets from dedicated section OR inline cue in intro/other/abstract
+    contributions_bullets: list[str] = []
+    for rc, nc in raw_contrib_chunks:
+        contributions_bullets.extend(_extract_bullets_from_text(rc, nc))
+    if not contributions_bullets:
+        for (bname, rc, _nc), rc_offset in zip(ordered_sections, section_offsets):
+            if bname in {"introduction", "abstract", "other"} and _CONTRIB_CUE_RE.search(rc):
+                cm = _CONTRIB_CUE_RE.search(rc)
+                assert cm is not None
+                tail_raw = rc[cm.end() : cm.end() + 3000]
+                ext_bullets, list_span = _extract_first_list_bullets_with_span(tail_raw, is_tex=tex_mode)
+                if ext_bullets:
+                    contributions_bullets.extend(ext_bullets)
+                    if list_span is not None:
+                        contrib_spans.append((rc_offset + cm.end() + list_span[0], rc_offset + cm.end() + list_span[1]))
+                    break
+
+    # Build non-contribution manuscript views so contribution bullets cannot self-certify anchors
+    if contrib_spans:
+        merged_spans: list[tuple[int, int]] = []
+        for s, e in sorted(contrib_spans):
+            if s >= e:
+                continue
+            if merged_spans and s <= merged_spans[-1][1]:
+                merged_spans[-1] = (merged_spans[-1][0], max(merged_spans[-1][1], e))
+            else:
+                merged_spans.append((s, e))
+        nc_parts: list[str] = []
+        prev_idx = 0
+        for s, e in merged_spans:
+            nc_parts.append(raw_no_refs[prev_idx:s])
+            nc_parts.append("\n")
+            prev_idx = e
+        nc_parts.append(raw_no_refs[prev_idx:])
+        raw_non_contrib = "".join(nc_parts)
+    else:
+        raw_non_contrib = raw_no_refs
+    norm_non_contrib = _normalize_manuscript(raw_non_contrib, is_tex=tex_mode)
+    nc_table_parts: list[str] = []
+    nc_table_spans: list[tuple[int, int]] = []
+    for t_m in re.finditer(r"\\begin\{(table\*?)\}([\s\S]*?)\\end\{\1\}", raw_non_contrib, re.I):
+        nc_table_spans.append((t_m.start(), t_m.end()))
+        nc_table_parts.append(_normalize_manuscript(t_m.group(2), is_tex=tex_mode))
+    for t_m in re.finditer(r"\\begin\{(tabular\*?|tabularx|longtable)\}([\s\S]*?)\\end\{\1\}", raw_non_contrib, re.I):
+        if any(s <= t_m.start() and t_m.end() <= e for s, e in nc_table_spans):
+            continue
+        nc_table_parts.append(_normalize_manuscript(t_m.group(2), is_tex=tex_mode))
+    for ln in raw_non_contrib.splitlines():
+        if "|" in ln and re.match(r"^\s*\|", ln):
+            nc_table_parts.append(_normalize_manuscript(ln, is_tex=tex_mode))
+    non_contrib_tables = "\n".join(nc_table_parts)
+
+    # Raw cite keys
+    all_raw_cite_keys: set[str] = set()
+    for m in _RAW_CITE_KEY_RE.finditer(raw_no_refs):
+        for k in m.group(1).split(","):
+            ks = k.strip()
+            if ks:
+                all_raw_cite_keys.add(ks)
+
+    # Raw tables (preserving \cite keys)
+    raw_table_parts: list[str] = []
+    for t_m in re.finditer(r"\\begin\{(table\*?|tabular\*?|tabularx|longtable)\}([\s\S]*?)\\end\{\1\}", clean_raw, re.I):
+        raw_table_parts.append(t_m.group(2))
+    for ln in clean_raw.splitlines():
+        if "|" in ln and re.match(r"^\s*\|", ln):
+            raw_table_parts.append(ln)
+
+    return {
+        "abstract": "\n".join(buckets["abstract"]),
+        "introduction": "\n".join(buckets["introduction"]),
+        "related_work": "\n".join(buckets["related_work"]),
+        "method": "\n".join(buckets["method"]),
+        "experiments": "\n".join(buckets["experiments"]),
+        "limitations": "\n".join(buckets["limitations"]),
+        "conclusion": "\n".join(buckets["conclusion"]),
+        "ordered_sections": ordered_sections,
+        "contributions_bullets": contributions_bullets,
+        "all_raw_cite_keys": all_raw_cite_keys,
+        "raw_full": raw_no_refs,
+        "raw_non_contrib": raw_non_contrib,
+        "norm_non_contrib": norm_non_contrib,
+        "non_contrib_tables": non_contrib_tables,
+        "raw_tables": "\n".join(raw_table_parts),
+    }
+
+
+def _split_sentences_list(text: str) -> list[str]:
+    if not text or not text.strip():
+        return []
+    out: list[str] = []
+    prev = 0
+    for m in _SENT_SPLIT_RE.finditer(text):
+        seg = text[prev : m.start()].strip()
+        if seg:
+            out.append(seg)
+        prev = m.end()
+    tail = text[prev:].strip()
+    if tail:
+        out.append(tail)
+    return out
+
+
+def _extract_unnegated_scope_clauses(sent: str) -> list[str]:
+    """Return clauses of `sent` not locally exempted by a scope negation/future-work cue."""
+    active: list[str] = []
+    for semi_part in sent.split(";"):
+        seg = semi_part.strip()
+        if not seg:
+            continue
+        if _CONCESSIVE_LEAD_RE.match(seg):
+            nm = _SCOPE_NEGATION_RE.search(seg)
+            if nm:
+                comma_idx = seg.find(",", nm.end())
+                if comma_idx != -1:
+                    seg = seg[comma_idx + 1 :].strip()
+                    if not seg:
+                        continue
+        sub_clauses = [c.strip() for c in _CLAUSE_SPLIT_RE.split(seg) if c and c.strip()]
+        for cl in sub_clauses:
+            nm = _SCOPE_NEGATION_RE.search(cl)
+            if not nm:
+                active.append(cl)
+            else:
+                am = _AND_POSITIVE_VERB_RE.search(cl, nm.end())
+                if am:
+                    pos_tail = cl[am.start() :].strip()
+                    if pos_tail and not _SCOPE_NEGATION_RE.search(pos_tail):
+                        active.append(pos_tail)
+    return active
+
+
+def _audit_claim_scope(
+    sections: dict[str, str],
+    named_secs: dict[str, Any] | None,
+    ledger: dict[str, Any],
+) -> tuple[list[str], dict[str, Any]]:
+    raw_scope = ledger.get("evaluated_scope") if "evaluated_scope" in ledger else ledger.get("experiment_scope")
+    if raw_scope is not None and not isinstance(raw_scope, dict):
+        raise ValueError("evaluated_scope / experiment_scope must be an object")
+    scope_obj: dict[str, Any] = raw_scope if isinstance(raw_scope, dict) else {}
+    scope_present = bool(scope_obj)
+
+    zones: list[tuple[str, str]] = []
+    if named_secs is not None:
+        if sections["title"].strip():
+            zones.append(("title", sections["title"]))
+        abs_txt = named_secs["abstract"].strip() or sections["abstract"].strip()
+        if abs_txt:
+            zones.append(("abstract", abs_txt))
+        if named_secs["introduction"].strip():
+            zones.append(("introduction", named_secs["introduction"]))
+        if named_secs["conclusion"].strip():
+            zones.append(("conclusion", named_secs["conclusion"]))
+        if not (abs_txt or named_secs["introduction"].strip() or named_secs["conclusion"].strip()):
+            # Unheaded manuscript fallback: inspect body excluding explicit Limitations paragraph
+            body_clean = _LIMITATIONS_INLINE_RE.split(sections["body"], maxsplit=1)[0]
+            if body_clean.strip():
+                zones.append(("body", body_clean))
+
+    for claim in ledger.get("claims", []):
+        if isinstance(claim, dict) and _nonblank(claim.get("id")):
+            ctext = claim.get("text") or claim.get("excerpt")
+            if _nonblank(ctext):
+                zones.append((f"claim:{claim['id']}", str(ctext)))
+
+    issues: list[str] = []
+    findings: list[dict[str, Any]] = []
+
+    def _add_f(rule: str, zone: str, excerpt: str, reason: str, issue_code: str) -> None:
+        issues.append(issue_code)
+        findings.append({
+            "rule": rule,
+            "zone": zone,
+            "excerpt": excerpt[:160],
+            "reason": reason,
+        })
+
+    def _norm_vals(key: str) -> str:
+        val = scope_obj.get(key)
+        if isinstance(val, list):
+            return " ".join(str(x).lower() for x in val if _nonblank(str(x)))
+        if isinstance(val, str):
+            return val.lower()
+        return ""
+
+    regimes_txt = _norm_vals("regimes")
+    conds_txt = f"{_norm_vals('conditions')} {_norm_vals('languages')}".strip()
+    scales_txt = _norm_vals("scales")
+    mods_txt = _norm_vals("modalities")
+    datasets_list = [x for x in scope_obj.get("datasets", []) if _nonblank(str(x))] if isinstance(scope_obj.get("datasets"), list) else []
+    excl_claims = [str(x).strip() for x in scope_obj.get("excluded_claims", []) if _nonblank(str(x))] if isinstance(scope_obj.get("excluded_claims"), list) else []
+
+    for zone_name, zone_txt in zones:
+        for orig_sent in _split_sentences_list(zone_txt):
+            for sent in _extract_unnegated_scope_clauses(orig_sent):
+                um = _SCOPE_UNIVERSAL_RE.search(sent)
+                if um:
+                    _add_f(
+                        "universal_overclaim",
+                        zone_name,
+                        sent,
+                        f"Unbounded universal quantifier '{um.group(0)}' exceeds evaluated scope.",
+                        f"claim_scope_overclaim:{zone_name}",
+                    )
+
+                for excl in excl_claims:
+                    if re.search(rf"(?<!\w){re.escape(excl)}(?!\w)", sent, re.I):
+                        _add_f(
+                            "excluded_claim_violation",
+                            zone_name,
+                            sent,
+                            f"Asserts excluded claim '{excl}' outside limitations/caveats.",
+                            f"claim_scope_overclaim:{zone_name}",
+                        )
+
+                if regimes_txt and re.search(r"\b(?:in-distribution|id-only|in_distribution)\b", regimes_txt) and not re.search(r"\b(?:ood|out-of-distribution|cross-domain)\b", regimes_txt):
+                    if _OOD_CLAIM_RE.search(sent):
+                        _add_f(
+                            "regime_mismatch",
+                            zone_name,
+                            sent,
+                            f"Claims OOD/cross-domain generalization despite evaluated regimes: '{regimes_txt}'.",
+                            f"claim_scope_overclaim:{zone_name}",
+                        )
+
+                if conds_txt and re.search(r"\b(?:english[- ]only|monolingual|english)\b", conds_txt) and not re.search(r"\b(?:multilingual|cross[- ]lingual)\b", conds_txt):
+                    if _MULTILINGUAL_CLAIM_RE.search(sent):
+                        _add_f(
+                            "language_condition_mismatch",
+                            zone_name,
+                            sent,
+                            f"Claims multilingual scope despite evaluated condition: '{conds_txt}'.",
+                            f"claim_scope_overclaim:{zone_name}",
+                        )
+
+                if scales_txt and not re.search(r"\b(?:70b|100b|frontier|arbitrary)\b", scales_txt):
+                    if _LARGE_SCALE_CLAIM_RE.search(sent):
+                        _add_f(
+                            "scale_mismatch",
+                            zone_name,
+                            sent,
+                            f"Claims frontier/100B+ scale despite evaluated scales: '{scales_txt}'.",
+                            f"claim_scope_overclaim:{zone_name}",
+                        )
+
+                if mods_txt and "text" in mods_txt and not re.search(r"\b(?:vision|image|audio|video|multimodal|multi-modal)\b", mods_txt):
+                    if _MULTIMODAL_CLAIM_RE.search(sent):
+                        _add_f(
+                            "modality_mismatch",
+                            zone_name,
+                            sent,
+                            f"Claims multimodal coverage despite evaluated modalities: '{mods_txt}'.",
+                            f"claim_scope_overclaim:{zone_name}",
+                        )
+
+                if datasets_list:
+                    for dm in _DATASET_COUNT_CLAIM_RE.finditer(sent):
+                        raw_cnt = dm.group(1).lower()
+                        claimed_n = int(raw_cnt) if raw_cnt.isdigit() else _NUMBER_WORDS.get(raw_cnt, 0)
+                        if claimed_n >= 2 and claimed_n > len(datasets_list):
+                            _add_f(
+                                "dataset_count_mismatch",
+                                zone_name,
+                                sent,
+                                f"Claims {claimed_n} benchmarks/datasets, but evaluated_scope lists only {len(datasets_list)}.",
+                                f"claim_scope_dataset_count_mismatch:{zone_name}",
+                            )
+
+    if named_secs is not None:
+        has_ms_lim = bool(named_secs["limitations"].strip() or _LIMITATIONS_INLINE_RE.search(sections["full"]))
+        has_scope_lim = bool(
+            (isinstance(scope_obj.get("limitations"), (list, str)) and bool(scope_obj.get("limitations")))
+            or excl_claims
+            or conds_txt
+        )
+        if not has_ms_lim and not has_scope_lim:
+            _add_f(
+                "missing_scope_limitations",
+                "manuscript",
+                "",
+                "Neither manuscript Limitations section nor evaluated_scope boundaries/limitations provided.",
+                "missing_scope_limitations:manuscript",
+            )
+
+    return issues, {
+        "checked": True,
+        "status": "FAIL" if issues else "PASS",
+        "evaluated_scope_present": scope_present,
+        "findings": findings,
+    }
+
+
+def _anchor_present_in_manuscript(
+    anchor: str,
+    norm_non_contrib: str,
+    non_contrib_tables: str,
+    raw_non_contrib: str,
+    *,
+    claim_ids: set[str] | None = None,
+    valid_receipt_tokens: set[str] | None = None,
+) -> bool:
+    anc = _normalized_ws(anchor)
+    if not anc:
+        return False
+    ref_m = re.match(r"^\\(?:eq)?ref\{([^{}\n]+)\}$", anc)
+    if ref_m:
+        lbl = ref_m.group(1).strip()
+        return bool(lbl and re.search(rf"\\label\s*\{{{re.escape(lbl)}\}}", raw_non_contrib))
+
+    claim_m = re.match(r"^\[claim:([A-Za-z0-9_-]+)\]$", anc, re.I)
+    if claim_m:
+        cid = claim_m.group(1)
+        if claim_ids and cid in claim_ids:
+            return True
+        return bool(re.search(rf"\[claim:{re.escape(cid)}\]", norm_non_contrib, re.I))
+
+    rec_m = re.match(r"^(?:run[_-]?id\s*[:=]\s*([A-Za-z0-9._-]+)|sha256\s*[:=]\s*([0-9a-f]{7,}))$", anc, re.I)
+    if rec_m:
+        tok = (rec_m.group(1) or rec_m.group(2) or "").strip().lower()
+        if valid_receipt_tokens and tok in valid_receipt_tokens:
+            return True
+        if tok and re.search(rf"(?<!\w){re.escape(tok)}(?!\w)", raw_non_contrib.lower()):
+            return True
+        return False
+
+    haystacks = (norm_non_contrib.lower(), non_contrib_tables.lower(), raw_non_contrib.lower())
+    # Generate normalized variants (Table <-> Tab., Fig. <-> Figure, Eq. <-> Equation, etc.)
+    variants = {anc.lower()}
+    swaps = (
+        (r"\btab\.", "table"),
+        (r"\btable\b", "tab."),
+        (r"\bfig\.", "figure"),
+        (r"\bfigure\b", "fig."),
+        (r"\bsec\.", "section"),
+        (r"\bsection\b", "sec."),
+        (r"\beq\.", "equation"),
+        (r"\bequation\b", "eq."),
+        (r"\bapp\.", "appendix"),
+        (r"\bappendix\b", "app."),
+        (r"\bthm\.", "theorem"),
+        (r"\btheorem\b", "thm."),
+        (r"\balg\.", "algorithm"),
+        (r"\balgorithm\b", "alg."),
+    )
+    low_anc = anc.lower()
+    for pat, rep in swaps:
+        if re.search(pat, low_anc):
+            variants.add(re.sub(pat, rep, low_anc))
+    # Handle Eq. (3) vs Eq. 3
+    extra: set[str] = set()
+    for v in variants:
+        extra.add(re.sub(r"\((\d+)\)", r"\1", v))
+    variants |= extra
+
+    for h in haystacks:
+        for v in variants:
+            if re.search(rf"(?<!\w){re.escape(v)}(?!\w)", h):
+                return True
+    return False
+
+
+def _token_set(text: str) -> set[str]:
+    return {t for t in re.findall(r"[a-z0-9]{3,}", text.lower()) if t not in {"the", "and", "for", "with", "that", "this", "our", "from", "into"}}
+
+
+def _audit_contribution_evidence_map(
+    sections: dict[str, str],
+    named_secs: dict[str, Any] | None,
+    ledger: dict[str, Any],
+    source_map: dict[str, dict[str, Any]],
+    fact_ids_all: set[str],
+    claim_ids: set[str],
+) -> tuple[list[str], dict[str, Any]]:
+    raw_contribs = ledger.get("contributions")
+    if raw_contribs is not None and not isinstance(raw_contribs, list):
+        raise ValueError("contributions must be a list")
+
+    valid_evidence_ids = set(source_map.keys()) | fact_ids_all | claim_ids
+    valid_receipt_tokens: set[str] = {str(x).strip().lower() for x in valid_evidence_ids if _nonblank(x)}
+    for rkey in ("receipts", "runs"):
+        rlist = ledger.get(rkey)
+        if isinstance(rlist, list):
+            for ritem in rlist:
+                if isinstance(ritem, dict):
+                    for rf in ("id", "run_id", "sha256", "receipt_id"):
+                        if _nonblank(ritem.get(rf)):
+                            valid_receipt_tokens.add(str(ritem[rf]).strip().lower())
+                elif _nonblank(ritem):
+                    valid_receipt_tokens.add(str(ritem).strip().lower())
+    for src in source_map.values():
+        if _nonblank(src.get("sha256")):
+            valid_receipt_tokens.add(str(src["sha256"]).strip().lower())
+
+    issues: list[str] = []
+    mappings: list[dict[str, Any]] = []
+    grounded_records: list[tuple[dict[str, Any], set[str], int | None]] = []
+
+    if isinstance(raw_contribs, list):
+        for idx, contrib in enumerate(raw_contribs):
+            if not isinstance(contrib, dict):
+                raise ValueError(f"invalid contribution at index {idx}")
+            cid = str(contrib.get("id") or f"CONTRIB_{idx + 1}").strip()
+            ctext = str(contrib.get("text") or contrib.get("summary") or "").strip()
+
+            ev_raw: list[str] = []
+            for key in ("evidence_ids", "source_ids"):
+                val = contrib.get(key)
+                if isinstance(val, list):
+                    ev_raw.extend(str(x).strip() for x in val if _nonplaceholder(x))
+
+            anc_raw: list[str] = []
+            if isinstance(contrib.get("anchors"), list):
+                anc_raw.extend(str(x).strip() for x in contrib["anchors"] if _nonplaceholder(x))
+            if _nonplaceholder(contrib.get("anchor")):
+                anc_raw.append(str(contrib["anchor"]).strip())
+
+            rec_raw: list[str] = []
+            for key in ("receipt_ids", "run_ids"):
+                val = contrib.get(key)
+                if isinstance(val, list):
+                    rec_raw.extend(str(x).strip() for x in val if _nonplaceholder(x))
+            for key in ("run_id", "sha256"):
+                if _nonplaceholder(contrib.get(key)):
+                    rec_raw.append(str(contrib[key]).strip())
+
+            c_issues: list[str] = []
+            if not (ev_raw or anc_raw or rec_raw):
+                c_issues.append(f"orphan_contribution_without_evidence:{cid}")
+            else:
+                for eid in ev_raw:
+                    if eid not in valid_evidence_ids:
+                        c_issues.append(f"unknown_contribution_evidence:{cid}:{eid}")
+                    elif eid in source_map:
+                        src = source_map[eid]
+                        if src.get("verified") is not True or not _nonblank(src.get("locator")):
+                            c_issues.append(f"contribution_evidence_unverified:{cid}:{eid}")
+                if named_secs is not None:
+                    for anc in anc_raw:
+                        if not _anchor_present_in_manuscript(
+                            anc,
+                            named_secs["norm_non_contrib"],
+                            named_secs["non_contrib_tables"],
+                            named_secs["raw_non_contrib"],
+                            claim_ids=claim_ids,
+                            valid_receipt_tokens=valid_receipt_tokens,
+                        ):
+                            c_issues.append(f"contribution_anchor_missing_in_manuscript:{cid}:{_slug(anc)}")
+
+            issues.extend(c_issues)
+            is_mapped = len(c_issues) == 0
+            mappings.append({
+                "id": cid,
+                "mapped": is_mapped,
+                "evidence_ids": ev_raw,
+                "anchors": anc_raw,
+                "receipt_ids": rec_raw,
+                "issues": c_issues,
+            })
+            if is_mapped:
+                mb_idx = contrib.get("manuscript_bullet") if type(contrib.get("manuscript_bullet")) is int else None
+                grounded_records.append((contrib, _token_set(ctext), mb_idx))
+
+    unmapped_bullets: list[dict[str, Any]] = []
+    ms_bullets = named_secs["contributions_bullets"] if named_secs is not None else []
+    for b_idx, b_txt in enumerate(ms_bullets, start=1):
+        inline_anchors = [m.group(0).strip() for m in _INLINE_EVIDENCE_ANCHOR_RE.finditer(b_txt)]
+        valid_inline_anchors: list[str] = []
+        missing_inline_anchors: list[str] = []
+        for ianc in inline_anchors:
+            if named_secs is None or _anchor_present_in_manuscript(
+                ianc,
+                named_secs["norm_non_contrib"],
+                named_secs["non_contrib_tables"],
+                named_secs["raw_non_contrib"],
+                claim_ids=claim_ids,
+                valid_receipt_tokens=valid_receipt_tokens,
+            ):
+                valid_inline_anchors.append(ianc)
+            else:
+                missing_inline_anchors.append(ianc)
+                issues.append(f"contribution_anchor_missing_in_manuscript:bullet_{b_idx}:{_slug(ianc)}")
+        has_inline_anchor = bool(valid_inline_anchors) and not missing_inline_anchors
+        b_tokens = _token_set(b_txt)
+        matched_ledger = False
+        for _rec, rec_tokens, mb_idx in grounded_records:
+            if mb_idx is not None and mb_idx == b_idx:
+                matched_ledger = True
+                break
+            if b_tokens and rec_tokens:
+                inter = len(b_tokens & rec_tokens)
+                union = len(b_tokens | rec_tokens)
+                jacc = inter / union if union else 0.0
+                contain = inter / min(len(b_tokens), len(rec_tokens))
+                if jacc >= 0.45 or contain >= 0.60:
+                    matched_ledger = True
+                    break
+        if not (has_inline_anchor or matched_ledger):
+            issues.append(f"unmapped_manuscript_contribution:bullet_{b_idx}")
+            unmapped_bullets.append({"bullet_index": b_idx, "excerpt": b_txt[:160]})
+
+    if not (isinstance(raw_contribs, list) and raw_contribs) and not ms_bullets:
+        issues.append("missing_contributions_map:manuscript")
+
+    mapped_count = sum(1 for m in mappings if m["mapped"])
+    orphan_count = sum(1 for m in mappings if not m["mapped"])
+    return issues, {
+        "checked": True,
+        "status": "FAIL" if issues else "PASS",
+        "total_contributions": len(mappings),
+        "mapped_count": mapped_count,
+        "orphan_count": orphan_count,
+        "mappings": mappings,
+        "unmapped_manuscript_bullets": unmapped_bullets,
+    }
+
+
+def _audit_related_work_differentiation(
+    sections: dict[str, str],
+    named_secs: dict[str, Any] | None,
+    ledger: dict[str, Any],
+    source_map: dict[str, dict[str, Any]],
+    scorecards_obj: dict[str, Any] | None,
+    target_id: str | None,
+) -> tuple[list[str], dict[str, Any]]:
+    issues: list[str] = []
+    expected_ids: list[str] = []
+    comp_meta: dict[str, dict[str, Any]] = {}
+    panel_incomplete: list[str] = []
+    eff_target_id: str | None = target_id.strip() if _nonblank(target_id) else None
+
+    def _reg_meta(cid: str, meta: dict[str, Any]) -> None:
+        if cid not in expected_ids:
+            expected_ids.append(cid)
+        entry = comp_meta.setdefault(cid, {"tokens": set(), "cite_keys": set()})
+        entry["tokens"].add(cid)
+        for fk in ("id", "name", "title", "citation_key", "cite_key", "bibtex_key"):
+            v = meta.get(fk)
+            if _nonblank(v):
+                entry["tokens"].add(str(v).strip())
+        for ck in ("citation_key", "cite_key", "bibtex_key"):
+            v = meta.get(ck)
+            if _nonblank(v):
+                entry["cite_keys"].add(str(v).strip())
+        if isinstance(meta.get("aliases"), list):
+            for a in meta["aliases"]:
+                if _nonblank(a):
+                    entry["tokens"].add(str(a).strip())
+        if isinstance(meta.get("authors"), list) and meta["authors"]:
+            first_a = str(meta["authors"][0]).strip()
+            if first_a:
+                surname = first_a.split()[-1].strip(",")
+                if len(surname) >= 3:
+                    entry["tokens"].add(surname)
+        elif _nonblank(meta.get("authors")):
+            surname = str(meta["authors"]).strip().split(",")[0].split()[-1]
+            if len(surname) >= 3:
+                entry["tokens"].add(surname)
+
+    if scorecards_obj is not None:
+        if not isinstance(scorecards_obj, dict):
+            raise ValueError("scorecards JSON root must be an object")
+        prof_map: dict[str, dict[str, Any]] = {}
+        if isinstance(scorecards_obj.get("profiles"), list):
+            for p in scorecards_obj["profiles"]:
+                if isinstance(p, dict) and _nonblank(p.get("id")):
+                    prof_map[p["id"].strip()] = p
+
+        if isinstance(scorecards_obj.get("related_work_comparison"), dict):
+            rwc = scorecards_obj["related_work_comparison"]
+            if eff_target_id is None and _nonblank(rwc.get("target_id")):
+                eff_target_id = str(rwc["target_id"]).strip()
+            for cw in rwc.get("scored_related_ids", []):
+                if _nonblank(cw):
+                    cws = str(cw).strip()
+                    _reg_meta(cws, prof_map.get(cws, {}))
+            for cw in rwc.get("unscored_closest_work_ids", []):
+                if _nonblank(cw):
+                    cws = str(cw).strip()
+                    _reg_meta(cws, prof_map.get(cws, {}))
+                    panel_incomplete.append(cws)
+                    issues.append(f"related_work_panel_incomplete:{cws}")
+        elif isinstance(scorecards_obj.get("profiles"), list):
+            if eff_target_id is None and _nonblank(scorecards_obj.get("target_id")):
+                eff_target_id = str(scorecards_obj["target_id"]).strip()
+            cw_list: list[str] = []
+            if eff_target_id is not None:
+                if eff_target_id not in prof_map:
+                    issues.append(f"target_profile_not_found:{eff_target_id}")
+                else:
+                    raw_cw = prof_map[eff_target_id].get("closest_work", [])
+                    if isinstance(raw_cw, list):
+                        cw_list = [str(x).strip() for x in raw_cw if _nonblank(x)]
+            else:
+                with_cw = [p for p in prof_map.values() if isinstance(p.get("closest_work"), list) and p.get("closest_work")]
+                if len(with_cw) == 1:
+                    eff_target_id = with_cw[0]["id"].strip()
+                    cw_list = [str(x).strip() for x in with_cw[0]["closest_work"] if _nonblank(x)]
+                elif len(with_cw) > 1:
+                    issues.append("target_id_required_for_scorecards:scorecards")
+                    for p in with_cw:
+                        for x in p["closest_work"]:
+                            if _nonblank(x) and str(x).strip() not in cw_list:
+                                cw_list.append(str(x).strip())
+                else:
+                    cw_list = list(prof_map.keys())
+            for cw in cw_list:
+                p = prof_map.get(cw)
+                _reg_meta(cw, p or {})
+                if p is None or p.get("reading_basis") != "full_text":
+                    panel_incomplete.append(cw)
+                    issues.append(f"related_work_panel_incomplete:{cw}")
+
+    # Merge ledger closest_work / related_work and methods[*].closest_work_source_ids
+    for lkey in ("closest_work", "related_work"):
+        items = ledger.get(lkey)
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, str) and item.strip():
+                    _reg_meta(item.strip(), source_map.get(item.strip(), {}))
+                elif isinstance(item, dict) and _nonblank(item.get("id")):
+                    cid = item["id"].strip()
+                    merged = dict(source_map.get(cid, {}))
+                    merged.update(item)
+                    _reg_meta(cid, merged)
+
+    for m in ledger.get("methods", []):
+        if isinstance(m, dict) and isinstance(m.get("closest_work_source_ids"), list):
+            for sid in m["closest_work_source_ids"]:
+                if _nonblank(sid):
+                    sids = str(sid).strip()
+                    _reg_meta(sids, source_map.get(sids, {}))
+
+    for cid in expected_ids:
+        if cid in source_map:
+            _reg_meta(cid, source_map[cid])
+
+    cited_and_contrasted: list[str] = []
+    missing_from_ms: list[str] = []
+    uncited_list: list[str] = []
+    lacks_diff_list: list[str] = []
+    per_competitor: list[dict[str, Any]] = []
+
+    if named_secs is not None and expected_ids:
+        raw_tables_low = named_secs["raw_tables"].lower()
+        norm_tables_low = sections["tables"].lower()
+        ordered_secs = named_secs["ordered_sections"]
+
+        # Pre-split sentences per prose section
+        sec_sentences: list[tuple[str, list[str]]] = []
+        for bname, _raw_c, norm_c in ordered_secs:
+            if bname == "limitations":
+                continue
+            sents = _split_sentences_list(norm_c)
+            if sents:
+                sec_sentences.append((bname, sents))
+
+        mentioned_in_prose_non_table = 0
+        all_prose_lack_diff = True
+
+        for cid in expected_ids:
+            meta = comp_meta[cid]
+            tokens = sorted(meta["tokens"], key=len, reverse=True)
+            cite_keys = meta["cite_keys"] | {cid}
+            tok_res = [re.compile(rf"(?<!\w){re.escape(t)}(?!\w)", re.I) for t in tokens if len(t) >= 2]
+
+            in_table = any(r.search(norm_tables_low) or r.search(raw_tables_low) for r in tok_res) or any(
+                ck.lower() in raw_tables_low for ck in cite_keys
+            )
+
+            mention_locs: list[tuple[str, int, str]] = []  # (bname, sent_idx, sent_txt)
+            for bname, sents in sec_sentences:
+                for s_idx, sent in enumerate(sents):
+                    hit = any(r.search(sent) for r in tok_res)
+                    if not hit:
+                        for rm in _REF_TOKEN_CITE_RE.finditer(sent):
+                            rkeys = {k.strip().lower() for k in rm.group(1).split(",") if k.strip()}
+                            if any(ck.lower() in rkeys for ck in cite_keys):
+                                hit = True
+                                break
+                    if hit:
+                        mention_locs.append((bname, s_idx, sent))
+
+            if not in_table and not mention_locs:
+                missing_from_ms.append(cid)
+                issues.append(f"missing_closest_work_in_manuscript:{cid}")
+                per_competitor.append({"id": cid, "status": "missing"})
+                continue
+
+            has_cite = in_table
+            if not has_cite:
+                for _bn, _si, sent in mention_locs:
+                    if _CITE_ANY_RE.search(sent) or _REF_TOKEN_CITE_RE.search(sent):
+                        has_cite = True
+                        break
+            if not has_cite:
+                uncited_list.append(cid)
+                issues.append(f"uncited_closest_work:{cid}")
+
+            has_diff = in_table
+            if not has_diff:
+                sec_map_lookup = {id(sents): sents for _, sents in sec_sentences}
+                for bname, s_idx, sent in mention_locs:
+                    if _DIFF_CONTRAST_RE.search(sent):
+                        has_diff = True
+                        break
+                    # Check adjacent sentence in same section
+                    for sb, sents in sec_sentences:
+                        if sb == bname and 0 <= s_idx < len(sents) and sents[s_idx] == sent:
+                            neighbors: list[str] = []
+                            if s_idx > 0:
+                                neighbors.append(sents[s_idx - 1])
+                            if s_idx + 1 < len(sents):
+                                neighbors.append(sents[s_idx + 1])
+                            if any(_DIFF_CONTRAST_RE.search(nb) for nb in neighbors):
+                                has_diff = True
+                                break
+                    if has_diff:
+                        break
+                _ = sec_map_lookup
+
+            if not has_diff:
+                lacks_diff_list.append(cid)
+                issues.append(f"related_work_lacks_differentiation:{cid}")
+
+            if mention_locs and not in_table:
+                mentioned_in_prose_non_table += 1
+                if has_diff:
+                    all_prose_lack_diff = False
+
+            if has_cite and has_diff:
+                cited_and_contrasted.append(cid)
+            per_competitor.append({
+                "id": cid,
+                "in_table": in_table,
+                "mentioned_in_prose": bool(mention_locs),
+                "cited": has_cite,
+                "differentiated": has_diff,
+            })
+
+        if mentioned_in_prose_non_table >= 2 and all_prose_lack_diff:
+            issues.append("generic_related_work_summary:manuscript")
+
+    return issues, {
+        "checked": True,
+        "status": "FAIL" if issues else "PASS",
+        "target_id": eff_target_id,
+        "expected_competitors": expected_ids,
+        "cited_and_contrasted": cited_and_contrasted,
+        "missing_from_manuscript": missing_from_ms,
+        "uncited": uncited_list,
+        "lacks_differentiation": lacks_diff_list,
+        "panel_incomplete": sorted(set(panel_incomplete)),
+        "per_competitor": per_competitor,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Main Check Entry Point
 # ---------------------------------------------------------------------------
 
@@ -2202,6 +3346,13 @@ def check(
     manuscript_text: str | None = None,
     sources_dir: str | Path | None = None,
     manuscript_path: str | Path | None = None,
+    *,
+    audit_arguments: bool = False,
+    check_scope: bool | None = None,
+    check_contributions: bool | None = None,
+    check_related_work: bool | None = None,
+    scorecards: dict[str, Any] | str | Path | None = None,
+    target_id: str | None = None,
 ) -> dict[str, Any]:
     if not isinstance(ledger, dict):
         raise ValueError("ledger must be an object")
@@ -2213,6 +3364,31 @@ def check(
         raise ValueError("Invalid empty manuscript_path")
     if isinstance(sources_dir, str) and not sources_dir.strip():
         raise ValueError("Invalid empty sources_dir")
+    if isinstance(target_id, str) and not target_id.strip():
+        raise ValueError("Invalid empty target_id")
+
+    scorecards_obj: dict[str, Any] | None = None
+    if scorecards is not None:
+        if isinstance(scorecards, dict):
+            scorecards_obj = scorecards
+        else:
+            if isinstance(scorecards, str) and not scorecards.strip():
+                raise ValueError("Invalid empty scorecards path")
+            sc_path = Path(scorecards)
+            raw_sc = sc_path.read_text(encoding="utf-8")
+            scorecards_obj = json.loads(raw_sc, parse_constant=_reject_nonfinite)
+            if not isinstance(scorecards_obj, dict):
+                raise ValueError("scorecards JSON root must be an object")
+
+    eff_scope = False if check_scope is False else (
+        audit_arguments or bool(check_scope) or ("evaluated_scope" in ledger) or ("experiment_scope" in ledger)
+    )
+    eff_contrib = False if check_contributions is False else (
+        audit_arguments or bool(check_contributions) or ("contributions" in ledger)
+    )
+    eff_related = False if check_related_work is False else (
+        audit_arguments or bool(check_related_work) or (scorecards_obj is not None) or ("related_work" in ledger) or ("closest_work" in ledger)
+    )
 
     if manuscript_text is None and manuscript_path is not None:
         manuscript_text = Path(manuscript_path).read_text(encoding="utf-8")
@@ -2466,14 +3642,18 @@ def check(
     manuscript_checked = False
     grandiose_findings: list[dict[str, Any]] = []
     manuscript_numeric_checks: list[dict[str, Any]] = []
+    sections: dict[str, str] = {"title": "", "abstract": "", "tables": "", "section_headings": "", "body": "", "full": ""}
+    named_secs: dict[str, Any] | None = None
+    path_is_tex = True if (manuscript_path is not None and str(manuscript_path).lower().endswith(".tex")) else None
     if manuscript_text is not None:
         manuscript_checked = True
-        path_is_tex = True if (manuscript_path is not None and str(manuscript_path).lower().endswith(".tex")) else None
         sections = _extract_sections(manuscript_text, is_tex=path_is_tex)
         g_issues, grandiose_findings = _scan_grandiose_branding(sections, ledger, source_map)
         issues.extend(g_issues)
         n_issues, manuscript_numeric_checks = _check_manuscript_claims_and_numbers(sections, ledger)
         issues.extend(n_issues)
+        if eff_scope or eff_contrib or eff_related:
+            named_secs = _extract_named_sections(manuscript_text, is_tex=path_is_tex)
 
     sources_dir_checked = False
     source_locator_checks: list[dict[str, Any]] = []
@@ -2481,6 +3661,65 @@ def check(
         sources_dir_checked = True
         s_issues, source_locator_checks = _check_sources_dir(Path(sources_dir), ledger)
         issues.extend(s_issues)
+
+    # F29#4 Deep Paper Argument Audits (opt-in or auto-activated by explicit keys)
+    claim_scope_audit: dict[str, Any] = {"checked": False, "status": "NOT_RUN", "evaluated_scope_present": False, "findings": []}
+    if eff_scope:
+        cs_issues, claim_scope_audit = _audit_claim_scope(sections, named_secs, ledger)
+        issues.extend(cs_issues)
+
+    contribution_evidence_map: dict[str, Any] = {
+        "checked": False, "status": "NOT_RUN", "total_contributions": 0, "mapped_count": 0, "orphan_count": 0, "mappings": [], "unmapped_manuscript_bullets": []
+    }
+    if eff_contrib:
+        ce_issues, contribution_evidence_map = _audit_contribution_evidence_map(
+            sections, named_secs, ledger, source_map, fact_ids_all, claim_ids
+        )
+        issues.extend(ce_issues)
+
+    related_work_diff: dict[str, Any] = {
+        "checked": False, "status": "NOT_RUN", "target_id": target_id, "expected_competitors": [],
+        "cited_and_contrasted": [], "missing_from_manuscript": [], "uncited": [],
+        "lacks_differentiation": [], "panel_incomplete": [], "per_competitor": [],
+    }
+    if eff_related:
+        rw_issues, related_work_diff = _audit_related_work_differentiation(
+            sections, named_secs, ledger, source_map, scorecards_obj, target_id
+        )
+        issues.extend(rw_issues)
+
+    arg_audits_enabled = bool(eff_scope or eff_contrib or eff_related)
+    any_arg_fail = any(
+        d["checked"] and d["status"] == "FAIL"
+        for d in (claim_scope_audit, contribution_evidence_map, related_work_diff)
+    )
+    rec_trans_cap = 3 if any_arg_fail else None
+    rec_evid_cap = 4 if (
+        (contribution_evidence_map["checked"] and contribution_evidence_map["status"] == "FAIL")
+        or (claim_scope_audit["checked"] and claim_scope_audit["status"] == "FAIL")
+        or (related_work_diff["checked"] and related_work_diff["status"] == "FAIL")
+    ) else None
+
+    argument_audit_summary = {
+        "enabled": arg_audits_enabled,
+        "claim_scope_alignment": {
+            "status": claim_scope_audit["status"],
+            "finding_count": len(claim_scope_audit["findings"]),
+        },
+        "contribution_evidence_map": {
+            "status": contribution_evidence_map["status"],
+            "mapped_count": contribution_evidence_map["mapped_count"],
+            "orphan_count": contribution_evidence_map["orphan_count"],
+        },
+        "related_work_differentiation": {
+            "status": related_work_diff["status"],
+            "expected_count": len(related_work_diff["expected_competitors"]),
+            "missing_count": len(related_work_diff["missing_from_manuscript"]),
+            "lacks_differentiation_count": len(related_work_diff["lacks_differentiation"]),
+        },
+        "recommended_transparency_cap": rec_trans_cap,
+        "recommended_evidence_cap": rec_evid_cap,
+    }
 
     unique_issues = sorted(set(issues))
     return {
@@ -2495,6 +3734,11 @@ def check(
         "grandiose_findings": grandiose_findings,
         "manuscript_numeric_checks": manuscript_numeric_checks,
         "source_locator_checks": source_locator_checks,
+        "argument_audits_enabled": arg_audits_enabled,
+        "claim_scope_audit": claim_scope_audit,
+        "contribution_evidence_map": contribution_evidence_map,
+        "related_work_differentiation": related_work_diff,
+        "argument_audit": argument_audit_summary,
         "warning": (
             "A structural pass does not verify scientific truth, causal validity, "
             "or full semantic entailment."
@@ -2508,6 +3752,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ledger", help="Path to ledger JSON file")
     parser.add_argument("--manuscript", help="Path to manuscript (.md or .tex) to audit against ledger")
     parser.add_argument("--sources-dir", help="Directory containing local source files/extractions for quote & locator checks")
+    parser.add_argument("--audit-arguments", action="store_true", help="Enable all F29#4 deep paper argument audits")
+    parser.add_argument("--check-scope", action="store_true", help="Enable Claim-Scope Alignment audit")
+    parser.add_argument("--check-contributions", action="store_true", help="Enable Contribution-to-Evidence 1-to-1 Map audit")
+    parser.add_argument("--check-related-work", action="store_true", help="Enable Related-Work Differentiation audit")
+    parser.add_argument("--scorecards", help="Path to F24 scorecards.json or compare_scorecards.py output JSON")
+    parser.add_argument("--target-id", help="Target profile ID inside --scorecards")
+    parser.add_argument("--out", help="Write full JSON output to path")
     parser.add_argument("--compact", action="store_true", help="Emit compact bounded JSON summary")
     args = parser.parse_args(argv)
 
@@ -2523,6 +3774,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.sources_dir is not None and not args.sources_dir.strip():
         print(json.dumps({"error": "Invalid empty path passed to --sources-dir"}), file=sys.stderr)
         return 2
+    if args.scorecards is not None and not args.scorecards.strip():
+        print(json.dumps({"error": "Invalid empty path passed to --scorecards"}), file=sys.stderr)
+        return 2
+    if args.target_id is not None and not args.target_id.strip():
+        print(json.dumps({"error": "Invalid empty value passed to --target-id"}), file=sys.stderr)
+        return 2
+    if args.out is not None and not args.out.strip():
+        print(json.dumps({"error": "Invalid empty path passed to --out"}), file=sys.stderr)
+        return 2
 
     ledger_path = args.ledger if args.ledger is not None else args.ledger_json
     if not ledger_path:
@@ -2533,21 +3793,33 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        ledger_obj = json.loads(Path(ledger_path).read_text(encoding="utf-8"))
+        ledger_obj = json.loads(Path(ledger_path).read_text(encoding="utf-8"), parse_constant=_reject_nonfinite)
         manuscript_text = Path(args.manuscript).read_text(encoding="utf-8") if args.manuscript is not None else None
         result = check(
             ledger_obj,
             manuscript_text=manuscript_text,
             sources_dir=args.sources_dir,
             manuscript_path=args.manuscript,
+            audit_arguments=args.audit_arguments,
+            check_scope=True if args.check_scope else None,
+            check_contributions=True if args.check_contributions else None,
+            check_related_work=True if args.check_related_work else None,
+            scorecards=args.scorecards,
+            target_id=args.target_id,
         )
+        out_str: str | None = None
+        if args.out is not None:
+            out_path = Path(args.out.strip())
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+            out_str = str(out_path)
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
         print(json.dumps({"error": str(exc)}), file=sys.stderr)
         return 2
 
     if args.compact:
         issues_list = result["issues"]
-        compact_out = {
+        compact_out: dict[str, Any] = {
             "compact": True,
             "status": result["status"],
             "counts": result["counts"],
@@ -2559,8 +3831,19 @@ def main(argv: list[str] | None = None) -> int:
             "grandiose_finding_count": len(result["grandiose_findings"]),
             "manuscript_numeric_check_count": len(result["manuscript_numeric_checks"]),
             "source_locator_check_count": len(result["source_locator_checks"]),
+            "argument_audits_enabled": result["argument_audits_enabled"],
+            "argument_audit": result["argument_audit"],
         }
-        print(json.dumps(compact_out, separators=(",", ":")))
+        if out_str is not None:
+            compact_out["artifact_path"] = out_str
+        raw = json.dumps(compact_out, separators=(",", ":"))
+        for cap in (15, 8, 4, 2, 0):
+            if len(raw.encode("utf-8")) <= MAX_COMPACT_BYTES:
+                break
+            compact_out["issues"] = issues_list[:cap]
+            compact_out["issues_truncated"] = max(0, len(issues_list) - cap)
+            raw = json.dumps(compact_out, separators=(",", ":"))
+        print(raw)
     else:
         print(json.dumps(result, indent=2))
     return 0 if result["status"] == "structure_passed" else 1

@@ -87,3 +87,29 @@ python3 ../../research-scientist/scripts/check_experiment_manifest.py manifest.j
 - `--verify-files` checks on-disk SHA-256 hashes, `run_log_path` (`run_id`, `exit_code`, `result_value`), and numeric match between `result_value` and artifact JSON/CSV/TSV (`--claims` checks paper claim tables within tolerance).
 - `--audit-repo` checks train/eval scripts, `tests/`, README reproducibility commands, archival DOIs, and `--blind double` leaks (emails, non-anonymous GitHub URLs).
 - **Exit codes:** `0` (`structurally_checked`), `2` (`invalid` or CLI/file error — note exit `2`, not `1`).
+
+## 5. Artifact, License, PII & Release Readiness (`check_artifact_readiness.py`)
+
+Run unified release-readiness verification across the code repository and optional dataset/model manifest before public or double-blind release:
+
+```bash
+python3 ../../research-scientist/scripts/check_artifact_readiness.py --repo-dir . --manifest manifest.json --anonymous --strict --max-files 2000 --out readiness.json --compact
+```
+
+### 5.1 Six Deterministic Release Checks
+1. **`license`:** Verifies root `LICENSE*`/`COPYING*`/`pyproject.toml`/`package.json` plus manifest `datasets[]`, `pretrained_models[]`/`models[]`, and `dependencies[]`; blocks missing, placeholder, or proprietary licenses, non-commercial conflicts with permissive/commercial releases, and strong copyleft (`GPL`/`AGPL`/`CC-BY-SA`) incompatibility with permissive code (`MIT`/`Apache-2.0`/`BSD`); warns on undocumented `RAIL`/`OpenRAIL` or unrecognized custom licenses.
+2. **`pii`:** Scans text, notebooks, and data files (`.csv`, `.tsv`, `.jsonl`, `.json`) for SSNs, Luhn-validated credit cards, phone numbers, non-allowlisted emails in data files, sensitive schema columns (`ssn`, `passport`, `credit_card`, `dob`, `mrn`), and public IPv4s (exempting `example.{com,org,net,edu}`, `127.0.0.1`, RFC 5737 IPs). All matched PII is **redacted** in `findings[*].message`.
+3. **`reproducibility`:** Strips Python comments and docstrings via AST/`tokenize` (and `#` comments in shell/R/Julia and `.ipynb` code cells) so `# torch.manual_seed(42)` fails `reproducibility/missing-seed`; requires dependency manifest + version pins/lockfile (`uv.lock`, `poetry.lock`, `==`), runnable entrypoint (`run.sh`/`train.py`/`__main__`), and `README*` with explicit reproduction commands.
+4. **`local_paths`:** Blocks hardcoded `/home/<user>`, `/Users/<user>`, `C:\Users\<user>`, and `file:///` paths while exempting generic placeholders (`user`, `username`, `yourname`, `anon`). Enforces `os.walk(..., followlinks=False)`, symlink root containment, and `..` manifest path traversal rejection.
+5. **`secrets`:** Detects leaked API keys/tokens (short examples: `sk-...`, `sk-ant-...`, `hf_...`, `AKIA...`, `ghp_<redacted>`, `AIza...`, `xoxb-...`, `pypi-...`, PEM private keys, hardcoded `*_API_KEY`/`*_TOKEN` literals, and non-template `.env` files), ignoring `os.environ.get(...)` and placeholders. All secrets are **masked** in `findings[*].message` and `blocking_reasons`.
+6. **`anonymization` (`--anonymous`):** Inspects `.git/` and `.git/config` remotes/user before skipping `.git` internals; matches manifest `authors`/`affiliations`/`institution` across files; flags non-example emails, `_IDENTITY_HOSTS` / `.edu` / `/~user` URLs (allowing `anonymous.4open.science` / `anonymous.science`), `CITATION.cff`/`AUTHORS*`/`NOTICE`/package metadata, and unredacted `Acknowledgments`/grant lines.
+
+### 5.2 Readiness Status & `evaluate_submission.py` Contract
+
+| Status | Meaning | Exit Code | `ready_to_submit` / Cap |
+|---|---|---|---|
+| `PASS` | Zero `FAIL` and zero `WARN` findings across active checks | `0` | `true` / `null` |
+| `WARN` | Zero `FAIL` blockers; non-blocking warnings remain (exits `1` if `--strict`) | `0` (`1` with `--strict`) | `true` / `recommended_transparency_cap = 5` |
+| `FAIL` | One or more blocking license, PII, secret, path, repro, or anonymity failures | `1` | `false` / `recommended_transparency_cap = 3` |
+
+CLI/IO/JSON errors (empty/whitespace flags, missing paths, `NaN`/`Infinity`, `..` traversal) emit `{"error": ...}` to `stderr` and exit `2` without tracebacks. Outputs `"schema": "artifact_readiness_v1"` with `status`, `verdict`, `ready_to_submit`, `ready_for_release`, `recommended_transparency_cap`, `blocking_reasons`, `warnings`, `summary`, `checks`, and redacted `findings` (`--compact` stays strictly `<= 3800` bytes).
