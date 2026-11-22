@@ -6,6 +6,7 @@ accuracy, search recall, scientific importance, or whether a gap is real.
 """
 import argparse
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -17,6 +18,31 @@ QUERY_STATES = {'complete', 'bounded_partial', 'valid_zero_results', 'rate_limit
 SUCCESS = {'complete', 'bounded_partial', 'valid_zero_results'}
 EVIDENCE_ROLES = {'result', 'method', 'assumption', 'limitation', 'author_future_work', 'context'}
 KILL_FAMILIES = {'closure', 'adversarial', 'alternate_vocabulary', 'citation_trail'}
+CODE_PLATFORMS = {'github', 'huggingface', 'tech_report', 'model_card', 'other_open_source'}
+CODE_RELATIONS = {'direct_equivalent', 'partial_implementation', 'benchmark_only', 'unrelated', 'none_found'}
+CODE_STATUSES = {'solved', 'implemented', 'shipped', 'partial', 'unverified', 'no_match'}
+GAP_TIER_CEILINGS = {'q1_top_tier_potential', 'tier_a_findings_potential', 'workshop_incremental_only', 'low_impact_dead_end'}
+ROOT_CAUSE_BARRIERS = {'theoretical_limit', 'measurement_gap', 'data_supervision_gap', 'compute_infra_barrier'}
+EVAL_VALIDITY_SUBTYPES = {'shortcut_exploitation', 'dataset_bias_or_contamination', 'metric_saturation', 'construct_validity_mismatch'}
+SO_WHAT_IMPACTS = {'decision_changing', 'marginal_gain'}
+DURABILITY_LEVELS = {'durable_structural_limit', 'high_scaling_erasure_risk'}
+PORTFOLIO_ANGLES = {
+    'minimal_fix', 'minimal_fix_f19',
+    'high_novelty_mechanism', 'high_novelty_mechanism_q1',
+    'benchmark_diagnostic_analysis', 'low_gpu_fallback',
+}
+_CANONICAL_PORTFOLIO_ANGLE = {
+    'minimal_fix': 'minimal_fix',
+    'minimal_fix_f19': 'minimal_fix',
+    'high_novelty_mechanism': 'high_novelty_mechanism',
+    'high_novelty_mechanism_q1': 'high_novelty_mechanism',
+    'benchmark_diagnostic_analysis': 'benchmark_diagnostic_analysis',
+    'low_gpu_fallback': 'low_gpu_fallback',
+}
+
+
+def _reject_nonfinite(token):
+    raise ValueError(f'Non-finite JSON constant not allowed: {token}')
 _STOPWORDS = frozenset({
     'the', 'and', 'for', 'that', 'this', 'with', 'from', 'into', 'are', 'was',
     'were', 'been', 'have', 'has', 'had', 'not', 'but', 'can', 'will', 'only',
@@ -61,6 +87,32 @@ _SENTENCE_BOUNDARY_RE = re.compile(
 
 def _nonblank(value):
     return isinstance(value, str) and bool(value.strip())
+
+
+def _in_str_set(value, allowed):
+    return isinstance(value, str) and value in allowed
+
+
+def _idea_tokens(text):
+    out = set()
+    for raw in re.findall(r'[a-z0-9]{2,}', str(text or '').casefold()):
+        if raw in _STOPWORDS:
+            continue
+        if len(raw) > 4 and raw.endswith('ies'):
+            norm = raw[:-3] + 'y'
+        elif len(raw) > 4 and raw.endswith('s') and not raw.endswith('ss'):
+            norm = raw[:-1]
+        else:
+            norm = raw
+        if norm not in _STOPWORDS:
+            out.add(norm)
+    return out
+
+
+def _idea_jaccard(a, b):
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
 
 
 def _unscreened(query):
@@ -124,7 +176,7 @@ def _index_evidence_dir(evidence_dir):
         raise ValueError(f'evidence_dir not found: {evidence_dir}')
     docs = []
     for json_file in sorted(ev_path.rglob('*.json')):
-        raw = json.loads(json_file.read_text(encoding='utf-8'))
+        raw = json.loads(json_file.read_text(encoding='utf-8'), parse_constant=_reject_nonfinite)
         pages_map = {}
         meta_parts = [json_file.stem]
         num_pages = 0
@@ -328,7 +380,7 @@ def _verify_evidence_dir(evidence, evidence_dir, errors, warnings, candidates=No
         return
     matched_eids = set()
     for eid, entry in evidence.items():
-        if entry.get('access') not in {'full_text', 'selected_full_text'}:
+        if not _in_str_set(entry.get('access'), {'full_text', 'selected_full_text'}):
             continue
         matched_docs = _match_docs(entry, docs)
         if not matched_docs:
@@ -376,10 +428,55 @@ def _verify_evidence_dir(evidence, evidence_dir, errors, warnings, candidates=No
                     cand_eids.add(eid)
         cand_ft_eids = {
             eid for eid in cand_eids
-            if eid in evidence and evidence[eid].get('access') in {'full_text', 'selected_full_text'}
+            if eid in evidence and _in_str_set(evidence[eid].get('access'), {'full_text', 'selected_full_text'})
         }
         if cand_ft_eids and not (cand_ft_eids & matched_eids):
             errors.append(f'candidates:{cid}:evidence_dir:no_candidate_evidence_matched')
+
+
+def _validate_code_prior_art_entry(entry, label, errors):
+    if not isinstance(entry, dict):
+        errors.append(f'{label}:must_be_object')
+        return
+    if not (_nonblank(entry.get('repo_or_url')) or _nonblank(entry.get('url')) or _nonblank(entry.get('title'))):
+        errors.append(f'{label}:missing_repo_or_url')
+    if entry.get('platform') is not None and not _in_str_set(entry.get('platform'), CODE_PLATFORMS):
+        errors.append(f'{label}:invalid_platform')
+    if entry.get('relation') is not None and not _in_str_set(entry.get('relation'), CODE_RELATIONS):
+        errors.append(f'{label}:invalid_relation')
+    if entry.get('status') is not None and not _in_str_set(entry.get('status'), CODE_STATUSES):
+        errors.append(f'{label}:invalid_status')
+
+
+def _validate_trajectory_tree(tree, label, errors):
+    if not isinstance(tree, dict):
+        errors.append(f'{label}:must_be_object')
+        return
+    gens = tree.get('generations')
+    if not isinstance(gens, list) or not gens:
+        errors.append(f'{label}:missing_generations')
+        return
+    prev_year = None
+    for idx, gen in enumerate(gens):
+        if not isinstance(gen, dict):
+            errors.append(f'{label}:generations[{idx}]:must_be_object')
+            continue
+        if not (_nonblank(gen.get('generation')) or _nonblank(gen.get('label'))):
+            errors.append(f'{label}:generations[{idx}]:missing_generation_label')
+        if not _nonblank(gen.get('method_or_paradigm')):
+            errors.append(f'{label}:generations[{idx}]:missing_method_or_paradigm')
+        if not _nonblank(gen.get('bottleneck_or_tradeoff')):
+            errors.append(f'{label}:generations[{idx}]:missing_bottleneck_or_tradeoff')
+        yr = gen.get('year')
+        if yr is not None:
+            if isinstance(yr, bool) or not isinstance(yr, int):
+                errors.append(f'{label}:generations[{idx}]:invalid_year')
+            elif prev_year is not None and yr < prev_year:
+                errors.append(f'{label}:generations[{idx}]:non_monotonic_year')
+            else:
+                prev_year = yr
+    if not _nonblank(tree.get('open_root_limit')):
+        errors.append(f'{label}:missing_open_root_limit')
 
 
 def check(record, evidence_dir=None):
@@ -394,11 +491,29 @@ def check(record, evidence_dir=None):
     works = _objects_by_id(record.get('closest_works'), 'closest_works', errors)
     candidates = _objects_by_id(record.get('candidates'), 'candidates', errors)
 
+    code_works = {}
+    if 'code_prior_art' in record and record['code_prior_art'] is not None:
+        code_works = _objects_by_id(record.get('code_prior_art'), 'code_prior_art', errors)
+        for cpa_id, cpa_entry in code_works.items():
+            _validate_code_prior_art_entry(cpa_entry, f'code_prior_art:{cpa_id}', errors)
+
+    failure_cases_map = {}
+    if 'failure_cases' in record and record['failure_cases'] is not None:
+        failure_cases_map = _objects_by_id(record.get('failure_cases'), 'failure_cases', errors)
+        for fc_id, fc_entry in failure_cases_map.items():
+            if not (_nonblank(fc_entry.get('error_type')) or _nonblank(fc_entry.get('failure_mode')) or _nonblank(fc_entry.get('symptom'))):
+                errors.append(f'failure_cases:{fc_id}:missing_error_type')
+            if not (_nonblank(fc_entry.get('slice')) or _nonblank(fc_entry.get('regime')) or _nonblank(fc_entry.get('description'))):
+                errors.append(f'failure_cases:{fc_id}:missing_slice_or_description')
+
+    if 'trajectory_tree' in record and record['trajectory_tree'] is not None:
+        _validate_trajectory_tree(record.get('trajectory_tree'), 'trajectory_tree', errors)
+
     for qid, query in queries.items():
         for field in ('source', 'query', 'family'):
             if not _nonblank(query.get(field)):
                 errors.append(f'queries:{qid}:missing_{field}')
-        if query.get('status') not in QUERY_STATES:
+        if not _in_str_set(query.get('status'), QUERY_STATES):
             errors.append(f'queries:{qid}:invalid_status')
         returned, inspected = query.get('retrieved'), query.get('inspected')
         if not isinstance(returned, int) or isinstance(returned, bool) or returned < 0:
@@ -413,16 +528,16 @@ def check(record, evidence_dir=None):
         for field in ('source_id', 'study_id', 'locator', 'claim'):
             if not _nonblank(entry.get(field)):
                 errors.append(f'evidence:{eid}:missing_{field}')
-        if entry.get('access') not in ACCESS:
+        if not _in_str_set(entry.get('access'), ACCESS):
             errors.append(f'evidence:{eid}:invalid_access')
-        if entry.get('role') not in EVIDENCE_ROLES:
+        if not _in_str_set(entry.get('role'), EVIDENCE_ROLES):
             errors.append(f'evidence:{eid}:invalid_role')
     for wid, work in works.items():
         if not _nonblank(work.get('source_id')):
             errors.append(f'closest_works:{wid}:missing_source_id')
-        if work.get('relation') not in RELATIONS:
+        if not _in_str_set(work.get('relation'), RELATIONS):
             errors.append(f'closest_works:{wid}:invalid_relation')
-        if work.get('access') not in ACCESS:
+        if not _in_str_set(work.get('access'), ACCESS):
             errors.append(f'closest_works:{wid}:invalid_access')
         if not _nonblank(work.get('difference')):
             errors.append(f'closest_works:{wid}:missing_difference')
@@ -434,7 +549,7 @@ def check(record, evidence_dir=None):
     for cid, candidate in candidates.items():
         prefix = f'candidates:{cid}'
         disposition = candidate.get('disposition')
-        if disposition not in DISPOSITIONS:
+        if not _in_str_set(disposition, DISPOSITIONS):
             errors.append(f'{prefix}:invalid_disposition')
         for field in ('claim', 'type', 'rationale', 'engineering_status'):
             if not _nonblank(candidate.get(field)):
@@ -443,19 +558,40 @@ def check(record, evidence_dir=None):
         counter = _ids(candidate, 'counter_evidence_ids', prefix, evidence, errors)
         close = _ids(candidate, 'closest_work_ids', prefix, works, errors)
         kill = _ids(candidate, 'kill_query_ids', prefix, queries, errors)
+
+        cpa_ids = []
+        if 'code_prior_art_ids' in candidate and candidate['code_prior_art_ids'] is not None:
+            cpa_ids = _ids(candidate, 'code_prior_art_ids', prefix, code_works, errors)
+        inline_cpa = []
+        if 'code_prior_art' in candidate and candidate['code_prior_art'] is not None:
+            if not isinstance(candidate['code_prior_art'], list):
+                errors.append(f'{prefix}:code_prior_art:must_be_list')
+            else:
+                for idx_c, c_entry in enumerate(candidate['code_prior_art']):
+                    _validate_code_prior_art_entry(c_entry, f'{prefix}:code_prior_art[{idx_c}]', errors)
+                    if isinstance(c_entry, dict):
+                        inline_cpa.append(c_entry)
+
+        fc_ids = []
+        if 'failure_case_ids' in candidate and candidate['failure_case_ids'] is not None:
+            fc_ids = _ids(candidate, 'failure_case_ids', prefix, failure_cases_map, errors)
+
+        if 'trajectory_tree' in candidate and candidate['trajectory_tree'] is not None:
+            _validate_trajectory_tree(candidate.get('trajectory_tree'), f'{prefix}:trajectory_tree', errors)
+
         if disposition != 'supported_candidate':
             continue
         if not support:
             errors.append(f'{prefix}:no_support_evidence')
-        elif not any(evidence.get(eid, {}).get('access') in {'full_text', 'selected_full_text'} for eid in support):
+        elif not any(_in_str_set(evidence.get(eid, {}).get('access'), {'full_text', 'selected_full_text'}) for eid in support):
             errors.append(f'{prefix}:support_not_checked_in_full_text')
         if support and all(evidence.get(eid, {}).get('role') == 'author_future_work' for eid in support):
             errors.append(f'{prefix}:author_future_work_alone_cannot_establish_gap')
         if not close:
             errors.append(f'{prefix}:no_closest_work_assessed')
-        elif not all(works.get(wid, {}).get('access') in {'full_text', 'selected_full_text'} and
+        elif not all(_in_str_set(works.get(wid, {}).get('access'), {'full_text', 'selected_full_text'}) and
                      isinstance(works.get(wid, {}).get('evidence_ids'), list) and
-                     any(evidence.get(eid, {}).get('access') in {'full_text', 'selected_full_text'}
+                     any(_in_str_set(evidence.get(eid, {}).get('access'), {'full_text', 'selected_full_text'})
                          for eid in (works.get(wid, {}).get('evidence_ids') or []))
                      for wid in close):
             errors.append(f'{prefix}:closest_work_unread')
@@ -463,13 +599,13 @@ def check(record, evidence_dir=None):
             errors.append(f'{prefix}:closest_work_has_no_locator_evidence')
         if any(works.get(wid, {}).get('relation') == 'direct_precedent' for wid in close):
             errors.append(f'{prefix}:direct_precedent_conflicts_with_positive_gap')
-        if not kill or not any(queries.get(qid, {}).get('status') in SUCCESS and
-                               queries.get(qid, {}).get('family') in KILL_FAMILIES for qid in kill):
+        if not kill or not any(_in_str_set(queries.get(qid, {}).get('status'), SUCCESS) and
+                               _in_str_set(queries.get(qid, {}).get('family'), KILL_FAMILIES) for qid in kill):
             errors.append(f'{prefix}:no_completed_kill_search')
-        if any(queries.get(qid, {}).get('status') in SUCCESS and _unscreened(queries.get(qid, {}))
+        if any(_in_str_set(queries.get(qid, {}).get('status'), SUCCESS) and _unscreened(queries.get(qid, {}))
                for qid in kill):
             errors.append(f'{prefix}:kill_search_retrieved_records_unscreened')
-        successful_queries = [q for q in queries.values() if q.get('status') in SUCCESS]
+        successful_queries = [q for q in queries.values() if _in_str_set(q.get('status'), SUCCESS)]
         source_count = len({q.get('source') for q in successful_queries if _nonblank(q.get('source'))})
         family_count = len({q.get('family') for q in successful_queries if _nonblank(q.get('family'))})
         if (source_count < 2 or family_count < 2) and not _nonblank(candidate.get('coverage_exception')):
@@ -478,8 +614,131 @@ def check(record, evidence_dir=None):
             warnings.append(f'{prefix}:coverage_exception_requires_scientific_review')
         if not _nonblank(candidate.get('consequence')) or not _nonblank(candidate.get('answer_path')):
             errors.append(f'{prefix}:missing_consequence_or_answer_path')
-        if candidate.get('trigger') == 'failed_implementation' and candidate.get('engineering_status') not in {'implementation_checked', 'protocol_matched'}:
-            errors.append(f'{prefix}:engineering_failure_unresolved')
+        if _in_str_set(candidate.get('trigger'), {'failed_implementation', 'failure_cases'}) or fc_ids:
+            fc_unverified = any(
+                (fid not in failure_cases_map)
+                or (failure_cases_map[fid].get('engineering_checked') is False)
+                or _in_str_set(failure_cases_map[fid].get('engineering_status'), {'unchecked', 'failed', 'not_checked'})
+                or not (
+                    failure_cases_map[fid].get('engineering_checked') is True
+                    or _in_str_set(failure_cases_map[fid].get('engineering_status'), {'implementation_checked', 'protocol_matched'})
+                )
+                for fid in fc_ids
+            )
+            if (fc_ids and not failure_cases_map) or not _in_str_set(candidate.get('engineering_status'), {'implementation_checked', 'protocol_matched'}) or fc_unverified:
+                errors.append(f'{prefix}:engineering_failure_unresolved')
+
+        # F30.4 code_prior_art gate (presence-triggered)
+        if candidate.get('code_prior_art_screened') is False:
+            errors.append(f'{prefix}:code_prior_art_unscreened')
+        linked_cpa = [code_works[i] for i in cpa_ids if i in code_works] + inline_cpa
+        if any(
+            c.get('relation') == 'direct_equivalent' or _in_str_set(c.get('status'), {'solved', 'implemented', 'shipped'})
+            for c in linked_cpa
+        ):
+            errors.append(f'{prefix}:code_prior_art_direct_equivalent_closes_gap')
+
+        # F32 Lenses (presence-triggered)
+        if 'root_cause_barrier' in candidate and candidate['root_cause_barrier'] is not None:
+            if not _in_str_set(candidate['root_cause_barrier'], ROOT_CAUSE_BARRIERS):
+                errors.append(f'{prefix}:invalid_root_cause_barrier')
+            if not _nonblank(candidate.get('why_now_enabler')):
+                warnings.append(f'{prefix}:missing_or_weak_why_now_enabler')
+        if 'evaluation_validity_gap' in candidate and candidate['evaluation_validity_gap'] is not None:
+            ev_gap = candidate['evaluation_validity_gap']
+            if not isinstance(ev_gap, dict):
+                errors.append(f'{prefix}:evaluation_validity_gap_must_be_object')
+            else:
+                ev_sub = ev_gap.get('subtype')
+                if ev_sub is not None and not _in_str_set(ev_sub, EVAL_VALIDITY_SUBTYPES):
+                    errors.append(f'{prefix}:invalid_evaluation_validity_subtype')
+        if 'so_what_decision_impact' in candidate and candidate['so_what_decision_impact'] is not None:
+            if not _in_str_set(candidate['so_what_decision_impact'], SO_WHAT_IMPACTS):
+                errors.append(f'{prefix}:invalid_so_what_decision_impact')
+        if 'durability_12_24m' in candidate and candidate['durability_12_24m'] is not None:
+            if not _in_str_set(candidate['durability_12_24m'], DURABILITY_LEVELS):
+                errors.append(f'{prefix}:invalid_durability_12_24m')
+            elif candidate['durability_12_24m'] == 'high_scaling_erasure_risk':
+                warnings.append(f'{prefix}:high_scaling_erasure_risk')
+
+        # F27 Tier & Resource Feasibility (presence-triggered)
+        if 'gap_tier_ceiling' in candidate and candidate['gap_tier_ceiling'] is not None:
+            if not _in_str_set(candidate['gap_tier_ceiling'], GAP_TIER_CEILINGS):
+                errors.append(f'{prefix}:invalid_gap_tier_ceiling')
+        if candidate.get('gap_below_target_venue_tier') is True:
+            warnings.append(f'{prefix}:gap_below_target_venue_tier')
+        if isinstance(candidate.get('resource_feasibility'), dict) and candidate['resource_feasibility'].get('infeasible_under_user_resources') is True:
+            warnings.append(f'{prefix}:infeasible_under_user_resources')
+
+        # F28 Idea Portfolio & Pre-Mortem (presence-triggered)
+        if 'idea_portfolio' in candidate and candidate['idea_portfolio'] is not None:
+            portfolio = candidate['idea_portfolio']
+            if not isinstance(portfolio, list):
+                errors.append(f'{prefix}:idea_portfolio_must_be_list')
+            else:
+                distinct_ideas = []
+                distinct_angles = set()
+                has_redundant = False
+                for idx_i, idea in enumerate(portfolio):
+                    if not isinstance(idea, dict):
+                        errors.append(f'{prefix}:idea_portfolio[{idx_i}]:must_be_object')
+                        continue
+                    if not _nonblank(idea.get('id')):
+                        errors.append(f'{prefix}:idea_portfolio[{idx_i}]:missing_id')
+                    ang = idea.get('angle')
+                    canon_ang = None
+                    if not _in_str_set(ang, PORTFOLIO_ANGLES):
+                        errors.append(f'{prefix}:idea_portfolio[{idx_i}]:invalid_angle')
+                    else:
+                        canon_ang = _CANONICAL_PORTFOLIO_ANGLE[ang]
+                    summary_parts = [
+                        idea.get(k).strip()
+                        for k in ('title', 'mechanism_summary', 'summary')
+                        if _nonblank(idea.get(k))
+                    ]
+                    if not summary_parts:
+                        errors.append(f'{prefix}:idea_portfolio[{idx_i}]:missing_summary')
+                    else:
+                        idea_toks = _idea_tokens(' '.join(dict.fromkeys(summary_parts)))
+                        is_dup = bool(idea_toks) and any(_idea_jaccard(idea_toks, prev) >= 0.80 for prev in distinct_ideas)
+                        if is_dup:
+                            has_redundant = True
+                        else:
+                            if idea_toks:
+                                distinct_ideas.append(idea_toks)
+                            if canon_ang is not None:
+                                distinct_angles.add(canon_ang)
+                if has_redundant:
+                    warnings.append(f'{prefix}:idea_portfolio_redundant_ideas')
+                if candidate.get('portfolio_mode') is True and (len(distinct_ideas) < 3 or len(distinct_angles) < 3):
+                    errors.append(f'{prefix}:tunnel_vision_idea_portfolio')
+        elif candidate.get('portfolio_mode') is True:
+            errors.append(f'{prefix}:tunnel_vision_idea_portfolio')
+
+        if 'pre_mortem' in candidate and candidate['pre_mortem'] is not None:
+            pm = candidate['pre_mortem']
+            if not isinstance(pm, dict):
+                errors.append(f'{prefix}:pre_mortem_must_be_object')
+            else:
+                fms = pm.get('top_failure_modes')
+                if not isinstance(fms, list) or len([f for f in fms if _nonblank(f)]) < 3:
+                    errors.append(f'{prefix}:pre_mortem_insufficient_failure_modes')
+                kexp = pm.get('killer_experiment')
+                if not isinstance(kexp, dict):
+                    errors.append(f'{prefix}:pre_mortem_invalid_killer_experiment')
+                else:
+                    dur = kexp.get('duration_days')
+                    valid_dur = (
+                        isinstance(dur, (int, float))
+                        and not isinstance(dur, bool)
+                        and math.isfinite(dur)
+                        and 0 < dur <= 2
+                    )
+                    if not valid_dur or not _nonblank(kexp.get('kill_threshold')):
+                        errors.append(f'{prefix}:pre_mortem_invalid_killer_experiment')
+                if not _nonblank(pm.get('pivot_path')):
+                    errors.append(f'{prefix}:pre_mortem_missing_pivot_path')
+
         if not counter:
             warnings.append(f'{prefix}:counterevidence_queue_empty; explain whether a search found none')
         if any(queries.get(qid, {}).get('status') == 'bounded_partial' for qid in kill):
@@ -499,7 +758,7 @@ if __name__ == '__main__':
                         help='Directory of extracted PDF/JSON blocks to verify full-text locators and quotes')
     args = parser.parse_args()
     try:
-        record = json.loads(Path(args.record_json).read_text(encoding='utf-8'))
+        record = json.loads(Path(args.record_json).read_text(encoding='utf-8'), parse_constant=_reject_nonfinite)
         result = check(record, evidence_dir=args.evidence_dir)
         print(json.dumps(result))
         sys.exit(0 if result['valid_structure'] else 1)

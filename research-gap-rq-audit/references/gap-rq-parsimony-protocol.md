@@ -92,3 +92,34 @@ Every multi-component method or `confirmatory` `method` plan must pass all four 
   ```
   In `claim_mode == "confirmatory"`, `--campaign` is mandatory, gap must be `supported_candidate`, `prior_outcome_exposure` must be unseen, all `closest_work_ids` must be resolved, and **all six** `ENGINEERING_CHECKS` (`data_identity`, `split_integrity`, `preprocessing`, `metric_sanity`, `baseline_fidelity`, `reference_reproduction`) must be `passed` regardless of candidate `trigger`. Structure the portfolio across (1) Small Diagnostic, (2) Primary Discriminating Test, and (3) Robustness & Mechanism Follow-up.
 - **K-Dense & ResearchRadar Complementary Lanes:** Validate falsification controls via `../../research-scientist/modules/kdense-hypothesis-generation/scripts/check_falsification_controls.py` (`--record`), `validate_prediction_matrix.py`, and `lint_causal_claims.py`. Mine peer-review limit leads via `../../research-scientist/modules/researchradar/problem-statement-finder/scripts/radar.py` (`check`, `limits`, `iclr`, `verify`) — note OpenReview `403 ChallengeRequiredError` limits mean review signals are leads only, never primary gap proof.
+
+## 6. Structured Gap Mining, Trajectory & Deep Lenses (F27, F30, F32, F31)
+
+1. **Structured Mining & Failure-First Discovery (`storm_explorer.py`):**
+   ```bash
+   python3 ../../research-scientist/scripts/storm_explorer.py --topic "<topic>" --corpus corpus.json --failure-cases failure_cases.json --target-regime ood_shift --out storm.json --compact
+   ```
+   - **Contradiction Matrix (`contradiction_matrix`):** Surfaces cross-paper polarity conflicts separated into `cross_regime_conflict` vs `same_regime_conflict`, tagged `status: "lead"`.
+   - **Coverage-Hole Matrix (`coverage_hole_matrix`):** Maps `Method × Setting × Metric × Regime` using `_positive_text` so negated mentions do not satisfy coverage; separates `genuine_coverage_hole` from `trivial_reskin_risk`.
+   - **Assumption-Violation Mining (`assumption_violations`):** Links paper assumptions (`i.i.d.`, `clean labels`, `unbounded memory`, `oracle retrieval`, `homogeneous`) against violating target regimes.
+   - **Chronological Trajectory (`research_trajectory`):** Builds `Gen1 -> bottleneck -> Gen2 -> tradeoff -> open_root_limit` without fabricating missing years.
+   - **P4 Isomorphic Transfer (`isomorphic_transfer_leads`):** Maps abstract bottlenecks to adjacent disciplines (Control Theory, Causal Inference, Information Theory, Optimization, Statistical Physics, Signal Processing) strictly tagged `evidence_level: "lead"`, `requires_primary_verification: true`, `supporting_evidence: []`.
+   - **Failure-First (`failure_first_patterns`):** Groups empirical baseline error logs (`--failure-cases`) into recurring patterns with prior-art cross-checks while still requiring engineering clearance.
+
+2. **Cross-Vocabulary Kill-Search, Tier Ceiling, Feasibility & Deep Lenses (`gap_pipeline.py` & `check_gap_record.py`):**
+   ```bash
+   python3 ../../research-scientist/scripts/gap_pipeline.py --topic "<topic>" --corpus corpus.json --digests digests.json --candidates candidates.json --storm storm.json --campaign campaign.json --citation-graph graph.json --failure-cases failure_cases.json --code-prior-art code_repos.json --target-venue-tier q1_or_tier_a --subfield-preset nlp_llm --allow-partial --seed-bundle-out seed_bundle.json --out gap_out.json --compact
+   ```
+   - **Cross-Vocab `DROP_ALREADY_SOLVED` (F27.5) & `code_prior_art` (F30.4):** Expands `mechanism_aliases` / `alternate_vocabularies`, cross-checks `search_campaign.py` (`combined_results` / `source_records` + `query_runs`) and `citation_graph.py` co-citation clusters, and blocks solutions already shipped in open-source GitHub/HuggingFace repos (`relation == "direct_equivalent"` or `status in {solved, implemented}`).
+   - **Venue Tier Ceiling & Early Rejection (F27.2):** Classifies surviving gaps into `q1_top_tier_potential`, `tier_a_findings_potential`, `workshop_incremental_only`, or `low_impact_dead_end` and flags `gap_below_target_venue_tier` (or drops with `DROP_BELOW_TARGET_VENUE_TIER` / `DROP_LOW_IMPACT_DEAD_END` under `--strict-triage`).
+   - **Scoop & Bitter-Lesson Obsolescence (F27.3):** Scores `low`, `moderate`, `high_scoop_risk`, `high_scaling_obsolescence_risk`, or `unknown` with explicit `unknown_disclosures` and `null` preprint counts whenever `published_date` metadata is missing (zero fabrication).
+   - **Resource Feasibility & Author Advantage (F27.4, F30.3):** Checks GPU/VRAM, budget, dataset access, and timeline (`--user-resources`) flagging `infeasible_under_user_resources` (or `DROP_RESOURCE_INFEASIBLE` under `--strict-triage`), and scores `author_advantage_fit` (`--author-profile`: `math_theory` vs `systems_engineering`).
+   - **Four Deep Gap Lenses (F32):** (1) `root_cause_barrier` (`theoretical_limit`, `measurement_gap`, `data_supervision_gap`, `compute_infra_barrier`) + `missing_or_weak_why_now_enabler` warning; (2) `evaluation_validity_gap` (`shortcut_exploitation`, `dataset_bias_or_contamination`, `metric_saturation`, `construct_validity_mismatch`); (3) `isomorphic_transfer_leads` tagged `lead`; (4) `so_what_decision_impact` (`decision_changing` vs `marginal_gain`) & `durability_12_24m` (`durable_structural_limit` vs `high_scaling_erasure_risk`).
+   - **Subfield Depth Hook (F31 `--subfield-preset`):** Deterministic vetting criteria for `nlp_llm`, `cv_multimodal`, `ml_theory`, and `ai_systems`.
+
+## 7. F28 Idea Portfolio, Pre-Mortem & `idea_seed_bundle` Handoff
+
+- **Multi-Angle Idea Portfolio (`--require-idea-portfolio`):** Rejects tunnel-vision single-idea dumps (`DROP_TUNNEL_VISION_PORTFOLIO`) when portfolio mode is enabled; expects `3–4` structurally distinct ideas across `minimal_fix` (`minimal_fix_f19`), `high_novelty_mechanism` (`high_novelty_mechanism_q1`), `benchmark_diagnostic_analysis`, and `low_gpu_fallback`.
+- **Pre-Mortem & 1–2 Day Killer Experiment (`--require-pre-mortem`):** Requires `top_failure_modes` (`>= 3`), a `1–2` day `killer_experiment` with an explicit `kill_threshold`, and a `pivot_path` (`DROP_INCOMPLETE_PRE_MORTEM` when missing/incomplete).
+- **Standardized `idea_seed_bundle` (`--seed-bundle-out`, `research_scientist_idea_seed_bundle_v1`):** Exports surviving gaps with `gap_id`, `closest_work_ids`, `prior_art_boundary`, `full_text_digests`, `gap_tier_ceiling`, `resource_feasibility`, `scoop_and_obsolescence_risk`, F28 portfolio/pre-mortem, F30 trajectory/failure/author/code fields, F32 lenses, and F31 `subfield_vetting` (with unassessed idea `ratings` kept strictly `null` for downstream idea scoring and project-state tracking).
+

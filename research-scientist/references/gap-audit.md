@@ -59,6 +59,25 @@ For a durable machine-readable record, copy [the fictional gap-record example](g
    - `DROP_ARTIFICIAL_SCOPE` / `DROP_SGHA_CRITIC_REJECT` (5-role skeptic/critic gate)
    - `DROP_DUPLICATE` (token-Jaccard dedup and feedback memory)
 
+### Structured Mining, Tier Triage, Deep Lenses & `idea_seed_bundle` (F27, F28, F30, F31, F32)
+
+1. **Structured Gap Discovery (`scripts/storm_explorer.py`):** Optionally pass `--failure-cases` and `--target-regime` to extract `contradiction_matrix` (`cross_regime_conflict` vs `same_regime_conflict`), `coverage_hole_matrix` (`genuine_coverage_hole` vs `trivial_reskin_risk`), `assumption_violations`, chronological `research_trajectory` (`Gen1 -> bottleneck -> Gen2 -> tradeoff -> open_root_limit`, never inventing missing years), `failure_first_patterns`, and P4 `isomorphic_transfer_leads` (strictly tagged `evidence_level: "lead"`, never supporting evidence).
+2. **Cross-Vocab & Code Kill-Search (`scripts/gap_pipeline.py`):** Pass `--storm`, `--campaign`, `--citation-graph`, `--failure-cases`, `--code-prior-art`, `--target-venue-tier`, `--user-resources`, `--author-profile`, `--as-of-date`, `--subfield-preset`, and `--seed-bundle-out`. Gate 4 expands `mechanism_aliases` / `alternate_vocabularies`, cross-checks `search_campaign.py` (`combined_results` / `source_records`) and `citation_graph.py` co-citation clusters, and drops shipped GitHub/HuggingFace equivalents (`code_prior_art` `direct_equivalent` / `solved`). Gate 3 blocks `failure_cases` candidates whose engineering checks are unresolved.
+3. **Venue Tier, Feasibility & Deep Gap Lenses:**
+
+| Lens / Triage Axis | Canonical Values & Rules |
+|---|---|
+| `gap_tier_ceiling` | `q1_top_tier_potential`, `tier_a_findings_potential`, `workshop_incremental_only`, `low_impact_dead_end` (`gap_below_target_venue_tier` warning when target exceeds ceiling; `--strict-triage` hard-drops) |
+| `scoop_and_obsolescence_risk` | `low`, `moderate`, `high_scoop_risk`, `high_scaling_obsolescence_risk`, `unknown` (requires `unknown_disclosures` and `null` preprint counts when `published_date` is absent) |
+| `resource_feasibility` | `feasible`, `infeasible_under_user_resources`, `unverified_missing_constraints` (checked against GPU/VRAM, budget, dataset access, timeline) |
+| `root_cause_barrier` & `why_now_enabler` | `theoretical_limit`, `measurement_gap`, `data_supervision_gap`, `compute_infra_barrier`; warns `missing_or_weak_why_now_enabler` when missing or weak |
+| `evaluation_validity_gap` | `shortcut_exploitation`, `dataset_bias_or_contamination`, `metric_saturation`, `construct_validity_mismatch` |
+| `so_what_decision_impact` & `durability_12_24m` | `decision_changing` vs `marginal_gain`; `durable_structural_limit` vs `high_scaling_erasure_risk` |
+| `author_advantage_fit` & `subfield_preset` | Socratic fit (`math_theory` vs `systems_engineering`, data/GPU/time); presets `nlp_llm`, `cv_multimodal`, `ml_theory`, `ai_systems` |
+
+4. **F28 Portfolio, Pre-Mortem & `idea_seed_bundle`:** On `scripts/gap_pipeline.py`, pass `--require-idea-portfolio` (3–4 distinct ideas across `minimal_fix` / `minimal_fix_f19`, `high_novelty_mechanism` / `high_novelty_mechanism_q1`, `benchmark_diagnostic_analysis`, `low_gpu_fallback`), `--require-pre-mortem` (`>= 3` `top_failure_modes`, 1–2 day `killer_experiment` with `kill_threshold`, `pivot_path`), and `--require-code-prior-art`.
+   Separately, `scripts/check_gap_record.py` validates these optional fields when present while keeping legacy M3 records compatible. Surviving gaps emit `idea_seed_bundle` (`research_scientist_idea_seed_bundle_v1`) with unassessed idea `ratings` left strictly `null`.
+
 ## Gate 0 — Is the request actually answerable as a gap audit?
 
 Before claiming anything:
