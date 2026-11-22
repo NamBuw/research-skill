@@ -35,6 +35,16 @@ python3 research-scientist/scripts/claim_audit.py --suite-root . --readme README
 python3 research-scientist/scripts/claim_audit.py --root research-scientist --readme README.md --compact
 ```
 
+### Lock an Entire Research Workspace / Chat Session
+
+Copy the reusable workspace rules and lifecycle hooks into any target research project directory (never overwrites existing files):
+
+```bash
+cp -rn templates/session-lock/. /path/to/your-research-project/
+```
+
+See [session-lock templates](templates/session-lock/README.md) for `AGENTS.md`, `CLAUDE.md`, `.agents/hooks.json`, and `SessionStart`/`Stop` provenance guard details.
+
 Run individual pipeline tools from `research-scientist/`:
 
 ```bash

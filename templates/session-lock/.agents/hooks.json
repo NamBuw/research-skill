@@ -1,0 +1,19 @@
+{
+  "research-scientist-session-lock": {
+    "enabled": true,
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "python3 ./hooks/session_lock_hook.py --event SessionStart",
+        "timeout": 10
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 ./hooks/session_lock_hook.py --event Stop",
+        "timeout": 10
+      }
+    ]
+  }
+}
