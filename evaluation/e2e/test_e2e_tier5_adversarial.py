@@ -299,3 +299,72 @@ def test_t5_7_claim_audit_suite_blocks_subskill_symlink_escape(tmp_path: Path) -
     proc = _run_cli("claim_audit.py", ["--suite-root", str(suite), "--compact"])
     assert proc.returncode == 1, f"Expected exit 1 on subskill symlink escape, got {proc.returncode}: {proc.stdout}"
     assert "outside-root-symlink" in proc.stdout
+
+
+def test_t5_8_m8a_adversarial_bypasses_and_redos_fail_closed(tmp_path: Path) -> None:
+    """Tier-5 M8A adversarial regressions across sync_skills, rebuttal, preflight, rigor, and figure_qa."""
+    import struct
+    import time
+    import zlib
+
+    # 1. sync_skills refuses parent-dir target containing suite_root (exit 2, no mutation)
+    assert _run_cli("sync_skills.py", ["--suite-root", str(REPO_ROOT), "--target-dir", str(REPO_ROOT.parent)]).returncode == 2
+
+    # 2. check_rebuttal rejects x[0] pseudo-anchor & section masking
+    pts = tmp_path / "pts.md"
+    pts.write_text("- R1.1: A\n- R1.2: B\n", encoding="utf-8")
+    reb = tmp_path / "reb.md"
+    reb.write_text("## R1\n- R1.1: See Table 1.\n- R1.2: Set x[0] = 1 and we ran new experiments.\n", encoding="utf-8")
+    r_reb = _run_cli("check_rebuttal.py", ["coverage", str(pts), str(reb), "--strict", "--json"])
+    assert r_reb.returncode == 1
+    d_reb = json.loads(r_reb.stdout)
+    assert any("R1.2" in s for s in d_reb["unanchored_sections"])
+    assert any("R1.2" in s for s in d_reb["unverified_experiment_claims"])
+
+    # 3. check_submission_preflight rejects --max-image-mb nan, URL spoof, [preprint], \iclrfinalcopy, and outside symlink
+    tex_dir = tmp_path / "ax"
+    tex_dir.mkdir()
+    outside = tmp_path / "secret.tex"
+    outside.write_text("\\author{Real Name}\n", encoding="utf-8")
+    (tex_dir / "main.tex").write_text(
+        "\\documentclass{article}\n"
+        "\\usepackage[preprint]{neurips_2025}\n"
+        "\\iclrfinalcopy\n"
+        "\\begin{document}\n"
+        "https://anonymous.4open.science.evil.com/r/1\n"
+        "\\end{document}\n",
+        encoding="utf-8",
+    )
+    (tex_dir / "leak.tex").symlink_to(outside)
+    assert _run_cli("check_submission_preflight.py", ["arxiv-clean", str(tex_dir), "--max-image-mb", "nan"]).returncode == 2
+    r_ax = _run_cli("check_submission_preflight.py", ["arxiv-clean", str(tex_dir), "--json"])
+    assert r_ax.returncode == 1
+    assert any(f["check"] == "arxiv/unsafe-symlink" for f in json.loads(r_ax.stdout)["findings"])
+    r_an = _run_cli("check_submission_preflight.py", ["anonymize", str(tex_dir / "main.tex"), "--json"])
+    assert r_an.returncode == 1
+    an_checks = [f["check"] for f in json.loads(r_an.stdout)["findings"]]
+    assert "anonymization/link-ok" not in an_checks
+    assert an_checks.count("anonymization/class-option") >= 2
+
+    # 4. check_experiment_rigor rejects bool/null/mismatch matrices cleanly with exit 2 (no Traceback)
+    bad_rliable = tmp_path / "bad_rl.json"
+    bad_rliable.write_text(json.dumps({"methods": {"M": [True, False, None]}}), encoding="utf-8")
+    r_rl = _run_cli("check_experiment_rigor.py", ["rliable", str(bad_rliable)])
+    assert r_rl.returncode == 2
+    assert "Traceback" not in r_rl.stderr
+
+    # 5. check_figure_qa catches comment-spoofed pdf.fonttype=42, compressed Type3 PDF, and corrupt PNG bounds
+    comp = zlib.compress(b"/Type /Font /Subtype /Type3\n/MediaBox [0 0 100 100]\n")
+    t3_pdf = tmp_path / "t3.pdf"
+    t3_pdf.write_bytes(b"%PDF-1.5\nstream\n" + comp + b"\nendstream\n%%EOF\n")
+    bad_png = tmp_path / "bad.png"
+    bad_png.write_bytes(b"\x89PNG\r\n\x1a\n" + struct.pack(">I4s", 999999, b"IHDR") + b"\x00" * 17)
+    spoof_py = tmp_path / "spoof.py"
+    spoof_py.write_text("# plt.rcParams['pdf.fonttype'] = 42\nplt.savefig('out.pdf')\n", encoding="utf-8")
+
+    t0 = time.perf_counter()
+    r_fig = _run_cli("check_figure_qa.py", ["figure", str(tmp_path), "--strict", "--json"])
+    assert time.perf_counter() - t0 < 5.0
+    assert r_fig.returncode == 1
+    fig_checks = {f["check"] for f in json.loads(r_fig.stdout)["findings"]}
+    assert {"figure/type3-font", "figure/corrupt-png", "figure/missing-truetype-rcparam"}.issubset(fig_checks)

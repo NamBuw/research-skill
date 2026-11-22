@@ -481,13 +481,17 @@ def ingest(conn: sqlite3.Connection, papers: Any, comments: Any) -> tuple[int, i
 def open_snor(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
-    conn.executescript(
-        """CREATE TABLE IF NOT EXISTS papers (id TEXT PRIMARY KEY, title TEXT, abstract TEXT, keywords TEXT, accepted INTEGER,
-               decision TEXT, conference TEXT, year INTEGER, score REAL);
-           CREATE TABLE IF NOT EXISTS reviews (paper_id TEXT, text TEXT, is_review INTEGER, rating REAL);
-           CREATE INDEX IF NOT EXISTS reviews_paper ON reviews(paper_id);
-           CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);"""
-    )
+    try:
+        conn.executescript(
+            """CREATE TABLE IF NOT EXISTS papers (id TEXT PRIMARY KEY, title TEXT, abstract TEXT, keywords TEXT, accepted INTEGER,
+                   decision TEXT, conference TEXT, year INTEGER, score REAL);
+               CREATE TABLE IF NOT EXISTS reviews (paper_id TEXT, text TEXT, is_review INTEGER, rating REAL);
+               CREATE INDEX IF NOT EXISTS reviews_paper ON reviews(paper_id);
+               CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);"""
+        )
+    except Exception:
+        conn.close()
+        raise
     return conn
 
 

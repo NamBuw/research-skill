@@ -13,12 +13,16 @@ Attribution & License Notice:
 from __future__ import annotations
 
 import argparse
+import ast
 import csv
+import io
 import json
 import math
+import os
 import random
 import re
 import sys
+import tokenize
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +56,16 @@ SKIP_DIRS = {
     ".git", ".hg", ".svn", "__pycache__", ".venv", "venv", "env",
     "node_modules", ".mypy_cache", ".pytest_cache", "build", "dist",
 }
+BINARY_EXTS = {
+    ".pyc", ".pyo", ".so", ".dll", ".dylib", ".exe", ".bin", ".dat",
+    ".pt", ".pth", ".ckpt", ".safetensors", ".onnx", ".pkl", ".pickle",
+    ".npy", ".npz", ".parquet", ".arrow", ".png", ".jpg", ".jpeg", ".gif",
+    ".webp", ".bmp", ".ico", ".svg", ".pdf", ".zip", ".tar", ".gz", ".bz2",
+    ".xz", ".7z", ".whl", ".egg",
+}
+_TEXT_FIELDS = ("text", "prompt", "question", "input", "output", "answer", "content")
+_DICT_LIST_KEYS = ("data", "examples", "samples", "records", "instances", "items")
+
 SEED_RE = re.compile(
     r"\brandom\.seed\s*\(|\bnp\.random\.seed\s*\(|\bnumpy\.random\.seed\s*\("
     r"|\bnp\.random\.default_rng\s*\(|\btorch\.manual_seed\s*\("
@@ -66,9 +80,28 @@ DATA_README_RE = re.compile(
     re.I,
 )
 RESULTS_CMD_RE = re.compile(
-    r"(reproduce|to\s+reproduce|```[\s\S]*?(?:python|bash|sh|make|\./|docker\s+run)[\s\S]*?```|^\s*(?:python|bash|sh|make|\./run)\b)",
+    r"(reproduce|to\s+reproduce|^\s*(?:python|bash|sh|make|\./run)\b)",
     re.I | re.M,
 )
+_FENCED_CMD_RE = re.compile(r"(?:\b(?:python|bash|sh|make|docker\s+run)\b|\./)", re.I)
+
+
+def _has_results_cmd(readme_text: str) -> bool:
+    if not readme_text:
+        return False
+    if RESULTS_CMD_RE.search(readme_text):
+        return True
+    pos = 0
+    while True:
+        start = readme_text.find("```", pos)
+        if start == -1:
+            return False
+        end = readme_text.find("```", start + 3)
+        if end == -1:
+            return False
+        if _FENCED_CMD_RE.search(readme_text[start + 3 : end]):
+            return True
+        pos = end + 3
 DATA_DIR_NAMES = {"data", "datasets", "dataset"}
 DATA_SCRIPT_RE = re.compile(r"(download|fetch|get|prepare).*data|data.*(download|fetch|prepare)", re.I)
 MAIN_GUARD_RE = re.compile(r"if\s+__name__\s*==\s*['\"]__main__['\"]")
@@ -81,30 +114,39 @@ def _err(msg: str) -> int:
 
 def _validate_nonempty_str(val: Any, flag: str) -> str:
     if not isinstance(val, str) or not val.strip():
-        raise ValueError(f"Empty or invalid path for {flag}")
+        raise ValueError(f"Empty or invalid value for {flag}")
     return val.strip()
 
 
 def _emit_output(payload: dict[str, Any], compact_payload: dict[str, Any], args: argparse.Namespace) -> None:
-    if getattr(args, "out", None):
+    if getattr(args, "out", None) is not None:
         out_path = Path(_validate_nonempty_str(args.out, "--out"))
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    if getattr(args, "compact", False):
-        raw = json.dumps(compact_payload, separators=(",", ":"))
-        if len(raw.encode("utf-8")) > MAX_COMPACT_BYTES:
-            trimmed = dict(compact_payload)
-            for k in list(trimmed.keys()):
-                if isinstance(trimmed[k], list) and len(trimmed[k]) > 5:
-                    trimmed[k] = trimmed[k][:5]
-            raw = json.dumps(trimmed, separators=(",", ":"))
-        print(raw)
-    elif getattr(args, "json", None) == "-":
-        print(json.dumps(payload, indent=2))
-    elif getattr(args, "json", None):
-        jp = Path(_validate_nonempty_str(args.json, "--json"))
+
+    json_arg = getattr(args, "json", None)
+    if json_arg is not None and json_arg != "-":
+        jp = Path(_validate_nonempty_str(json_arg, "--json"))
         jp.parent.mkdir(parents=True, exist_ok=True)
         jp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    if getattr(args, "compact", False):
+        trimmed = dict(compact_payload)
+        raw = json.dumps(trimmed, separators=(",", ":"))
+        for cap in (5, 2, 1, 0):
+            if len(raw.encode("utf-8")) <= MAX_COMPACT_BYTES:
+                break
+            for k in list(trimmed.keys()):
+                if isinstance(trimmed[k], list) and len(trimmed[k]) > cap:
+                    trimmed[k] = trimmed[k][:cap]
+                elif isinstance(trimmed[k], dict) and len(trimmed[k]) > cap and k == "methods":
+                    keys = list(trimmed[k].keys())[:cap]
+                    trimmed[k] = {mk: trimmed[k][mk] for mk in keys}
+            raw = json.dumps(trimmed, separators=(",", ":"))
+        print(raw)
+    elif json_arg == "-":
+        print(json.dumps(payload, indent=2))
+    elif json_arg is not None:
         print(json.dumps(compact_payload, separators=(",", ":")))
     else:
         print(json.dumps(payload, indent=2))
@@ -114,13 +156,172 @@ def _emit_output(payload: dict[str, Any], compact_payload: dict[str, Any], args:
 # 1. Reproducibility audit (repro_check)
 # ---------------------------------------------------------------------------
 
+def _strip_hash_comments(text: str, *, escape_single_quotes: bool = True) -> str:
+    out_lines: list[str] = []
+    for line in text.splitlines():
+        quote: str | None = None
+        i = 0
+        cut = len(line)
+        while i < len(line):
+            ch = line[i]
+            if quote is None:
+                if ch in ("'", '"'):
+                    quote = ch
+                elif ch == "#":
+                    cut = i
+                    break
+            else:
+                if ch == "\\" and (quote == '"' or (quote == "'" and escape_single_quotes)) and i + 1 < len(line):
+                    i += 2
+                    continue
+                if ch == quote:
+                    quote = None
+            i += 1
+        out_lines.append(line[:cut])
+    return "\n".join(out_lines)
+
+
+def _utf8_byte_col_to_char_col(line: str, byte_col: int) -> int:
+    if byte_col <= 0:
+        return 0
+    raw = line.encode("utf-8", errors="surrogateescape")
+    return len(raw[:byte_col].decode("utf-8", errors="surrogateescape"))
+
+
+def _collect_docstring_spans(
+    tree: ast.AST,
+    lines: list[str],
+) -> tuple[set[tuple[int, int]], list[tuple[tuple[int, int], tuple[int, int]]]]:
+    starts: set[tuple[int, int]] = set()
+    ranges: list[tuple[tuple[int, int], tuple[int, int]]] = []
+    n_lines = len(lines)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Expr):
+            continue
+        val = node.value
+        is_str_doc = isinstance(val, ast.Constant) and isinstance(val.value, str)
+        is_const_fstr = isinstance(val, ast.JoinedStr) and not any(
+            isinstance(part, ast.FormattedValue) for part in val.values
+        )
+        if is_str_doc or is_const_fstr:
+            s_row = val.lineno
+            if 1 <= s_row <= n_lines:
+                s_col = _utf8_byte_col_to_char_col(lines[s_row - 1], val.col_offset)
+                starts.add((s_row, s_col))
+                e_row = getattr(val, "end_lineno", None)
+                e_byte_col = getattr(val, "end_col_offset", None)
+                if isinstance(e_row, int) and isinstance(e_byte_col, int) and 1 <= e_row <= n_lines:
+                    e_col = _utf8_byte_col_to_char_col(lines[e_row - 1], e_byte_col)
+                    ranges.append(((s_row, s_col), (e_row, e_col)))
+    return starts, ranges
+
+
+def _strip_python_comments_and_docstrings(text: str) -> str:
+    if text.startswith("\ufeff"):
+        text = text.lstrip("\ufeff")
+    lines = io.StringIO(text).readlines()
+    if not lines:
+        return ""
+    out_chars = [list(ln) for ln in lines]
+
+    doc_starts: set[tuple[int, int]] = set()
+    doc_ranges: list[tuple[tuple[int, int], tuple[int, int]]] = []
+    parsed = False
+    try:
+        tree = ast.parse(text)
+        doc_starts, doc_ranges = _collect_docstring_spans(tree, lines)
+        parsed = True
+    except SyntaxError:
+        parsed = False
+
+    def _blank_span(start: tuple[int, int], end: tuple[int, int]) -> None:
+        s_row, s_col = start
+        e_row, e_col = end
+        for r in range(s_row - 1, min(e_row, len(out_chars))):
+            row_chars = out_chars[r]
+            c0 = s_col if r == s_row - 1 else 0
+            c1 = e_col if r == e_row - 1 else len(row_chars)
+            for c in range(max(0, c0), min(c1, len(row_chars))):
+                if row_chars[c] not in "\r\n":
+                    row_chars[c] = " "
+
+    for s_pos, e_pos in doc_ranges:
+        _blank_span(s_pos, e_pos)
+
+    tok_ok = False
+    try:
+        for tok in tokenize.generate_tokens(io.StringIO(text).readline):
+            if tok.type == tokenize.COMMENT:
+                _blank_span(tok.start, tok.end)
+            elif tok.type == tokenize.STRING and tok.start in doc_starts:
+                _blank_span(tok.start, tok.end)
+        tok_ok = True
+    except (tokenize.TokenError, IndentationError):
+        tok_ok = False
+
+    cleaned = "".join("".join(row) for row in out_chars)
+    if not parsed and not tok_ok:
+        return _strip_hash_comments(cleaned, escape_single_quotes=True)
+    return cleaned
+
+
+def _extract_executable_code(path: Path) -> str:
+    raw_bytes = path.read_bytes()
+    if b"\x00" in raw_bytes:
+        return ""
+    text = raw_bytes.decode("utf-8-sig", errors="replace")
+    suf = path.suffix.lower()
+    if suf == ".py":
+        return _strip_python_comments_and_docstrings(text)
+    if suf == ".ipynb":
+        try:
+            nb = json.loads(text)
+        except json.JSONDecodeError:
+            return ""
+        if not isinstance(nb, dict):
+            return ""
+        cells = nb.get("cells")
+        if not isinstance(cells, list):
+            return ""
+        code_chunks: list[str] = []
+        for cell in cells:
+            if not isinstance(cell, dict) or cell.get("cell_type") != "code":
+                continue
+            src = cell.get("source", "")
+            if isinstance(src, list):
+                cell_text = "".join(str(x) for x in src)
+            elif isinstance(src, str):
+                cell_text = src
+            else:
+                continue
+            cell_text = cell_text.lstrip("\ufeff")
+            # Replace IPython magic lines (e.g. %matplotlib, !pip) with indentation-preserving pass
+            py_lines: list[str] = []
+            for ln in cell_text.splitlines():
+                stripped_ln = ln.lstrip()
+                if stripped_ln.startswith(("%", "!")):
+                    indent = ln[: len(ln) - len(stripped_ln)]
+                    py_lines.append(f"{indent}pass")
+                else:
+                    py_lines.append(ln)
+            code_chunks.append(_strip_python_comments_and_docstrings("\n".join(py_lines)))
+        return "\n".join(code_chunks)
+    if suf == ".sh":
+        return _strip_hash_comments(text, escape_single_quotes=False)
+    if suf in {".r", ".jl"}:
+        return _strip_hash_comments(text, escape_single_quotes=True)
+    return text
+
+
 def audit_repro(root: Path, max_files: int = 2000) -> dict[str, Any]:
     if not root.exists() or not root.is_dir():
         raise FileNotFoundError(f"Directory not found: {root}")
-    if max_files < 1:
+    if isinstance(max_files, bool) or not isinstance(max_files, int) or max_files < 1:
         raise ValueError("--max-files must be >= 1")
 
+    root_res = root.resolve()
     readme_path: Path | None = None
+    readme_depth: int = 10**9
     readme_text = ""
     env_files: list[tuple[str, str]] = []
     pinned = False
@@ -135,56 +336,80 @@ def audit_repro(root: Path, max_files: int = 2000) -> dict[str, Any]:
     scanned = 0
     truncated = False
 
-    for path in sorted(root.rglob("*")):
-        if any(part in SKIP_DIRS for part in path.parts):
-            continue
-        rel = path.relative_to(root).as_posix()
-        if path.is_dir():
-            low = path.name.lower()
-            if low in TEST_DIR_NAMES:
-                test_dirs.append(rel)
-            if low in DATA_DIR_NAMES:
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        dp = Path(dirpath)
+        kept_dirs: list[str] = []
+        for d in sorted(dirnames):
+            if d in SKIP_DIRS or (dp / d).is_symlink():
+                continue
+            kept_dirs.append(d)
+            d_path = dp / d
+            rel_d = d_path.relative_to(root).as_posix()
+            d_low = d.lower()
+            if d_low in TEST_DIR_NAMES:
+                test_dirs.append(rel_d)
+            if d_low in DATA_DIR_NAMES:
                 data_dir = True
-            continue
-        if not path.is_file():
-            continue
-        low = path.name.lower()
-        if low in README_NAMES and readme_path is None:
-            readme_path = path
-            readme_text = path.read_text(encoding="utf-8", errors="replace")
-        if low in ENV_FILES:
-            env_files.append((rel, ENV_FILES[low]))
-            if low in LOCKFILES:
-                pinned = True
-        if low in ENTRYPOINT_FILES:
-            entrypoints.append(rel)
-        if TEST_FILE_RE.match(path.name):
-            test_files.append(rel)
-        if DATA_SCRIPT_RE.search(low):
-            data_scripts.append(rel)
-        if path.suffix.lower() in SOURCE_EXTS:
-            n_source += 1
-            if scanned < max_files:
-                scanned += 1
-                text = path.read_text(encoding="utf-8", errors="replace")
-                if SEED_RE.search(text):
-                    seed_hits.append(rel)
-                if MAIN_GUARD_RE.search(text):
-                    has_main_guard = True
-            else:
-                truncated = True
+        dirnames[:] = kept_dirs
+
+        for fn in sorted(filenames):
+            path = dp / fn
+            if path.is_symlink():
+                continue
+            try:
+                if not path.resolve().is_relative_to(root_res):
+                    continue
+            except OSError:
+                continue
+            rel = path.relative_to(root).as_posix()
+            rel_depth = len(Path(rel).parts)
+            low = path.name.lower()
+            if low in README_NAMES and (readme_path is None or rel_depth < readme_depth):
+                raw_rm = path.read_bytes()
+                if b"\x00" not in raw_rm:
+                    readme_path = path
+                    readme_depth = rel_depth
+                    readme_text = raw_rm.decode("utf-8", errors="replace")
+            if low in ENV_FILES:
+                env_files.append((rel, ENV_FILES[low]))
+                if low in LOCKFILES:
+                    pinned = True
+            if low in ENTRYPOINT_FILES:
+                entrypoints.append(rel)
+            if TEST_FILE_RE.match(path.name):
+                test_files.append(rel)
+            if DATA_SCRIPT_RE.search(low):
+                data_scripts.append(rel)
+            if path.suffix.lower() in SOURCE_EXTS:
+                n_source += 1
+                if scanned < max_files:
+                    scanned += 1
+                    exec_code = _extract_executable_code(path)
+                    if SEED_RE.search(exec_code):
+                        seed_hits.append(rel)
+                    if MAIN_GUARD_RE.search(exec_code):
+                        has_main_guard = True
+                else:
+                    truncated = True
 
     if not pinned:
         for rel, _ in env_files:
             p = root / rel
             if p.name.lower().startswith("requirements") and p.suffix == ".txt":
-                body = p.read_text(encoding="utf-8", errors="replace")
-                if re.search(r"(==|@|https?://|git\+)", body):
-                    pinned = True
-                    break
+                raw_req = p.read_bytes()
+                if b"\x00" in raw_req:
+                    continue
+                body = raw_req.decode("utf-8", errors="replace")
+                for line in body.splitlines():
+                    code_line = line.split("#", 1)[0].strip()
+                    if code_line and re.search(r"(==|@|https?://|git\+)", code_line):
+                        pinned = True
+                        break
+            if pinned:
+                break
 
     data_in_readme = bool(readme_text and DATA_README_RE.search(readme_text))
-    results_cmd = bool(readme_text and RESULTS_CMD_RE.search(readme_text))
+    results_cmd = _has_results_cmd(readme_text)
 
     essentials: list[dict[str, str]] = []
     essentials.append({
@@ -245,12 +470,22 @@ def audit_repro(root: Path, max_files: int = 2000) -> dict[str, Any]:
 # 2. rliable multi-seed IQM, stratified bootstrap CI, optimality gap, P(X > Y)
 # ---------------------------------------------------------------------------
 
+def _to_finite_float(x: Any, method_name: str) -> float:
+    if isinstance(x, bool) or not isinstance(x, (int, float)):
+        raise ValueError(f"Method {method_name!r} contains non-numeric score {x!r}")
+    val = float(x)
+    if not math.isfinite(val):
+        raise ValueError(f"Method {method_name!r} contains non-finite value {x!r}")
+    return val
+
+
 def compute_iqm(values: list[float]) -> float:
     """Exact 25% trimmed mean (Interquartile Mean) matching google-research/rliable."""
     n = len(values)
     if n == 0:
         raise ValueError("Cannot compute IQM of empty sequence")
-    s = sorted(values)
+    clean = [_to_finite_float(v, "iqm") for v in values]
+    s = sorted(clean)
     lo = n * 0.25
     hi = n * 0.75
     total_w = 0.0
@@ -274,14 +509,10 @@ def _normalize_matrix(raw_scores: Any, method_name: str) -> list[list[float]]:
         for row in raw_scores:
             if not isinstance(row, list) or len(row) != n_tasks:
                 raise ValueError(f"Method {method_name!r} has ragged seed/task matrix")
-            parsed_row = [float(x) for x in row]
-            if not all(math.isfinite(x) for x in parsed_row):
-                raise ValueError(f"Method {method_name!r} contains non-finite value")
+            parsed_row = [_to_finite_float(x, method_name) for x in row]
             mat.append(parsed_row)
         return mat
-    parsed = [float(x) for x in raw_scores]
-    if not all(math.isfinite(x) for x in parsed):
-        raise ValueError(f"Method {method_name!r} contains non-finite value")
+    parsed = [_to_finite_float(x, method_name) for x in raw_scores]
     return [[x] for x in parsed]
 
 
@@ -296,7 +527,11 @@ def _percentile(sorted_vals: list[float], q: float) -> float:
 
 
 def _prob_of_improvement(mat_x: list[list[float]], mat_y: list[list[float]]) -> float:
-    n_tasks = min(len(mat_x[0]), len(mat_y[0]))
+    if not mat_x or not mat_y or not mat_x[0] or not mat_y[0]:
+        raise ValueError("Empty matrix in probability of improvement")
+    if len(mat_x[0]) != len(mat_y[0]):
+        raise ValueError(f"Task count mismatch in P(X>Y): {len(mat_x[0])} vs {len(mat_y[0])}")
+    n_tasks = len(mat_x[0])
     task_probs: list[float] = []
     for t in range(n_tasks):
         xs = [row[t] for row in mat_x]
@@ -320,20 +555,27 @@ def compute_rliable_stats(
     seed: int = 0,
     baseline: str | None = None,
 ) -> dict[str, Any]:
-    if not math.isfinite(tau):
+    if isinstance(tau, bool) or not isinstance(tau, (int, float)) or not math.isfinite(float(tau)):
         raise ValueError("--tau must be finite")
-    if reps < 10:
+    tau = float(tau)
+    if isinstance(reps, bool) or not isinstance(reps, int) or reps < 10:
         raise ValueError("--reps must be >= 10")
+    if baseline is not None:
+        baseline = _validate_nonempty_str(baseline, "--baseline")
 
-    methods_raw = data.get("methods") or data.get("scores")
+    methods_raw = data.get("methods") if "methods" in data else data.get("scores")
     if not isinstance(methods_raw, dict) or not methods_raw:
         raise ValueError("Input JSON must contain non-empty 'methods' or 'scores' mapping")
 
-    matrices = {name: _normalize_matrix(vals, name) for name, vals in methods_raw.items()}
+    matrices = {str(name): _normalize_matrix(vals, str(name)) for name, vals in methods_raw.items()}
     rng = random.Random(seed)
-    base_name = baseline or data.get("baseline")
-    if base_name is not None and base_name not in matrices:
-        raise ValueError(f"Baseline method {base_name!r} not found in input")
+    base_name = baseline if baseline is not None else data.get("baseline")
+    if base_name is not None:
+        if not isinstance(base_name, str) or not base_name.strip():
+            raise ValueError("Invalid non-string or empty baseline name in input")
+        base_name = base_name.strip()
+        if base_name not in matrices:
+            raise ValueError(f"Baseline method {base_name!r} not found in input")
 
     summary: dict[str, Any] = {}
     warnings: list[str] = []
@@ -373,13 +615,16 @@ def compute_rliable_stats(
 
         if base_name and name != base_name:
             base_mat = matrices[base_name]
+            if n_tasks != len(base_mat[0]):
+                raise ValueError(
+                    f"Task count mismatch between {name!r} ({n_tasks}) and baseline {base_name!r} ({len(base_mat[0])})"
+                )
             poi = _prob_of_improvement(mat, base_mat)
             boot_poi: list[float] = []
             b_seeds = len(base_mat)
-            c_tasks = min(n_tasks, len(base_mat[0]))
             for _ in range(reps):
-                sx = [[mat[rng.randrange(n_seeds)][t] for t in range(c_tasks)] for _s in range(n_seeds)]
-                sy = [[base_mat[rng.randrange(b_seeds)][t] for t in range(c_tasks)] for _s in range(b_seeds)]
+                sx = [[mat[rng.randrange(n_seeds)][t] for t in range(n_tasks)] for _s in range(n_seeds)]
+                sy = [[base_mat[rng.randrange(b_seeds)][t] for t in range(n_tasks)] for _s in range(b_seeds)]
                 boot_poi.append(_prob_of_improvement(sx, sy))
             boot_poi.sort()
             entry["prob_improvement_vs_baseline"] = round(poi, 6)
@@ -404,14 +649,64 @@ def compute_rliable_stats(
 # 3. Deterministic n-gram train/eval contamination check
 # ---------------------------------------------------------------------------
 
+def _extract_record_text(item: Any) -> str:
+    if isinstance(item, dict):
+        parts = [
+            str(item[k])
+            for k in _TEXT_FIELDS
+            if k in item and item[k] is not None and str(item[k]).strip() != ""
+        ]
+        if parts:
+            return " ".join(parts)
+        return json.dumps(item, ensure_ascii=False)
+    return str(item)
+
+
 def _load_texts(path: Path) -> list[str]:
     if not path.exists():
         raise FileNotFoundError(f"Path not found: {path}")
-    files = sorted(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else [path]
+
+    single_file_mode = path.is_file()
+    if single_file_mode:
+        files = [path]
+    else:
+        root_res = path.resolve()
+        files = []
+        for dirpath, dirnames, filenames in os.walk(path, followlinks=False):
+            dp = Path(dirpath)
+            dirnames[:] = sorted(
+                d for d in dirnames
+                if d not in SKIP_DIRS and not (dp / d).is_symlink()
+            )
+            for fn in sorted(filenames):
+                p = dp / fn
+                if p.is_symlink():
+                    continue
+                try:
+                    if not p.resolve().is_relative_to(root_res):
+                        continue
+                except OSError:
+                    continue
+                files.append(p)
+
     texts: list[str] = []
     for f in files:
         suf = f.suffix.lower()
-        raw = f.read_text(encoding="utf-8", errors="replace")
+        if suf in BINARY_EXTS:
+            if single_file_mode:
+                raise ValueError(f"Binary file cannot be used as text corpus: {f}")
+            continue
+        raw_bytes = f.read_bytes()
+        if b"\x00" in raw_bytes:
+            if single_file_mode:
+                raise ValueError(f"Binary file (NUL bytes) cannot be used as text corpus: {f}")
+            continue
+        try:
+            raw = raw_bytes.decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            if single_file_mode:
+                raise ValueError(f"Corpus file is not valid UTF-8 text: {f}") from exc
+            continue
         if not raw.strip():
             continue
         if suf == ".jsonl":
@@ -419,18 +714,23 @@ def _load_texts(path: Path) -> list[str]:
                 if not line.strip():
                     continue
                 obj = json.loads(line)
-                texts.append(json.dumps(obj, ensure_ascii=False) if isinstance(obj, dict) else str(obj))
+                texts.append(_extract_record_text(obj))
         elif suf == ".json":
             obj = json.loads(raw)
             if isinstance(obj, list):
                 for item in obj:
-                    if isinstance(item, dict):
-                        txt = " ".join(str(v) for k, v in item.items() if k in {"text", "prompt", "question", "input", "output", "answer", "content"} and v)
-                        texts.append(txt or json.dumps(item, ensure_ascii=False))
-                    else:
-                        texts.append(str(item))
+                    texts.append(_extract_record_text(item))
             elif isinstance(obj, dict):
-                texts.append(json.dumps(obj, ensure_ascii=False))
+                seq = None
+                for k in _DICT_LIST_KEYS:
+                    if isinstance(obj.get(k), list):
+                        seq = obj[k]
+                        break
+                if seq is not None:
+                    for item in seq:
+                        texts.append(_extract_record_text(item))
+                else:
+                    texts.append(_extract_record_text(obj))
         elif suf == ".csv":
             for row in csv.reader(raw.splitlines()):
                 joined = " ".join(row).strip()
@@ -450,10 +750,11 @@ def _norm_tokens(text: str) -> list[str]:
 
 
 def check_contamination(train_path: Path, eval_path: Path, ngram: int = 8, threshold: float = 0.05) -> dict[str, Any]:
-    if ngram < 3:
+    if isinstance(ngram, bool) or not isinstance(ngram, int) or ngram < 3:
         raise ValueError("--ngram must be >= 3")
-    if not math.isfinite(threshold) or not (0.0 <= threshold <= 1.0):
+    if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not math.isfinite(float(threshold)) or not (0.0 <= float(threshold) <= 1.0):
         raise ValueError("--threshold must be finite and in [0, 1]")
+    threshold = float(threshold)
     train_texts = _load_texts(train_path)
     eval_texts = _load_texts(eval_path)
 
@@ -538,6 +839,11 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     try:
+        if args.out is not None:
+            _validate_nonempty_str(args.out, "--out")
+        if args.json is not None and args.json != "-":
+            _validate_nonempty_str(args.json, "--json")
+
         if args.cmd == "repro":
             target = Path(_validate_nonempty_str(args.path, "path"))
             res = audit_repro(target, max_files=args.max_files)
@@ -594,7 +900,7 @@ def main(argv: list[str] | None = None) -> int:
         }
         _emit_output(res, compact, args)
         return 1 if res["verdict"] != "PASS" else 0
-    except (OSError, ValueError, json.JSONDecodeError, FileNotFoundError) as exc:
+    except (OSError, ValueError, TypeError, json.JSONDecodeError, FileNotFoundError) as exc:
         return _err(str(exc))
 
 
