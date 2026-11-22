@@ -1,0 +1,12 @@
+{
+  "name": "research-scientist-mode",
+  "displayName": "Research Scientist Session Mode",
+  "version": "1.0.0",
+  "description": "Per-chat /research-scientist and /research-off toggle that locks an Antigravity conversation to the research-scientist workflow across long turns and compaction.",
+  "repository": "https://github.com/NamBuw/research-skill",
+  "suggestedPrompts": [
+    "/research-scientist Audit my current low-resource ASR experiment for Q2 TALLIP readiness",
+    "/research-scientist Find falsifiable research gaps and cross-domain AI analogies for this problem",
+    "/research-off"
+  ]
+}

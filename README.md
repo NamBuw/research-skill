@@ -37,13 +37,21 @@ python3 research-scientist/scripts/claim_audit.py --root research-scientist --re
 
 ### Lock an Entire Research Workspace / Chat Session
 
-Copy the reusable workspace rules and lifecycle hooks into any target research project directory (never overwrites existing files):
+- **Option A — Per-Project Rules & Hooks:** Copy the reusable workspace rules and lifecycle hooks into any target research project directory (never overwrites existing files):
 
 ```bash
 cp -rn templates/session-lock/. /path/to/your-research-project/
 ```
 
 See [session-lock templates](templates/session-lock/README.md) for `AGENTS.md`, `CLAUDE.md`, `.agents/hooks.json`, and `SessionStart`/`Stop` provenance guard details.
+
+- **Option B — Per-Chat Toggle Plugin (Antigravity):** Install the global `research-scientist-mode` plugin once, then type `/research-scientist` in any chat to lock that conversation (auto re-anchoring across turns/compaction) and `/research-off` to restore normal chat:
+
+```bash
+cp -r templates/antigravity-plugin/research-scientist-mode ~/.gemini/config/plugins/
+```
+
+See [session-mode plugin guide](templates/antigravity-plugin/research-scientist-mode/README.md) for toggle details.
 
 Run individual pipeline tools from `research-scientist/`:
 

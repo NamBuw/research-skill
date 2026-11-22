@@ -1,0 +1,19 @@
+{
+  "research-scientist-mode": {
+    "enabled": true,
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python3 ./hooks/session_mode_hook.py --event PreInvocation",
+        "timeout": 10
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 ./hooks/session_mode_hook.py --event Stop",
+        "timeout": 10
+      }
+    ]
+  }
+}
