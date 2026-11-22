@@ -12,7 +12,8 @@ Compile verified research findings (gap audit, precedent search, /10 scoring, ve
 1. **Match user input language:** Detect language automatically from `--input-text` or structured `--input` (`vi`, `en`, etc.) and render headings, verdicts, and labels consistently with verified UTF-8/Vietnamese diacritics (`xelatex`/`lualatex`/`pdflatex` + PyMuPDF text check).
 2. **Concise, direct, plain-language prose:** Lead with the direct verdict, then key numbers/evidence, concrete flaws/risks, and actionable next steps. Keep sentences short and plain; reject bloated prose, obscure jargon, filler, and sycophancy.
 3. **Zero ungrounded claims:** Every metric, finding, and recommendation in the report JSON must link to a verified evidence locator or source receipt. Include the Parsimony ("least is best") verdict whenever evaluating candidate methods or plans.
-4. **Compact JSON receipt:** Use `--strict --json --compact` so stdout stays bounded (`<4096B`) with PDF/TeX paths and lint status.
+4. **Submission readiness, related-work anchor & venue portfolio:** Whenever reporting `/10` scores or venue evaluations, include concise plain-language **Submission Readiness / Khả năng nộp bài** guidance (fatal-gate check, standing vs all submissions + same-topic `>=3` closest work + cross-topic `venue_contribution_bar`, hard `rejected_below_venue_tier` gate, verified portfolio `recommended_matched_tier`, and top fixes — never invented `%` odds).
+5. **Compact JSON receipt:** Use `--strict --json --compact` so stdout stays bounded (`<4096B`) with PDF/TeX paths and lint status.
 
 ## Shared Tool (`../research-scientist/scripts/`)
 

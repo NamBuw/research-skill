@@ -74,12 +74,35 @@ Score only after naming the assessed object (`idea`, `completed manuscript`, `pu
    Supports `--source pmlr|acl|dblp` (use `--offline-html` when DBLP/Cloudflare triggers `bot_challenge_anubis` or `bot_challenge_cloudflare`). Every collected paper starts as `reading_basis: "metadata_only"` — read each full text before scoring.
 2. **Compare scorecards & venue novelty with local locator verification:**
    ```bash
-   python3 ../../research-scientist/scripts/compare_scorecards.py scorecards.json --sources-dir sources/ --out scorecard_report.json --compact
-   python3 ../../research-scientist/scripts/compare_venue_novelty.py profile.json --sources-dir sources/ --quality-refs-dir quality_refs/ --out novelty_report.json --compact
+   python3 ../../research-scientist/scripts/compare_scorecards.py scorecards.json --target-id target --strict-related-panel --min-related 3 --sources-dir sources/ --out scorecard_report.json --compact
+   python3 ../../research-scientist/scripts/compare_venue_novelty.py profile.json --target-overall 6.35 --sources-dir sources/ --quality-refs-dir quality_refs/ --out novelty_report.json --compact
    ```
-   `compare_scorecards.py` requires `>= 2` profiles, all 6 integer dimensions, weights summing to `100`, `reading_basis == "full_text"`, and locators verified inside `--sources-dir`. `compare_venue_novelty.py` requires `>= 5` recent (`<= 3` years) same-track `full_text` accepted papers, all 5 fit axes (`0..2`), and hard constraints (`deadline`, `budget`, `eligibility`). Rejects `NaN`/`Infinity` (`exit 2`).
+   `compare_scorecards.py` requires `>= 2` profiles (and `>= 3` qualified full-text `closest_work` profiles with `--target-id --strict-related-panel`), all 6 integer dimensions, weights summing to `100`, `reading_basis == "full_text"`, and locators verified inside `--sources-dir`. `compare_venue_novelty.py` requires `>= 5` recent (`<= 3` years) same-track `full_text` accepted papers, all 5 fit axes (`0..2`), and hard constraints (`deadline`, `budget`, `eligibility`). Rejects `NaN`/`Infinity` (`exit 2`).
+
+### 3.4 Mandatory >= 3 Closest-Related-Work Anchoring & Two-Axis Venue Calibration
+
+1. **Axis 1 — Same-Topic Closest Related Work (`compare_scorecards.py --target-id`):** Never score Novelty or Overall in isolation. Score `>= 3` full-text `closest_work` papers on the exact same 6-dimension rubric; fail closed (`not_comparable`) on `unscored_closest_work:<id>`, `insufficient_scored_related_papers`, or `closest_work_self_reference:<id>`, and inspect `novelty_inflation_warnings` (`novelty >= 7` without `contribution_delta` or trailing `soundness`/`evidence`).
+2. **Axis 2 — Cross-Topic Same-Venue Accepted Panel (`venue_contribution_bar`):** Label accepted-panel entries with `topic_relation` (`"same_topic"`, `"adjacent_topic"`, `"different_topic"`) and optional `overall_score` / `ratings` to calibrate `panel_median_overall` and `target_vs_venue_overall_delta` (kept outside `novelty_comparison`; never fabricated when overall scores are absent).
+3. **Hard Tier-Mismatch Rejection (`rejected_below_venue_tier`, NEVER `stretch_high_risk`):** Canonical tier floors in `../../research-scientist/scripts/score_math.py`:
+   - `top_tier_flagship`: competitive `>= 6.80`, min viable `>= 6.00`, `soundness >= 6`, `evidence >= 6`, `novelty >= 5`, no dim `<= 4`.
+   - `q1_or_tier_a` (`Q1` / `Tier-A` / `CCF-B` / `Findings`): min viable `>= 6.00`, `soundness >= 6`, `evidence >= 6`, `novelty >= 5`, no dim `<= 4`.
+   - `q2_q3_or_tier_b` (`Q2-Q3` / `Tier-B` / `CCF-C`): min viable `>= 5.50`, `soundness >= 5`, `evidence >= 5`, no dim `<= 3`.
+   - `workshop_or_preliminary`: viable `5.00–5.99` when no fatal defect exists.
+   - Reject bluntly (`rejected_below_venue_tier`, `ready_to_submit = False`, emitting `upgrade_gaps_to_target_tier`) whenever `weighted_unrounded < floor`, critical dimension shortage occurs, `target_vs_venue_overall_delta <= -1.0`, or `panel_median_novelty - target_novelty >= 2` at `top_tier_flagship`/`q1_or_tier_a`. See [parent scoring & venue guide](../../research-scientist/references/scoring-and-venue-fit.md).
 3. **K-Dense Evaluation & Peer-Review CLIs (Person-Ranking Ban):**
    Run `../../research-scientist/modules/kdense-scholar-evaluation/scripts/calculate_scores.py` (`--rubric`, `--evaluation`, `--output`), `check_traceability.py`, `weight_sensitivity.py`, plus `../../research-scientist/modules/kdense-peer-review/scripts/validate_claim_evidence.py` and `lint_review.py`. **Strict ethical ban:** Never use scoring tools to rank people or automate hiring, tenure, promotion, grant, admissions, or editorial decisions.
+
+### 3.3 Mandatory Submission Readiness & Venue Standing Calibration
+Every `/10` scorecard or venue comparison output MUST end with a candid **Submission Readiness & Venue Standing** block—never bare numbers like `6.35/10` alone, and **never** fabricated `%` acceptance probabilities (e.g., *"45% acceptance odds"*).
+
+1. **Fatal-Gate Override (`not_ready_fatal_gate`):** Any core defect blocks submission even if `weighted_unrounded >= 6.5`: `soundness <= 4`, `evidence <= 4`, `novelty <= 2`, `transparency <= 3`, any dimension `<= 2`, or unrun `idea` results.
+2. **Calibrated Weighted `/10` Bands (when fatal gates pass):**
+   - `< 5.0` (`not_ready_major_rework`): Major redesign or new evidence required before any submission.
+   - `5.0 – 5.99` (`workshop_or_preliminary_only`): Near *all-submissions* average (`~4.8–5.5`) but below archival main-track bar; early workshop feedback only.
+   - `6.0 – 6.79` (`borderline_top_tier_competitive_findings_tier_a`, e.g., `6.35`): Above *all-submissions* average (`~4.8–5.5`) yet slightly below / lower-edge vs Top-Tier Main Track *accepted-paper* median (`~6.8–7.6` at `NeurIPS`/`ICML`/`ICLR`/`CVPR`/`ACL`). High reviewer-variance risk unless strengthened past `6.80`; **competitive now** for `Findings`, CCF-B / Tier-A conferences, strong workshops, or focused Q1–Q2 journals.
+   - `6.8 – 7.79` (`competitive_top_tier_main_track`): Solidly inside the typical Top-Tier Main Track *accepted-paper* band when CFP fit and hard constraints hold.
+   - `>= 7.8` (`strong_top_tier_contender`): Upper-tier accepted band.
+3. **Required Output Block & Standing Anchors:** Report (a) fatal-gate status (`fatal_dimensions`), (b) standing vs *all submissions* (`~4.8–5.5`) and *accepted panel* (`above_panel_median` / `at_or_overlapping_panel_median` / `below_panel_median` from `../../research-scientist/scripts/compare_venue_novelty.py`, plus `delta_to_competitive_top_tier` vs `6.80`), (c) realistic venue-tier posture now (`ready_for_top_tier_main_track` vs `ready_for_findings_or_tier_a`), and (d) top `bottleneck_dimensions` and pre-submission fixes. See [parent scoring & venue guide](../../research-scientist/references/scoring-and-venue-fit.md).
 
 ## 4. 5-Axis Venue Fit & Live CFP / Deadline / Fee Verification
 
@@ -93,3 +116,18 @@ Score only after naming the assessed object (`idea`, `completed manuscript`, `pu
   ```
   - Fails closed (`exit 1`) on `same_host_path_redirect_year_mismatch` (e.g. `/aaai-27/` redirecting to `/aaai-25/`), `js_rendered_suspected` / `unverified_dynamic_page` (empty SPA pricing widgets), Anubis/bot blocks, stale snapshots (`> max_source_age_days`, default `30`), cross-host redirects, or missing quotes.
   - Validates exact deadline timezone conversion (preserving `AoE` / `UTC-12H`), backward work schedules, and mandatory fee categories (`submission`, `publication`, `author_registration`, `overlength`, `tax`, plus `travel`, `visa`, `lodging`, `local_transport` when `presentation_mode == "in_person"`). See [parent scoring & venue guide](../../research-scientist/references/scoring-and-venue-fit.md).
+
+### 4.1 Strict Multi-Venue Portfolio Evaluation (>= 3–5 Candidate Venues)
+
+When evaluating submission choices—especially for borderline (`6.35/10`) or tier-rejected targets—score `>= 3–5` concrete `candidate_venues` via `python3 ../../research-scientist/scripts/compare_venue_novelty.py portfolio.json --portfolio [--require-panels] [--min-venues 3] [--target-overall 6.35] [--sources-dir sources/] [--out portfolio_report.json] --compact`. Automatically computes `recommended_matched_tier` (highest surviving verified matched venue + `upgrade_gaps_to_target_tier` for rejected targets) or `no_viable_venue_in_portfolio` (recommending a verified `Workshop` or `Q2-Q3 / CCF-C` target search), plus cross-venue `timeline_conflicts`.
+
+| Status | Portfolio Classification & Trigger |
+|---|---|
+| `hold_for_rework` | Target triggers `fatal_gate_triggered` (`soundness <= 4`, `evidence <= 4`, `novelty <= 2`, `transparency <= 3`, any dim `<= 2`, or unrun `idea`) |
+| `disqualified` | Duplicate venue, failed hard constraint (`deadline`, `budget`, `eligibility`), or `fit_score_out_of_10 <= 4` |
+| `withheld_unverified` | Stale CFP, redirect year mismatch, `js_rendered_suspected`, locator error, `unverified` constraint, or missing required panel (`--require-panels`) |
+| `rejected_below_venue_tier` | Fails target venue tier floor or trails cross-topic panel bar by `>= 1.0` — hard rejected (never labeled `stretch_high_risk`) |
+| `conflicted_fallback` | Fallback submission deadline precedes primary notification when simultaneous submission is prohibited |
+| `recommended_now` | All constraints `met`, `fit_score_out_of_10 >= 7`, clears tier floor, and meets panel standing |
+| `stretch_high_risk` | Constraints & fit `met` and clears min viable tier floor, yet `< 6.80` for `top_tier_flagship`, `below_panel_median` (`< 2` gap), or moderate fit |
+| `viable_fallback` | Verified fit & constraints `met`, clears tier floor, and clean post-notification fallback timeline |

@@ -7,7 +7,7 @@ Load this guide only when converting verified research outputs (gap audits, prec
 `../../research-scientist/scripts/report_latex_pdf.py` accepts canonical `research_scientist_executive_report_v1` JSON (plus aliases `conclusion`, `metrics`, `evidence`, `risks`, `recommendations`) AND automatically normalizes 12+ raw upstream skill JSON artifacts:
 - `check_gap_record.py` (`gap-record`) & `gap_pipeline.py` (`research_scientist_gap_pipeline_v1`)
 - `search_papers.py` (`research_scientist_search_v2`) & `search_campaign.py` (`research_scientist_search_campaign_v1`, including `--compact` `top_results`)
-- `compare_venue_novelty.py` (`venue-novelty-profile`) & `compare_scorecards.py` (`profiles`, `rankings`, `ranking_sensitivity`)
+- `compare_venue_novelty.py` (`venue-novelty-profile` & `--portfolio` `venue_portfolio_recommendations`) & `compare_scorecards.py` (`profiles`, `rankings`, `ranking_sensitivity`, `related_work_comparison`), including `submission_readiness` when present
 - `humanizer_lint.py` & `check_manuscript_ledger.py`
 - `check_evidence_map.py`
 - `check_engineering_diagnostics.py` (`research_scientist_engineering_diagnostics_v1`) & `check_experiment_manifest.py`
@@ -115,3 +115,27 @@ python3 ../../research-scientist/scripts/report_latex_pdf.py --input report.json
   - `1` (`status: "lint_failed"`, `"compile_failed"`, or `"verify_failed"`): `--strict` lint block, TeX compilation failure, or `pymupdf` verification failure.
   - `2`: invalid CLI flags, missing/empty/`NaN` JSON, unrecognized schema, invalid language tag, or missing TeX/`pymupdf` runtime.
 - **Integrity Boundary:** A passing `--strict` run certifies formatting, conciseness, plain-language style, structural locator presence, and UTF-8 PDF glyph integrity only — never external scientific truth. See [parent LaTeX report spec](../../research-scientist/references/user-report-latex.md).
+
+## 5. Mandatory Submission Readiness Guidance (`Khả năng nộp bài`)
+
+Whenever generating a PDF report for `/10` scorecards or venue evaluations (`report_type: "novelty_scoring"` or `"venue_dossier"`), translate numeric scores into crisp, plain-language **Submission Readiness** (`vi`: **Khả năng nộp bài**) guidance—never bare numbers alone, and never invented `%` acceptance odds.
+
+1. **Required 4 points (short sentences `<= 30` words, grounded with locators):**
+   - **Fatal-gate check:** State immediately if `not_ready_fatal_gate` triggers (`soundness <= 4`, `evidence <= 4`, `novelty <= 2`, `transparency <= 3`, any axis `<= 2`, or unrun `idea`).
+   - **Standing vs all submissions & accepted panel:** Compare weighted `/10` against all-submissions average (`~4.8–5.5`) and top-tier accepted median (`~6.8–7.6`), citing panel standing if available.
+   - **Realistic venue tier right now:** State clearly whether the work fits rework/workshop (`<6.0`), `Findings` / Tier-A / focused Q1–Q2 (`6.0–6.79`), or Top-Tier Main Track (`>=6.8`, when CFP fit and hard constraints pass).
+   - **Top fixes before submission:** Name the `bottleneck_dimensions`, gap to `6.80`, and concrete missing experiments/ablations in `flaws_and_risks` and `next_steps`.
+2. **Plain-Language EN/VI Examples (`--strict` lint-clean):**
+   - **EN (`6.35/10`, `verdict.summary`):** `"Weighted score 6.35/10 passes fatal gates but sits below top-tier main-track accepted median (~6.8-7.6) [scorecards.json]. Competitive now for Findings or Tier-A venues; strengthen soundness before NeurIPS."`
+   - **VI (`6.35/10`, `verdict.summary`):** `"Điểm 6.35/10 vượt mức trung bình toàn bộ bài nộp (~4.8-5.5) nhưng thấp hơn mức bài được nhận top-tier (~6.8-7.6) [scorecards.json]. Phù hợp nộp Findings hoặc hội nghị Tier-A hiện tại."`
+   - **VI (Fatal-gate override, `verdict.summary`):** `"Chưa đủ điều kiện nộp dù điểm trung bình đạt 6.6/10 do vướng lỗi chí mạng ở độ chặt phương pháp (4/10) [scorecards.json]. Cần sửa thiết kế thí nghiệm trước khi nộp."`
+
+## 6. Closest-Work Anchor, Cross-Topic Venue Bar & Portfolio Guidance
+
+Whenever summarizing `compare_scorecards.py --target-id` or `compare_venue_novelty.py --portfolio` outputs, also include:
+1. **Closest-work & cross-topic venue deltas:** Report `target_delta_vs_best_related_overall` across `>= 3` full-text closest works and `target_vs_venue_overall_delta` vs `venue_contribution_bar` (`different_topic` / `cross_topic_count`).
+2. **Tier-mismatch rejection & retargeting:** When `rejected_below_venue_tier` triggers (e.g., workshop-scale `< 6.0` targeting Q1/Top-Tier), state the rejection bluntly, list `upgrade_gaps_to_target_tier`, and point to `recommended_matched_tier` (or `no_viable_venue_in_portfolio`) across verified candidates (`recommended_now`, `stretch_high_risk`, `viable_fallback`, `hold_for_rework`, `disqualified`, `withheld_unverified`, `timeline_conflicts`).
+3. **`--strict` Portfolio EN/VI Examples:**
+   - **EN (`verdict.summary`):** `"Target scores 6.35/10 (-0.45 vs 6.80; -0.65 vs best related work 7.00) [scorecards.json]. Recommended now: EMNLP Findings (fit 8/10); NeurIPS Main Track is stretch_high_risk [portfolio.json]."`
+   - **VI (`verdict.summary`):** `"Bài đạt 6.35/10 (kém bài liên quan mạnh nhất 0.65 điểm) [scorecards.json]. Nên nộp EMNLP Findings (fit 8/10); NeurIPS Main Track ở mức rủi ro cao [portfolio.json]."`
+   - **VI (Tier-mismatch rejection -> Workshop retarget, `verdict.summary`):** `"Bài đạt 5.40/10, chưa đạt ngưỡng tạp chí Q1 (tối thiểu 6.00/10) [portfolio.json]. Đề xuất chuyển hướng sang hội thảo kiểm chứng đạt 8/10 độ phù hợp [portfolio.json]."`

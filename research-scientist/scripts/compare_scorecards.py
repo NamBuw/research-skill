@@ -6,7 +6,7 @@ import json
 import re
 import sys
 import unicodedata
-from decimal import BasicContext, Decimal, localcontext
+from decimal import BasicContext, Decimal, ROUND_HALF_UP, localcontext
 from pathlib import Path
 
 from score_math import DIMENSIONS, score
@@ -646,12 +646,192 @@ def verify_locator(locator, index, default_source_ids=(), source_url=None, extra
     return False, 'text_not_found'
 
 
-def compare(document, sources_dir=None):
+def _build_per_paper_readiness(profiles, scenario_scores, issues_by_pid):
+    per_paper = {}
+    for p_idx, item in enumerate(profiles):
+        pid = item['id']
+        if pid in per_paper:
+            continue
+        primary = scenario_scores[0][p_idx][1]
+        sr = dict(primary['submission_readiness'])
+        bands_across = [
+            scenario_scores[s][p_idx][1]['submission_readiness']['band']
+            for s in range(len(scenario_scores))
+        ]
+        pid_issues = sorted(set(issues_by_pid.get(pid, [])))
+        if pid_issues or primary['status'] != 'calculated':
+            sr['ready_for_top_tier_main_track'] = False
+            sr['ready_for_findings_or_tier_a'] = False
+            if not sr['fatal_gate_triggered']:
+                sr['band'] = (
+                    'not_comparable_missing_dimension'
+                    if primary['status'] == 'not_comparable'
+                    else 'not_comparable_structural_gate'
+                )
+            if pid_issues:
+                sr['guidance'] = (
+                    f"Blocked by comparison gate ({', '.join(pid_issues[:3])}). "
+                    + sr['guidance']
+                )
+        per_paper[pid] = {
+            'overall': primary['overall'],
+            'weighted_unrounded': primary.get('weighted_unrounded'),
+            **sr,
+            'structural_gate_passed': (not pid_issues and primary['status'] == 'calculated'),
+            'profile_issues': pid_issues,
+            'bands_across_scenarios': bands_across,
+            'band_stable_across_scenarios': len(set(bands_across)) == 1,
+        }
+    return per_paper
+
+
+def _build_related_work_comparison(
+    eff_target_id, profiles, scenario_scores, issues_by_pid, eff_min_related, eff_strict
+):
+    target_idx = None
+    for idx, item in enumerate(profiles):
+        if item['id'] == eff_target_id:
+            target_idx = idx
+            break
+    target_item = profiles[target_idx] if target_idx is not None else None
+    target_sc = scenario_scores[0][target_idx][1] if target_idx is not None else None
+
+    qualified = []
+    for idx, item in enumerate(profiles):
+        pid = item['id']
+        if pid == eff_target_id:
+            continue
+        if issues_by_pid.get(pid):
+            continue
+        sc = scenario_scores[0][idx][1]
+        if sc.get('status') != 'calculated':
+            continue
+        qualified.append((item, sc))
+
+    scored_related_ids = [item['id'] for item, _ in qualified]
+    scored_set = set(scored_related_ids)
+    target_unscored_cw = []
+    seen_cw = set()
+    if target_item is not None and isinstance(target_item.get('closest_work'), list):
+        for cw in target_item['closest_work']:
+            if not isinstance(cw, str):
+                continue
+            cw_s = cw.strip()
+            if not cw_s or cw_s == eff_target_id or cw_s in seen_cw:
+                continue
+            seen_cw.add(cw_s)
+            if cw_s not in scored_set:
+                target_unscored_cw.append(cw_s)
+
+    best_related_overall = None
+    target_delta_vs_best = None
+    max_related_by_dim = None
+    dim_deltas_vs_max = None
+
+    if qualified:
+        with localcontext(BasicContext) as ctx:
+            ctx.prec = 28
+            best_dec = max(Decimal(sc['weighted_unrounded']) for _, sc in qualified)
+            best_q = best_dec.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        best_related_overall = float(str(best_q))
+        max_related_by_dim = {
+            d: max(item['ratings'][d] for item, _ in qualified)
+            for d in DIMENSIONS
+        }
+        if target_sc is not None and target_sc.get('status') == 'calculated':
+            with localcontext(BasicContext) as ctx:
+                ctx.prec = 28
+                delta_dec = (Decimal(target_sc['weighted_unrounded']) - best_dec).quantize(
+                    Decimal('0.01'), rounding=ROUND_HALF_UP
+                )
+            target_delta_vs_best = float(str(delta_dec))
+        if target_item is not None and isinstance(target_item.get('ratings'), dict):
+            dim_deltas_vs_max = {
+                d: (
+                    target_item['ratings'][d] - max_related_by_dim[d]
+                    if type(target_item['ratings'].get(d)) is int
+                    else None
+                )
+                for d in DIMENSIONS
+            }
+
+    warnings = []
+    if target_item is not None and isinstance(target_item.get('ratings'), dict):
+        t_nov = target_item['ratings'].get('novelty')
+        if type(t_nov) is int and t_nov >= 7:
+            contrib_delta = target_item.get('contribution_delta') or target_item.get('target_contribution_delta')
+            if not isinstance(contrib_delta, str) or not contrib_delta.strip():
+                warnings.append('novelty_inflation_risk:missing_contribution_delta')
+            if dim_deltas_vs_max is not None and (
+                (dim_deltas_vs_max['soundness'] is not None and dim_deltas_vs_max['soundness'] < 0)
+                or (dim_deltas_vs_max['evidence'] is not None and dim_deltas_vs_max['evidence'] < 0)
+            ):
+                rationale = (
+                    target_item.get('baseline_tradeoff_explanation')
+                    or target_item.get('tradeoff_explanation')
+                    or target_item.get('soundness_evidence_gap_explanation')
+                )
+                if not isinstance(rationale, str) or not rationale.strip():
+                    warnings.append('novelty_inflation_risk:soundness_or_evidence_trails_related_baseline')
+    if not eff_strict and target_unscored_cw:
+        warnings.append(f'unscored_closest_work_present:{len(target_unscored_cw)}')
+    if not eff_strict and len(scored_related_ids) < 3:
+        warnings.append(f'fewer_than_three_scored_related_papers:{len(scored_related_ids)}')
+
+    return {
+        'target_id': eff_target_id,
+        'strict_related_panel': eff_strict,
+        'min_related': eff_min_related,
+        'scored_related_ids': scored_related_ids,
+        'unscored_closest_work_ids': target_unscored_cw,
+        'best_related_overall': best_related_overall,
+        'max_related_by_dimension': max_related_by_dim,
+        'target_delta_vs_best_related_overall': target_delta_vs_best,
+        'dimension_deltas_vs_max_related': dim_deltas_vs_max,
+        'novelty_inflation_warnings': warnings,
+    }, target_unscored_cw, scored_related_ids
+
+
+def compare(
+    document,
+    sources_dir=None,
+    target_id=None,
+    strict_related_panel=None,
+    min_related=None,
+):
     if not isinstance(document, dict) or not isinstance(document.get('profiles'), list) or len(document['profiles']) < 2:
         raise ValueError('at least two profiles are required')
     scenarios = document.get('weight_scenarios')
     if not isinstance(scenarios, list) or not scenarios:
         raise ValueError('weight_scenarios must be a nonempty list')
+
+    raw_target = target_id if target_id is not None else document.get('target_id')
+    if raw_target is not None:
+        if not isinstance(raw_target, str) or not raw_target.strip():
+            raise ValueError('target_id must be a nonblank string')
+        eff_target_id = raw_target.strip()
+    else:
+        eff_target_id = None
+
+    if strict_related_panel is not None:
+        if type(strict_related_panel) is not bool:
+            raise ValueError('strict_related_panel must be a boolean')
+        eff_strict = strict_related_panel
+    elif 'strict_related_panel' in document and document['strict_related_panel'] is not None:
+        if type(document['strict_related_panel']) is not bool:
+            raise ValueError('strict_related_panel must be a boolean')
+        eff_strict = document['strict_related_panel']
+    else:
+        eff_strict = False
+
+    raw_min = min_related if min_related is not None else document.get('min_related')
+    if raw_min is not None:
+        if type(raw_min) is not int or raw_min < 1:
+            raise ValueError('min_related must be an integer >= 1')
+        eff_min_related = raw_min
+    else:
+        eff_min_related = 3 if eff_strict else None
+
     profiles = document['profiles']
     for item in profiles:
         if not isinstance(item, dict) or not isinstance(item.get('id'), str) or not item['id'].strip():
@@ -665,31 +845,46 @@ def compare(document, sources_dir=None):
     for weights in scenarios:
         per_profile = []
         for item in profiles:
-            calculated = score({'weights': weights, 'ratings': item['ratings']})
+            score_input = {'weights': weights, 'ratings': item['ratings']}
+            if 'status' in item:
+                score_input['status'] = item['status']
+            if 'object_type' in item:
+                score_input['object_type'] = item['object_type']
+            calculated = score(score_input)
             per_profile.append((item['id'], calculated))
         scenario_scores.append(per_profile)
 
     issues = []
+    issues_by_pid = {}
+
+    def _record_issue(msg, pid=None):
+        issues.append(msg)
+        if pid is not None:
+            issues_by_pid.setdefault(pid, []).append(msg)
+
     ids = set()
     for item in profiles:
         pid = item['id']
         if pid in ids:
-            issues.append(f'duplicate_profile:{pid}')
+            _record_issue(f'duplicate_profile:{pid}', pid)
         ids.add(pid)
         if item.get('reading_basis') != 'full_text':
-            issues.append(f'full_text_not_confirmed:{pid}')
+            _record_issue(f'full_text_not_confirmed:{pid}', pid)
         if not isinstance(item.get('closest_work'), list) or not item['closest_work']:
-            issues.append(f'closest_work_missing:{pid}')
+            _record_issue(f'closest_work_missing:{pid}', pid)
         elif any(not isinstance(x, str) or not x.strip() for x in item['closest_work']):
-            issues.append(f'invalid_closest_work:{pid}')
+            _record_issue(f'invalid_closest_work:{pid}', pid)
+        else:
+            if any(x.strip() == pid for x in item['closest_work']):
+                _record_issue(f'closest_work_self_reference:{pid}', pid)
         locators = item.get('evidence_locators')
         if not isinstance(locators, dict) or set(locators) != set(DIMENSIONS):
-            issues.append(f'evidence_locators_incomplete:{pid}')
+            _record_issue(f'evidence_locators_incomplete:{pid}', pid)
         else:
             for dimension in DIMENSIONS:
                 value = locators[dimension]
                 if not isinstance(value, list) or not value or any(not isinstance(x, str) or not x.strip() for x in value):
-                    issues.append(f'missing_locator:{pid}:{dimension}')
+                    _record_issue(f'missing_locator:{pid}:{dimension}', pid)
 
     locator_verification = None
     if sources_dir is not None:
@@ -715,7 +910,7 @@ def compare(document, sources_dir=None):
                         verified += 1
                     else:
                         failed += 1
-                        issues.append(f'locator_unverified:{pid}:{dimension}:{loc_idx}:{reason}')
+                        _record_issue(f'locator_unverified:{pid}:{dimension}:{loc_idx}:{reason}', pid)
         locator_verification = {
             'sources_dir': str(index['root']),
             'sources_indexed': index['sources_indexed'],
@@ -725,27 +920,75 @@ def compare(document, sources_dir=None):
             'failed': failed,
         }
 
+    for per_profile in scenario_scores:
+        for pid, calculated in per_profile:
+            if calculated['status'] != 'calculated':
+                _record_issue(f'missing_rating:{pid}', pid)
+
+    valid_profile_ids = {p['id'] for p in profiles}
+    unscored_by_profile = {}
+    for item in profiles:
+        pid = item['id']
+        if pid in unscored_by_profile:
+            continue
+        unscored = []
+        seen_cw = set()
+        if isinstance(item.get('closest_work'), list):
+            for cw in item['closest_work']:
+                if not isinstance(cw, str):
+                    continue
+                cw_s = cw.strip()
+                if not cw_s or cw_s == pid or cw_s in seen_cw:
+                    continue
+                seen_cw.add(cw_s)
+                if cw_s not in valid_profile_ids:
+                    unscored.append(cw_s)
+        unscored_by_profile[pid] = unscored
+
+    related_work_comparison = None
+    if (eff_strict or eff_min_related is not None) and eff_target_id is None:
+        _record_issue('target_id_required_for_strict_related_panel', None)
+
+    if eff_target_id is not None:
+        target_exists = any(p['id'] == eff_target_id for p in profiles)
+        if not target_exists:
+            _record_issue(f'target_profile_not_found:{eff_target_id}', None)
+        related_work_comparison, target_unscored_cw, scored_related_ids = _build_related_work_comparison(
+            eff_target_id, profiles, scenario_scores, issues_by_pid, eff_min_related, eff_strict
+        )
+        if target_exists and (eff_strict or eff_min_related is not None):
+            if eff_strict:
+                for cw_id in target_unscored_cw:
+                    _record_issue(f'unscored_closest_work:{cw_id}', eff_target_id)
+            if eff_min_related is not None and len(scored_related_ids) < eff_min_related:
+                _record_issue(
+                    f'insufficient_scored_related_papers:{len(scored_related_ids)}<{eff_min_related}',
+                    eff_target_id,
+                )
+
+    missing_rating_only = bool(issues) and all(iss.startswith('missing_rating:') for iss in issues)
     if issues:
         out = {
             'status': 'not_comparable',
             'issues': sorted(set(issues)),
             'rankings': [],
-            'warning': 'This structural checker cannot validate the locators, closest-work equivalence, or ratings.',
+            'submission_readiness': _build_per_paper_readiness(profiles, scenario_scores, issues_by_pid),
+            'unscored_closest_work_ids': unscored_by_profile,
+            'warning': (
+                'Missing ratings cannot be silently reweighted.'
+                if missing_rating_only
+                else 'This structural checker cannot validate the locators, closest-work equivalence, or ratings.'
+            ),
         }
+        if related_work_comparison is not None:
+            out['related_work_comparison'] = related_work_comparison
         if locator_verification is not None:
             out['locator_verification'] = locator_verification
         return out
 
     rankings = []
     for index, per_profile in enumerate(scenario_scores):
-        results = []
-        for pid, calculated in per_profile:
-            if calculated['status'] != 'calculated':
-                issues.append(f'missing_rating:{pid}')
-            else:
-                results.append((pid, calculated['weighted_unrounded']))
-        if issues:
-            continue
+        results = [(pid, calculated['weighted_unrounded']) for pid, calculated in per_profile]
         with localcontext(BasicContext) as ctx:
             ctx.prec = 28
             ordered = sorted(results, key=lambda x: (-Decimal(x[1]), x[0]))
@@ -754,16 +997,6 @@ def compare(document, sources_dir=None):
             'ordered': [{'id': pid, 'weighted_unrounded': raw} for pid, raw in ordered],
             'top_tied': len(ordered) > 1 and ordered[0][1] == ordered[1][1],
         })
-    if issues:
-        out = {
-            'status': 'not_comparable',
-            'issues': sorted(set(issues)),
-            'rankings': [],
-            'warning': 'Missing ratings cannot be silently reweighted.',
-        }
-        if locator_verification is not None:
-            out['locator_verification'] = locator_verification
-        return out
 
     leaders = {
         tuple(
@@ -777,26 +1010,185 @@ def compare(document, sources_dir=None):
         'status': 'structurally_comparable',
         'rankings': rankings,
         'ranking_sensitivity': 'stable_top_within_supplied_weights' if len(leaders) == 1 else 'top_changes_across_supplied_weights',
+        'submission_readiness': _build_per_paper_readiness(profiles, scenario_scores, issues_by_pid),
+        'unscored_closest_work_ids': unscored_by_profile,
         'warning': 'No source text or rating is verified. Stability applies only to the supplied weight scenarios, not all defensible weights or reviewer judgments.',
     }
+    if related_work_comparison is not None:
+        out['related_work_comparison'] = related_work_comparison
     if locator_verification is not None:
         out['locator_verification'] = locator_verification
     return out
 
 
+def _encoded_utf8_len(obj):
+    return len(json.dumps(obj, ensure_ascii=False).encode('utf-8'))
+
+
+def _truncate_artifact_path(path_str, max_bytes=180):
+    if not isinstance(path_str, str):
+        return path_str
+    if len(path_str.encode('utf-8')) <= max_bytes:
+        return path_str
+    name = Path(path_str).name
+    candidate = '.../' + name if name else ''
+    if candidate and len(candidate.encode('utf-8')) <= max_bytes:
+        return candidate
+    suffix = path_str
+    while len(('...' + suffix).encode('utf-8')) > max_bytes and len(suffix) > 1:
+        suffix = suffix[max(1, len(suffix) // 4):]
+    return '...' + suffix
+
+
 def _compact_output(result, out_path=None):
     issues = result.get('issues') or []
-    return {
+    sr_items = list((result.get('submission_readiness') or {}).items())
+    max_sr = 6 if len(sr_items) > 6 else len(sr_items)
+    compact_sr = {}
+    for pid, entry in sr_items[:max_sr]:
+        compact_sr[pid] = {
+            'overall': entry.get('overall'),
+            'weighted_unrounded': entry.get('weighted_unrounded'),
+            'band': entry.get('band'),
+            'ready_for_top_tier_main_track': entry.get('ready_for_top_tier_main_track'),
+            'ready_for_findings_or_tier_a': entry.get('ready_for_findings_or_tier_a'),
+            'fatal_gate_triggered': entry.get('fatal_gate_triggered'),
+            'fatal_dimensions': entry.get('fatal_dimensions'),
+            'bottleneck_dimensions': entry.get('bottleneck_dimensions'),
+            'delta_to_competitive_top_tier': entry.get('delta_to_competitive_top_tier'),
+            'structural_gate_passed': entry.get('structural_gate_passed'),
+            'band_stable_across_scenarios': entry.get('band_stable_across_scenarios'),
+            'guidance': (entry.get('guidance') or '')[:140],
+        }
+    raw_rankings = result.get('rankings') or []
+    compact_rankings = [
+        {
+            'scenario': r.get('scenario'),
+            'ordered': (r.get('ordered') or [])[:10],
+            'top_tied': r.get('top_tied'),
+        }
+        for r in raw_rankings[:5]
+    ]
+    raw_unscored = result.get('unscored_closest_work_ids') or {}
+    compact_unscored = {
+        k: v[:5]
+        for k, v in list(raw_unscored.items())[:8]
+        if v
+    }
+    rwc = result.get('related_work_comparison')
+    compact_rwc = None
+    if isinstance(rwc, dict):
+        compact_rwc = {
+            'target_id': rwc.get('target_id'),
+            'strict_related_panel': rwc.get('strict_related_panel'),
+            'min_related': rwc.get('min_related'),
+            'scored_related_ids': (rwc.get('scored_related_ids') or [])[:10],
+            'scored_related_count': len(rwc.get('scored_related_ids') or []),
+            'unscored_closest_work_ids': (rwc.get('unscored_closest_work_ids') or [])[:10],
+            'best_related_overall': rwc.get('best_related_overall'),
+            'target_delta_vs_best_related_overall': rwc.get('target_delta_vs_best_related_overall'),
+            'max_related_by_dimension': rwc.get('max_related_by_dimension'),
+            'dimension_deltas_vs_max_related': rwc.get('dimension_deltas_vs_max_related'),
+            'novelty_inflation_warnings': (rwc.get('novelty_inflation_warnings') or [])[:10],
+        }
+
+    loc_ver = result.get('locator_verification')
+    loc_summary = None
+    if isinstance(loc_ver, dict):
+        loc_summary = {k: v for k, v in loc_ver.items() if k != 'skipped_files'}
+        if isinstance(loc_ver.get('skipped_files'), list):
+            loc_summary['skipped_files_count'] = len(loc_ver['skipped_files'])
+
+    compact = {
         'compact': True,
         'status': result.get('status'),
         'ranking_sensitivity': result.get('ranking_sensitivity'),
-        'rankings': (result.get('rankings') or [])[:10],
-        'locator_verification': result.get('locator_verification'),
+        'rankings': compact_rankings,
+        'submission_readiness': compact_sr,
+        'submission_readiness_truncated': max(0, len(sr_items) - len(compact_sr)),
+        'unscored_closest_work_ids': compact_unscored,
+        'related_work_comparison': compact_rwc,
+        'locator_verification': loc_summary,
         'issue_count': len(issues),
-        'issues': issues[:20],
-        'issues_truncated': max(0, len(issues) - 20),
+        'issues': issues[:15],
+        'issues_truncated': max(0, len(issues) - min(15, len(issues))),
         'artifact_path': out_path,
     }
+
+    # Deterministic budget enforcement (< 4096 UTF-8 bytes)
+    trim_stage = 0
+    while _encoded_utf8_len(compact) > 3950:
+        if trim_stage == 0:
+            compact['artifact_path'] = _truncate_artifact_path(compact.get('artifact_path'), 180)
+            if _encoded_utf8_len(compact) > 3950:
+                for row in compact['submission_readiness'].values():
+                    row.pop('guidance', None)
+        elif trim_stage == 1:
+            if compact['issues']:
+                compact['issues'] = [s[:100] for s in compact['issues'][:5]]
+                compact['issues_truncated'] = max(0, len(issues) - len(compact['issues']))
+        elif trim_stage == 2:
+            if compact['rankings']:
+                compact['rankings'] = compact['rankings'][:2]
+                for r in compact['rankings']:
+                    r['ordered'] = (r.get('ordered') or [])[:5]
+        elif trim_stage == 3:
+            if len(compact['submission_readiness']) > 3:
+                keep_ids = []
+                t_id = (compact_rwc or {}).get('target_id')
+                if t_id and t_id in compact['submission_readiness']:
+                    keep_ids.append(t_id)
+                for pid in list(compact['submission_readiness']):
+                    if pid not in keep_ids and len(keep_ids) < 3:
+                        keep_ids.append(pid)
+                compact['submission_readiness'] = {k: compact['submission_readiness'][k] for k in keep_ids}
+                compact['submission_readiness_truncated'] = max(0, len(sr_items) - len(compact['submission_readiness']))
+        elif trim_stage == 4:
+            if compact['rankings']:
+                compact['rankings'] = compact['rankings'][:1]
+                compact['rankings'][0]['ordered'] = (compact['rankings'][0].get('ordered') or [])[:3]
+        elif trim_stage == 5:
+            compact['issues'] = compact['issues'][:2]
+            compact['issues_truncated'] = max(0, len(issues) - len(compact['issues']))
+            compact['unscored_closest_work_ids'] = {
+                k: v[:2] for k, v in list(compact['unscored_closest_work_ids'].items())[:3]
+            }
+        elif trim_stage == 6:
+            if isinstance(compact['related_work_comparison'], dict):
+                rw = compact['related_work_comparison']
+                rw['scored_related_ids'] = rw['scored_related_ids'][:3]
+                rw['unscored_closest_work_ids'] = rw['unscored_closest_work_ids'][:3]
+                rw['novelty_inflation_warnings'] = rw['novelty_inflation_warnings'][:3]
+                if _encoded_utf8_len(compact) > 3950:
+                    rw.pop('dimension_deltas_vs_max_related', None)
+                    rw.pop('max_related_by_dimension', None)
+        elif trim_stage == 7:
+            if len(compact['submission_readiness']) > 1:
+                first_k = next(iter(compact['submission_readiness']))
+                compact['submission_readiness'] = {first_k: compact['submission_readiness'][first_k]}
+                compact['submission_readiness_truncated'] = max(0, len(sr_items) - 1)
+        elif trim_stage == 8:
+            compact['issues'] = []
+            compact['issues_truncated'] = len(issues)
+            compact['unscored_closest_work_ids'] = {}
+            if isinstance(compact.get('locator_verification'), dict):
+                compact['locator_verification'].pop('sources_dir', None)
+        elif trim_stage == 9:
+            compact['artifact_path'] = _truncate_artifact_path(compact.get('artifact_path'), 64)
+            compact['rankings'] = []
+        else:
+            compact['related_work_comparison'] = None
+            compact['locator_verification'] = (
+                {'skipped_files_count': loc_summary['skipped_files_count']}
+                if isinstance(loc_summary, dict) and 'skipped_files_count' in loc_summary
+                else None
+            )
+            if _encoded_utf8_len(compact) > 3950:
+                compact['locator_verification'] = None
+                compact['artifact_path'] = None
+            break
+        trim_stage += 1
+    return compact
 
 
 def _reject_nonfinite(token):
@@ -813,6 +1205,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('scorecards_json')
     parser.add_argument('--sources-dir', default=None, help='Optional directory of local source files (.txt, .md, .json, .pdf) for locator verification')
+    parser.add_argument('--target-id', default=None, help='Optional target profile ID for closest-related-work comparison')
+    parser.add_argument('--strict-related-panel', action='store_true', help='Require target closest_work entries and >= min-related distinct full-text profiles to be scored')
+    parser.add_argument('--min-related', type=int, default=None, help='Minimum distinct scored related profiles required (default: 3 with --strict-related-panel)')
     parser.add_argument('--out', default=None, help='Optional output JSON file path for full report')
     parser.add_argument('--compact', action='store_true', help='Emit compact bounded summary JSON to stdout')
     args = parser.parse_args(argv)
@@ -822,9 +1217,14 @@ def main(argv=None):
             _require_nonempty_path(args.out, '--out')
         if args.sources_dir is not None:
             _require_nonempty_path(args.sources_dir, '--sources-dir')
+        if args.target_id is not None:
+            _require_nonempty_path(args.target_id, '--target-id')
         result = compare(
             json.loads(sc_path.read_text(encoding='utf-8'), parse_constant=_reject_nonfinite),
             sources_dir=args.sources_dir,
+            target_id=args.target_id,
+            strict_related_panel=(True if args.strict_related_panel else None),
+            min_related=args.min_related,
         )
         full_rendered = json.dumps(result, ensure_ascii=False)
         out_str = None

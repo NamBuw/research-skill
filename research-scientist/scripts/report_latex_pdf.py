@@ -156,6 +156,9 @@ LOCALES: dict[str, dict[str, str]] = {
         "status_insufficient": "INSUFFICIENT EVIDENCE",
         "status_pass": "PASS",
         "status_fail": "FAIL",
+        "status_not_supported": "NOT SUPPORTED",
+        "status_blocked": "BLOCKED",
+        "status_caution": "CAUTION",
         "footer_disclaimer": (
             "Bounded to cited sources and verified run logs; passing formatting or "
             "lint checks is not independent scientific proof."
@@ -189,6 +192,9 @@ LOCALES: dict[str, dict[str, str]] = {
         "status_insufficient": "THIẾU BẰNG CHỨNG",
         "status_pass": "ĐẠT",
         "status_fail": "KHÔNG ĐẠT",
+        "status_not_supported": "KHÔNG ĐỦ CĂN CỨ",
+        "status_blocked": "BỊ CHẶN",
+        "status_caution": "CẦN THẬN TRỌNG",
         "footer_disclaimer": (
             "Giới hạn trong nguồn và log đã kiểm; đạt kiểm tra trình bày hoặc từ ngữ "
             "không thay thế thẩm định khoa học độc lập."
@@ -222,6 +228,9 @@ LOCALES: dict[str, dict[str, str]] = {
         "status_insufficient": "PREUVES INSUFFISANTES",
         "status_pass": "VALIDE",
         "status_fail": "ÉCHEC",
+        "status_not_supported": "NON ÉTAYÉ",
+        "status_blocked": "BLOQUÉ",
+        "status_caution": "PRUDENCE",
         "footer_disclaimer": (
             "Limité aux sources citées et journaux vérifiés; la validation de forme "
             "ne constitue pas une preuve scientifique."
@@ -255,6 +264,9 @@ LOCALES: dict[str, dict[str, str]] = {
         "status_insufficient": "UNZUREICHENDE BELEGE",
         "status_pass": "BESTANDEN",
         "status_fail": "NICHT BESTANDEN",
+        "status_not_supported": "NICHT GESTÜTZT",
+        "status_blocked": "BLOCKIERT",
+        "status_caution": "VORSICHT",
         "footer_disclaimer": (
             "Beschränkt auf zitierte Quellen und geprüfte Protokolle; formale Prüfung "
             "ersetzt keinen wissenschaftlichen Nachweis."
@@ -288,6 +300,9 @@ LOCALES: dict[str, dict[str, str]] = {
         "status_insufficient": "EVIDENCIA INSUFICIENTE",
         "status_pass": "APROBADO",
         "status_fail": "FALLIDO",
+        "status_not_supported": "NO RESPALDADO",
+        "status_blocked": "BLOQUEADO",
+        "status_caution": "PRECAUCIÓN",
         "footer_disclaimer": (
             "Limitado a las fuentes citadas y registros verificados; aprobar el formato "
             "no equivale a prueba científica."
@@ -500,6 +515,12 @@ def _normalize_status_token(raw: str) -> str:
         return "rejected"
     if low in {"fail", "failed", "engineering_bug_detected"}:
         return "fail"
+    if low in {"not_supported", "not_ready", "not_comparable"}:
+        return "not_supported"
+    if low in {"blocked", "hold_for_rework"}:
+        return "blocked"
+    if low in {"caution", "borderline", "stretch"}:
+        return "caution"
     if low in {"insufficient_evidence", "abstain"}:
         return "insufficient_evidence"
     return "provisional"
@@ -516,6 +537,9 @@ def _status_badge_label(status: str, loc: dict[str, str], explicit_label: str = 
         "insufficient_evidence": loc["status_insufficient"],
         "pass": loc["status_pass"],
         "fail": loc["status_fail"],
+        "not_supported": loc["status_not_supported"],
+        "blocked": loc["status_blocked"],
+        "caution": loc["status_caution"],
     }.get(norm, status.upper() if status else loc["status_provisional"])
 
 
@@ -1039,31 +1063,387 @@ def _normalize_scorecards(payload: dict[str, Any], *, truncate: bool = True) -> 
 
 def _normalize_scorecard_rankings(payload: dict[str, Any], *, truncate: bool = True) -> dict[str, Any]:
     rankings = payload.get("rankings") or []
-    sens = _first_nonblank(payload.get("ranking_sensitivity")) or "unknown"
-    key_ev: list[dict[str, Any]] = []
+    sens = _first_nonblank(payload.get("ranking_sensitivity")) or "not_comparable"
+    sc_status = _first_nonblank(payload.get("status"))
+    sr_map = payload.get("submission_readiness") if isinstance(payload.get("submission_readiness"), dict) else {}
+    rwc = payload.get("related_work_comparison") if isinstance(payload.get("related_work_comparison"), dict) else None
+
+    scen_ev: list[dict[str, Any]] = []
     for idx, r in enumerate(rankings[:8] if truncate else rankings, start=1):
         if isinstance(r, dict):
             scen = r.get("scenario", idx)
             ordered = r.get("ordered") or []
             top = ", ".join(f"{o.get('id', '?')} ({o.get('weighted_unrounded', '?')})" for o in ordered[:4] if isinstance(o, dict))
-            key_ev.append({"id": f"SCEN{scen}", "claim": f"Weight scenario {scen} ranking", "value": top or "empty", "status": "tied" if r.get("top_tied") else "verified", "evidence": "compare_scorecards.py", "source_refs": [], "locator": f"rankings[{idx - 1}]", "source_url": ""})
-    flaws: list[dict[str, Any]] = []
+            scen_ev.append({"id": f"SCEN{scen}", "claim": f"Weight scenario {scen} ranking", "value": top or "empty", "status": "tied" if r.get("top_tied") else "verified", "evidence": "compare_scorecards.py", "source_refs": [], "locator": f"rankings[{idx - 1}]", "source_url": ""})
+
+    flaw_rows: list[tuple[int, int, dict[str, Any]]] = []
+    fatal_pids: list[str] = []
+    blocked_pids: list[str] = []
+    caution_pids: list[str] = []
+    sr_ev_rows: list[tuple[int, int, dict[str, Any]]] = []
+    sr_items = list(sr_map.items())
+    for idx, (pid, entry) in enumerate(sr_items, start=1):
+        if not isinstance(entry, dict):
+            continue
+        band = _first_nonblank(entry.get("band")) or "unknown"
+        weighted = entry.get("weighted_unrounded")
+        score_txt = f"{weighted}/10" if weighted is not None else "n/a"
+        is_fatal = bool(entry.get("fatal_gate_triggered") or band == "not_ready_fatal_gate")
+        is_blocked = (not is_fatal) and (
+            entry.get("structural_gate_passed") is False
+            or band in {"not_comparable_structural_gate", "not_comparable_missing_dimension"}
+        )
+        is_caution = (not is_fatal) and (not is_blocked) and (
+            band in {"not_ready_major_rework", "workshop_or_preliminary_only", "borderline_top_tier_competitive_findings_tier_a"}
+        )
+        pri = 0 if is_fatal else (1 if is_blocked else (2 if is_caution else 4))
+        sr_ev_rows.append((
+            pri,
+            idx,
+            {
+                "id": f"SR{idx}",
+                "claim": f"Submission readiness ({pid})",
+                "value": f"{score_txt} ({band})",
+                "status": "fail" if (is_fatal or is_blocked) else "verified",
+                "evidence": "submission_readiness",
+                "source_refs": [],
+                "locator": f"submission_readiness.{pid}",
+                "source_url": "",
+            },
+        ))
+        if is_fatal:
+            fatal_pids.append(pid)
+            freasons = ", ".join(str(x) for x in (entry.get("fatal_reasons") or entry.get("fatal_dimensions") or ["fatal_gate"])[:3])
+            flaw_rows.append((
+                0,
+                idx,
+                {
+                    "id": f"R-FATAL-{idx}",
+                    "severity": "critical",
+                    "summary": f"{pid} triggered not_ready_fatal_gate ({freasons}) [compare_scorecards.py].",
+                    "source_refs": [],
+                    "locator": f"submission_readiness.{pid}",
+                },
+            ))
+        elif is_blocked:
+            blocked_pids.append(pid)
+            flaw_rows.append((
+                1,
+                idx,
+                {
+                    "id": f"R-GATE-{idx}",
+                    "severity": "high",
+                    "summary": f"{pid} failed comparison gate ({band}) [compare_scorecards.py].",
+                    "source_refs": [],
+                    "locator": f"submission_readiness.{pid}",
+                },
+            ))
+        elif is_caution:
+            caution_pids.append(pid)
+            bneck = ", ".join(str(x) for x in (entry.get("bottleneck_dimensions") or [])[:3]) or "core dimensions"
+            sev_rank = 1 if band == "not_ready_major_rework" else 2
+            flaw_rows.append((
+                sev_rank,
+                idx,
+                {
+                    "id": f"R-BAND-{idx}",
+                    "severity": "high" if band == "not_ready_major_rework" else "medium",
+                    "summary": f"{pid} band is {band}; strengthen {bneck} [compare_scorecards.py].",
+                    "source_refs": [],
+                    "locator": f"submission_readiness.{pid}",
+                },
+            ))
+
+    rw_ev: list[dict[str, Any]] = []
+    if rwc:
+        t_id = _first_nonblank(rwc.get("target_id")) or "target"
+        rel_n = len(rwc.get("scored_related_ids") or [])
+        delta_best = rwc.get("target_delta_vs_best_related_overall")
+        val_txt = f"{rel_n} scored; delta {delta_best:+.2f}" if isinstance(delta_best, (int, float)) else f"{rel_n} scored"
+        rw_ev.append({
+            "id": "RW1",
+            "claim": f"Related-work anchor ({t_id})",
+            "value": val_txt,
+            "status": "verified" if rel_n >= 3 else "provisional",
+            "evidence": "related_work_comparison",
+            "source_refs": [],
+            "locator": "related_work_comparison",
+            "source_url": "",
+        })
+        for wi, w in enumerate((rwc.get("novelty_inflation_warnings") or [])[:3], start=1):
+            flaw_rows.append((
+                1,
+                10000 + wi,
+                {
+                    "id": f"R-INF-{wi}",
+                    "severity": "high",
+                    "summary": f"Novelty inflation risk: {w} [related_work_comparison].",
+                    "source_refs": [],
+                    "locator": "related_work_comparison.novelty_inflation_warnings",
+                },
+            ))
+
     if sens == "top_changes_across_supplied_weights":
-        flaws.append({"id": "R-SENS", "severity": "medium", "summary": "Top-ranked paper changes across supplied weight scenarios.", "source_refs": [], "locator": "ranking_sensitivity"})
+        flaw_rows.append((2, 20001, {"id": "R-SENS", "severity": "medium", "summary": "Top-ranked paper changes across supplied weight scenarios.", "source_refs": [], "locator": "ranking_sensitivity"}))
     loc_ver = payload.get("locator_verification")
     if isinstance(loc_ver, dict) and loc_ver.get("failed"):
-        flaws.append({"id": "R-LOC", "severity": "high", "summary": f"Locator verification failed for {loc_ver['failed']} entries.", "source_refs": [], "locator": "locator_verification"})
+        flaw_rows.append((1, 20002, {"id": "R-LOC", "severity": "high", "summary": f"Locator verification failed for {loc_ver['failed']} entries.", "source_refs": [], "locator": "locator_verification"}))
+    sr_truncated = payload.get("submission_readiness_truncated")
+    has_truncated_sr = isinstance(sr_truncated, int) and sr_truncated > 0
+    if has_truncated_sr:
+        flaw_rows.append((2, 20003, {"id": "R-TRUNC", "severity": "medium", "summary": f"{sr_truncated} profile(s) truncated in compact input; inspect full --out JSON [compare_scorecards.py].", "source_refs": [], "locator": "submission_readiness_truncated"}))
     for i, iss in enumerate((payload.get("issues") or [])[:4], start=1):
-        flaws.append(_normalize_flaw_row(iss, i))
-    status = "fail" if any(f["severity"] in {"high", "critical"} for f in flaws) else ("provisional" if sens == "top_changes_across_supplied_weights" else "supported")
+        f_row = _normalize_flaw_row(iss, i)
+        sev_rank = 0 if f_row["severity"] == "critical" else (1 if f_row["severity"] == "high" else 2)
+        flaw_rows.append((sev_rank, 30000 + i, f_row))
+
+    if truncate:
+        priority_sr = [ev for pri, _, ev in sorted(sr_ev_rows, key=lambda t: (t[0], t[1])) if pri < 4]
+        normal_sr = [ev for pri, _, ev in sr_ev_rows if pri == 4]
+        if len(priority_sr) > 7:
+            key_ev = priority_sr[:8] + scen_ev[:1] + rw_ev + normal_sr
+        else:
+            key_ev = scen_ev[:2] + priority_sr + rw_ev + scen_ev[2:] + normal_sr
+        flaws = [f for _, _, f in sorted(flaw_rows, key=lambda t: (t[0], t[1]))]
+    else:
+        key_ev = scen_ev + [ev for _, _, ev in sr_ev_rows] + rw_ev
+        flaws = [f for _, _, f in flaw_rows]
+
+    has_issues = bool(payload.get("issues")) or sc_status == "not_comparable"
+    if fatal_pids or sc_status == "not_comparable" or blocked_pids:
+        status = "blocked"
+        summary = f"Blocked: {len(fatal_pids)} fatal-gate and {len(blocked_pids)} gate failures across {len(sr_items) or len(rankings)} scorecards [compare_scorecards.py]."
+    elif has_issues or any(f["severity"] in {"high", "critical"} for f in flaws):
+        status = "not_supported"
+        summary = f"Not supported: {len(flaws)} scorecard or readiness defects require fixes [compare_scorecards.py]."
+    elif caution_pids or has_truncated_sr or sens == "top_changes_across_supplied_weights":
+        status = "caution"
+        trunc_note = f"; {sr_truncated} profile(s) omitted in compact input" if has_truncated_sr else ""
+        summary = f"Evaluated {len(rankings)} weight scenarios ({sens}); {len(caution_pids)} profile(s) borderline or preliminary{trunc_note} [compare_scorecards.py]."
+    else:
+        status = "supported"
+        summary = f"Evaluated {len(rankings)} weight scenarios ({sens}); all profiles clear readiness gates [compare_scorecards.py]."
+
     ev_refs = [e["id"] for e in key_ev[:2] if _has_grounding(e)] or [f["id"] for f in flaws[:2] if _has_grounding(f)]
+    steps = [
+        {"step": 1, "action": "Resolve any fatal-gate or unverified locator defects before submission.", "target": "submission_readiness", "locator": ""},
+    ]
+    if rwc and (rwc.get("unscored_closest_work_ids") or rwc.get("novelty_inflation_warnings")):
+        steps.append({"step": 2, "action": "Score all closest_work papers in full text and document contribution_delta.", "target": "related_work_comparison", "locator": ""})
     return {
-        "schema": SCHEMA_VERSION, "report_type": "novelty_scoring", "lang": _first_nonblank(payload.get("lang")) or "auto", "title": "Scorecard Ranking Sensitivity",
-        "verdict": {"status": status, "label": "", "summary": f"Evaluated {len(rankings)} weight scenarios ({sens}).", "confidence": "bounded", "evidence_refs": ev_refs, **_parsimony_verdict_fields(payload)},
-        "key_evidence": key_ev, "flaws_and_risks": flaws,
-        "next_steps": [{"step": 1, "action": "Verify underlying /10 score anchors in full text.", "target": "compare_scorecards.py", "locator": ""}],
-        "metadata": {"scope": f"{len(rankings)} weight scenarios", "search_date": _dt.date.today().isoformat(), "coverage_limits": _first_nonblank(payload.get("warning")) or "Bounded to supplied weight scenarios.", "reading_basis": "mixed", "sources_checked": len(rankings)},
-        "sources": [],
+        "schema": SCHEMA_VERSION, "report_type": "novelty_scoring", "lang": _first_nonblank(payload.get("lang")) or "auto", "title": "Scorecard Readiness & Ranking Audit",
+        "verdict": {"status": status, "label": "", "summary": summary, "confidence": "bounded", "evidence_refs": ev_refs, **_parsimony_verdict_fields(payload)},
+        "key_evidence": key_ev[:10] if truncate else key_ev, "flaws_and_risks": flaws[:10] if truncate else flaws,
+        "next_steps": steps,
+        "metadata": {"scope": f"{len(rankings)} weight scenarios", "search_date": _dt.date.today().isoformat(), "coverage_limits": _first_nonblank(payload.get("warning")) or "Bounded to supplied weight scenarios.", "reading_basis": "full_text" if not blocked_pids and not has_issues else "mixed", "sources_checked": max(len(rankings), len(sr_items))},
+        "sources": [{"id": "SC", "title": "compare_scorecards.py output", "locator": "compare_scorecards.py", "url": ""}],
+    }
+
+
+def _normalize_venue_novelty_output(payload: dict[str, Any], *, truncate: bool = True) -> dict[str, Any]:
+    sr = payload.get("submission_readiness") if isinstance(payload.get("submission_readiness"), dict) else {}
+    comp = payload.get("novelty_comparison") if isinstance(payload.get("novelty_comparison"), dict) else None
+    vbar = payload.get("venue_contribution_bar") if isinstance(payload.get("venue_contribution_bar"), dict) else None
+    vqc = payload.get("venue_quality_context") if isinstance(payload.get("venue_quality_context"), dict) else {}
+    fit = payload.get("fit_score_out_of_10")
+    errors = payload.get("errors") or []
+    warnings = payload.get("warnings") or []
+
+    sr_verdict = _first_nonblank(sr.get("verdict")) or "unknown"
+    ready = sr.get("ready_to_submit") is True
+    standing = _first_nonblank(sr.get("standing_vs_accepted_panel")) or "unavailable"
+    matched_tier = _first_nonblank(sr.get("recommended_matched_tier"))
+
+    key_ev: list[dict[str, Any]] = [
+        {
+            "id": "SR1",
+            "claim": "Venue readiness verdict",
+            "value": f"{sr_verdict} (ready={ready})",
+            "status": "verified" if ready else "fail",
+            "evidence": "compare_venue_novelty.py",
+            "source_refs": [],
+            "locator": "submission_readiness.verdict",
+            "source_url": "",
+        },
+        {
+            "id": "FIT1",
+            "claim": "Venue fit score",
+            "value": f"{fit}/10" if fit is not None else "withheld",
+            "status": "verified" if fit is not None else "provisional",
+            "evidence": _first_nonblank(vqc.get("matched_name"), vqc.get("quality_tier"), "fit_axes"),
+            "source_refs": [],
+            "locator": "fit_score_out_of_10",
+            "source_url": "",
+        },
+    ]
+    if comp:
+        key_ev.append({
+            "id": "NOV1",
+            "claim": f"Target novelty vs {comp.get('accepted_panel_size', '?')}-paper panel",
+            "value": f"{comp.get('target_novelty_score')}/10 vs median {comp.get('accepted_panel_median_score')}/10 ({standing})",
+            "status": "verified" if standing != "below_panel_median" else "fail",
+            "evidence": "novelty_comparison",
+            "source_refs": [],
+            "locator": "novelty_comparison",
+            "source_url": "",
+        })
+    if vbar and vbar.get("panel_median_overall") is not None:
+        key_ev.append({
+            "id": "BAR1",
+            "claim": "Cross-topic venue contribution bar",
+            "value": f"panel median {vbar.get('panel_median_overall')}/10 ({vbar.get('cross_topic_count', 0)} cross-topic)",
+            "status": "verified",
+            "evidence": "venue_contribution_bar",
+            "source_refs": [],
+            "locator": "venue_contribution_bar",
+            "source_url": "",
+        })
+
+    flaws: list[dict[str, Any]] = []
+    for i, err in enumerate(errors[:5], start=1):
+        flaws.append({"id": f"R-ERR{i}", "severity": "critical", "summary": str(err), "source_refs": [], "locator": f"errors[{i-1}]"})
+    for fc in (sr.get("failed_constraints") or []):
+        flaws.append({"id": f"R-CON-{fc}", "severity": "critical", "summary": f"Hard constraint failed: {fc} [submission_readiness].", "source_refs": [], "locator": "submission_readiness.failed_constraints"})
+    for rej in (sr.get("tier_rejection_reasons") or [])[:4]:
+        flaws.append({"id": f"R-TIER-{len(flaws)+1}", "severity": "critical", "summary": f"Below venue tier floor: {rej} [submission_readiness].", "source_refs": [], "locator": "submission_readiness.tier_rejection_reasons"})
+    for i, w in enumerate(warnings[:3], start=1):
+        flaws.append({"id": f"R-WARN{i}", "severity": "medium", "summary": str(w), "source_refs": [], "locator": f"warnings[{i-1}]"})
+
+    blocked_verdicts = {
+        "not_ready_fatal_gate",
+        "rejected_below_venue_tier",
+        "do_not_submit_constraint_failed",
+        "not_ready_invalid_evidence",
+    }
+    if not ready:
+        if payload.get("status") == "invalid" or errors or sr_verdict in blocked_verdicts:
+            status = "blocked"
+        else:
+            status = "not_supported"
+        summary = f"Venue submission blocked or not supported ({sr_verdict}, fit {fit if fit is not None else 'withheld'}) [submission_readiness.verdict]."
+        if matched_tier:
+            summary = f"{summary} Matched tier: {matched_tier}."
+    elif sr_verdict.startswith("conditional_"):
+        status = "caution"
+        summary = f"Conditional fit ({sr_verdict}, fit {fit}/10, standing {standing}) [submission_readiness.verdict]."
+    else:
+        status = "supported"
+        summary = f"Ready for venue submission ({sr_verdict}, fit {fit}/10, standing {standing}) [submission_readiness.verdict]."
+
+    ev_refs = [e["id"] for e in key_ev[:2] if _has_grounding(e)] or [f["id"] for f in flaws[:2] if _has_grounding(f)]
+    steps = [{"step": 1, "action": f"Follow {matched_tier or 'venue'} target or resolve listed blockers.", "target": "submission_readiness", "locator": ""}]
+    if sr.get("upgrade_gaps_to_target_tier"):
+        steps.append({"step": 2, "action": "Close dimension gaps before re-targeting rejected venue tier.", "target": "upgrade_gaps_to_target_tier", "locator": ""})
+
+    return {
+        "schema": SCHEMA_VERSION,
+        "report_type": "novelty_scoring",
+        "lang": _first_nonblank(payload.get("lang")) or "auto",
+        "title": "Venue Novelty & Readiness Audit",
+        "verdict": {"status": status, "label": "", "summary": summary, "confidence": "bounded", "evidence_refs": ev_refs, **_parsimony_verdict_fields(payload)},
+        "key_evidence": key_ev[:10] if truncate else key_ev,
+        "flaws_and_risks": flaws[:10] if truncate else flaws,
+        "next_steps": steps,
+        "metadata": {"scope": _first_nonblank(vqc.get("matched_name")) or "Single venue check", "search_date": _dt.date.today().isoformat(), "coverage_limits": "Bounded to supplied panel and CFP checks.", "reading_basis": "full_text" if not errors else "mixed", "sources_checked": (comp or {}).get("accepted_panel_size", 1)},
+        "sources": [{"id": "VN", "title": "compare_venue_novelty.py output", "locator": "compare_venue_novelty.py", "url": ""}],
+    }
+
+
+def _normalize_venue_portfolio_output(payload: dict[str, Any], *, truncate: bool = True) -> dict[str, Any]:
+    rec = payload.get("venue_portfolio_recommendations") if isinstance(payload.get("venue_portfolio_recommendations"), dict) else {}
+    t_ready = payload.get("target_readiness") if isinstance(payload.get("target_readiness"), dict) else {}
+    evals = payload.get("venue_evaluations") or payload.get("venue_summaries") or []
+    errors = payload.get("errors") or []
+
+    pv = _first_nonblank(rec.get("portfolio_verdict")) or "unknown"
+    matched_obj = rec.get("recommended_matched_tier") if isinstance(rec.get("recommended_matched_tier"), dict) else {}
+    top_matched = _first_nonblank(matched_obj.get("top_venue_id"))
+    rec_now = rec.get("recommended_now") or []
+    fallbacks = rec.get("viable_fallback") or []
+    rejected_tier = rec.get("rejected_below_venue_tier") or []
+    disq = rec.get("disqualified") or []
+    withheld = rec.get("withheld_unverified") or []
+    conflicts = rec.get("timeline_conflicts") or []
+
+    key_ev: list[dict[str, Any]] = [
+        {
+            "id": "PV1",
+            "claim": "Portfolio verdict",
+            "value": pv,
+            "status": "fail" if pv in {"hold_for_rework", "no_viable_venue_in_portfolio", "invalid_portfolio_too_few_venues", "no_verified_viable_venues"} else "verified",
+            "evidence": "compare_venue_novelty.py --portfolio",
+            "source_refs": [],
+            "locator": "venue_portfolio_recommendations.portfolio_verdict",
+            "source_url": "",
+        },
+        {
+            "id": "PV2",
+            "claim": f"Candidate venues audited ({payload.get('venue_count', len(evals))})",
+            "value": f"now={len(rec_now)}, fallback={len(fallbacks)}, rejected_tier={len(rejected_tier)}",
+            "status": "verified",
+            "evidence": "venue_portfolio_recommendations",
+            "source_refs": [],
+            "locator": "venue_portfolio_recommendations",
+            "source_url": "",
+        },
+    ]
+    for idx, ve in enumerate(evals[:6] if truncate else evals, start=1):
+        if isinstance(ve, dict):
+            vid = _first_nonblank(ve.get("venue_id")) or f"V{idx}"
+            cls = _first_nonblank(ve.get("classification")) or "unknown"
+            fit = ve.get("fit_score_out_of_10")
+            key_ev.append({
+                "id": f"VEN{idx}",
+                "claim": f"Candidate {vid}",
+                "value": f"{cls} (fit {fit}/10)" if fit is not None else cls,
+                "status": "fail" if cls in {"disqualified", "withheld_unverified", "hold_for_rework", "rejected_below_venue_tier"} else "verified",
+                "evidence": "venue_evaluations",
+                "source_refs": [],
+                "locator": f"venue_evaluations[{idx - 1}]",
+                "source_url": "",
+            })
+
+    flaws: list[dict[str, Any]] = []
+    if rec.get("hold_for_rework") or t_ready.get("fatal_gate_triggered"):
+        flaws.append({"id": "R-HOLD", "severity": "critical", "summary": "Target fatal gate triggered hold_for_rework across all archival venues [target_readiness].", "source_refs": [], "locator": "target_readiness"})
+    if rejected_tier:
+        flaws.append({"id": "R-TIER", "severity": "high", "summary": f"Rejected below venue tier: {', '.join(str(x) for x in rejected_tier[:4])} [venue_portfolio_recommendations].", "source_refs": [], "locator": "venue_portfolio_recommendations.rejected_below_venue_tier"})
+    if disq:
+        flaws.append({"id": "R-DISQ", "severity": "high", "summary": f"Disqualified venues: {', '.join(str(x) for x in disq[:4])} [venue_portfolio_recommendations].", "source_refs": [], "locator": "venue_portfolio_recommendations.disqualified"})
+    if withheld:
+        flaws.append({"id": "R-WH", "severity": "high", "summary": f"Withheld unverified venues: {', '.join(str(x) for x in withheld[:4])} [venue_portfolio_recommendations].", "source_refs": [], "locator": "venue_portfolio_recommendations.withheld_unverified"})
+    for ci, conf in enumerate(conflicts[:3], start=1):
+        if isinstance(conf, dict):
+            flaws.append({"id": f"R-TL{ci}", "severity": "high", "summary": f"Timeline conflict between {conf.get('primary_venue_id')} and {conf.get('fallback_venue_id')} [timeline_conflicts].", "source_refs": [], "locator": "venue_portfolio_recommendations.timeline_conflicts"})
+    for ei, err in enumerate(errors[:3], start=1):
+        flaws.append({"id": f"R-ERR{ei}", "severity": "high", "summary": str(err), "source_refs": [], "locator": f"errors[{ei-1}]"})
+
+    if payload.get("status") == "invalid" or pv in {"hold_for_rework", "invalid_portfolio_too_few_venues"}:
+        status = "blocked"
+        summary = f"Portfolio blocked ({pv}): resolve fatal target or portfolio structure errors first [venue_portfolio_recommendations]."
+    elif pv in {"no_viable_venue_in_portfolio", "no_verified_viable_venues"}:
+        status = "not_supported"
+        summary = f"No viable venue in portfolio ({pv}); search a verified lower-tier target [venue_portfolio_recommendations]."
+    elif pv in {"retargeted_to_matched_tier", "stretch_or_fallback_only"}:
+        status = "caution"
+        summary = f"Retargeted portfolio ({pv}); top matched venue is {top_matched or 'none'} [venue_portfolio_recommendations]."
+    else:
+        status = "supported"
+        summary = f"Portfolio verified ({pv}); recommended now: {', '.join(str(x) for x in rec_now[:2])} [venue_portfolio_recommendations]."
+
+    ev_refs = [e["id"] for e in key_ev[:2] if _has_grounding(e)] or [f["id"] for f in flaws[:2] if _has_grounding(f)]
+    steps = [{"step": 1, "action": _first_nonblank(matched_obj.get("action_if_empty"), f"Target {top_matched}" if top_matched else "Verify missing CFP or panel items."), "target": "recommended_matched_tier", "locator": ""}]
+    return {
+        "schema": SCHEMA_VERSION,
+        "report_type": "venue_dossier",
+        "lang": _first_nonblank(payload.get("lang")) or "auto",
+        "title": "Multi-Venue Portfolio Audit",
+        "verdict": {"status": status, "label": "", "summary": summary, "confidence": "bounded", "evidence_refs": ev_refs, **_parsimony_verdict_fields(payload)},
+        "key_evidence": key_ev[:10] if truncate else key_ev,
+        "flaws_and_risks": flaws[:10] if truncate else flaws,
+        "next_steps": steps,
+        "metadata": {"scope": f"{payload.get('venue_count', len(evals))} candidate venues", "search_date": _dt.date.today().isoformat(), "coverage_limits": "Bounded to verified candidate venue snapshots.", "reading_basis": "full_text" if not withheld else "mixed", "sources_checked": payload.get("venue_count", len(evals))},
+        "sources": [{"id": "PORT", "title": "compare_venue_novelty.py portfolio", "locator": "venue_portfolio_recommendations", "url": ""}],
     }
 
 
@@ -1240,6 +1620,32 @@ def _normalize_composite_bundle(payload: dict[str, Any], *, truncate: bool = Tru
     }
 
 
+def _is_canonical_report_payload(payload: dict[str, Any]) -> bool:
+    if not isinstance(payload, dict) or not payload:
+        return False
+    if payload.get("schema") == SCHEMA_VERSION:
+        return True
+    if (
+        "candidates" in payload or "surviving_gaps" in payload or "rejected_gaps" in payload
+        or ("venue" in payload and "target" in payload and "accepted_panel" in payload)
+        or ("profiles" in payload and isinstance(payload.get("profiles"), list))
+        or "known_seed_checks" in payload
+        or payload.get("schema") in {"research_scientist_search_v2", "research_scientist_search_campaign_v1"}
+        or payload.get("format") == "research_scientist_search_campaign_v1"
+        or ("source_records" in payload and "query_runs" in payload)
+        or ("source_mode" in payload and "corpus_boundary" in payload and "claims" in payload and "questions" in payload)
+        or ("official_cfp_url" in payload and ("fees" in payload or "milestones" in payload))
+        or ("methods" in payload and "numeric_facts" in payload and "claims" in payload)
+        or (payload.get("mode") == "portfolio" and "venue_portfolio_recommendations" in payload)
+        or ("fit_score_out_of_10" in payload and "submission_readiness" in payload)
+        or ("rankings" in payload and ("ranking_sensitivity" in payload or "submission_readiness" in payload))
+        or any(k in payload for k in ("findings", "sycophancy_hits", "grandiose_findings", "issues", "runs", "comparable_run_pairs", "errors"))
+        or any(isinstance(payload.get(k), dict) for k in ("gap_audit", "precedent_search", "novelty", "venue", "integrity", "manuscript"))
+    ):
+        return False
+    return True
+
+
 def normalize_report_input(payload: dict[str, Any], lang: str | None = None, *, truncate: bool = True) -> dict[str, Any]:
     """Normalize canonical executive JSON or upstream skill JSON into `research_scientist_executive_report_v1`."""
     if not isinstance(payload, dict) or not payload:
@@ -1261,7 +1667,11 @@ def normalize_report_input(payload: dict[str, Any], lang: str | None = None, *, 
         norm = _normalize_venue_dossier(payload, truncate=truncate)
     elif "methods" in payload and "numeric_facts" in payload and "claims" in payload:
         norm = _normalize_manuscript_ledger(payload, truncate=truncate)
-    elif "rankings" in payload and "ranking_sensitivity" in payload and payload.get("rankings"):
+    elif payload.get("mode") == "portfolio" and "venue_portfolio_recommendations" in payload:
+        norm = _normalize_venue_portfolio_output(payload, truncate=truncate)
+    elif "fit_score_out_of_10" in payload and "submission_readiness" in payload:
+        norm = _normalize_venue_novelty_output(payload, truncate=truncate)
+    elif "rankings" in payload and ("ranking_sensitivity" in payload or "submission_readiness" in payload):
         norm = _normalize_scorecard_rankings(payload, truncate=truncate)
     elif any(k in payload for k in ("findings", "sycophancy_hits", "grandiose_findings", "issues", "runs", "comparable_run_pairs", "errors")):
         norm = _normalize_audit_or_lint(payload, truncate=truncate)
@@ -1819,7 +2229,11 @@ def lint_report(
         _check_numeric_and_citation_grounding(report, "raw_text", False, [], findings)
     elif isinstance(report, dict):
         resolved_lang = detect_language(text=input_text, payload=report, requested=lang)["lang"]
-        norm = normalize_report_input(report, lang=resolved_lang, truncate=False)
+        norm = normalize_report_input(
+            report,
+            lang=resolved_lang,
+            truncate=not _is_canonical_report_payload(report),
+        )
         v_sum = norm["verdict"]["summary"]
         if not _nonblank(v_sum):
             _add_finding(findings, field="verdict.summary", category="structure", pattern_id="STRUCT_MISSING_VERDICT", severity="error", excerpt=norm.get("title", ""), message="Report is missing a direct verdict/conclusion summary.", remediation="Add a 1-2 sentence direct conclusion in `verdict`.")
@@ -2221,7 +2635,7 @@ def _verdict_colors(status: str) -> tuple[str, str]:
     s = _normalize_status_token(status)
     if s in {"supported", "pass"}:
         return ("ForestGreen!6!White", "ForestGreen!75!Black")
-    if s in {"rejected", "fail"}:
+    if s in {"rejected", "fail", "not_supported", "blocked"}:
         return ("BrickRed!6!White", "BrickRed!80!Black")
     return ("BurntOrange!7!White", "BurntOrange!80!Black")
 

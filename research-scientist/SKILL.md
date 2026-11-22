@@ -30,7 +30,7 @@ Be uncompromisingly strict, skeptical, and falsification-first. Evidence outrank
 | Literature, PDF/OCR, corpus Q&A | [research-precedent-corpus](../research-precedent-corpus/SKILL.md) | Frozen scope & seed DOIs | `search_campaign` + `blocks` + `evidence_map` (`ANSWERABLE`) |
 | Gap discovery, RQ, parsimony | [research-gap-rq-audit](../research-gap-rq-audit/SKILL.md) | Full-text digests & corpus | `surviving_gaps` + `question_card` + `research_plan` |
 | Research code, debug, stats | [research-experiment-coding](../research-experiment-coding/SKILL.md) | Valid RQ & frozen protocol | `diagnostics` (`PASS`) + `experiment_manifest` + `rliable`/`repro` |
-| /10 score, venue CFP, rebuttal | [research-novelty-venue](../research-novelty-venue/SKILL.md) | Full-text closest work / reviews | `scorecards` + `venue_dossier` + `rebuttal` (`PASS`) |
+| /10 score, venue CFP, rebuttal | [research-novelty-venue](../research-novelty-venue/SKILL.md) | Full-text target + `>=3` closest work / reviews | `scorecards` (`related_work_comparison`) + `submission_readiness` + `venue_portfolio` + `rebuttal` (`PASS`) |
 | Paper draft, figures, preflight | [research-paper-writing](../research-paper-writing/SKILL.md) | Verified ledger & run receipts | `ledger` + `humanizer_lint` + `figure_qa` + `preflight` (`PASS`) |
 | Concise multilingual PDF report | [research-user-report](../research-user-report/SKILL.md) | Verified stage receipts & lang | Compiled UTF-8 PDF + `report_receipt` (`lint_findings: []`) |
 
