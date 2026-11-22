@@ -1,6 +1,6 @@
 # Research workflow reference
 
-Read the sections needed for the current task. This guide is a working method, not a claim that every field uses one universal standard.
+Read the sections needed for the current task. This guide is a working method, not a claim that every field uses one universal standard. For the 2–3 question Socratic intake and end-to-end CLI orchestration loop, see [Section 10](#10-interactive-advisor-protocol--end-to-end-cli-workflow).
 
 ## 1. Frame the research decision
 
@@ -303,3 +303,162 @@ For a parsed PDF, record parser name/version, mode (native text versus OCR where
 ## Citation verification levels
 
 For each consequential claim, distinguish: (1) a citation key is present in the answer and maps to a retrieved chunk; (2) the chunk maps to the correct bibliographic work/version; and (3) the original passage, with its methods, qualifiers, tables and context, actually supports the precise claim. A formatting or DOI-registration check addresses only parts of level 2. Model-generated citations and DOI fields must be independently resolved; a plausible key must never be promoted directly to verified evidence. If the closest precedent or a score rests on one citation, read that primary passage or mark the conclusion unresolved. Record failures at the level they occur.
+
+## 10. Interactive Advisor Protocol & End-to-End CLI Workflow
+
+Use this protocol to guide a researcher from raw topic, PDF, LaTeX manuscript, or baseline failure logs to verified submission readiness without losing provenance or fabricating scores.
+
+### 10.1 Mandatory 2–3 Question Socratic Intake (Never Ask More Than 3 Questions at Once)
+
+Before recommending a research direction or venue, ask at most 3 concrete scoping questions:
+
+1. **Target Venue & Goal:** Are you aiming for a Top-Tier Flagship (`Q1` journal or `NeurIPS`/`ICML`/`ICLR`/`CVPR`/`ACL` Main Track) or a fast/bounded publication (`Findings`, Tier-A/CCF-B, or `Workshop`), and what is your target deadline window?
+2. **Compute, Data & Time Budget:** What GPU-hours/VRAM, dataset access, API/fee budget, and calendar weeks are available?
+3. **Author Comparative Advantage & Starting Inputs:** What is your strongest edge (`math_theory`, `systems_engineering`, `empirical_eval`, or `data_curation`), and what artifact do you start from (topic string, local PDF/LaTeX draft, or baseline `failure_cases`)?
+
+### 10.2 Six-Step Decision Loop & CLI Orchestration
+
+#### Step 1 — Zero-Friction Input Scaffolding (`../scripts/build_research_inputs.py`)
+Accept a `--topic` string OR a local `--pdf` / `--tex` / `--input` manuscript (plus optional `--target-venue`, `--subfield-preset` in `nlp_llm|cv_multimodal|ml_theory|ai_systems`, `--offline`, or `--mock-search-json` / `--corpus-json`) to scaffold `corpus.json`, `gap_record.json`, `scorecards.json`, and `dossier.json`.
+
+- **Zero-fabrication invariant:** Unread papers remain `metadata_only` with `ratings: null` (or all-`null` dimensions in `scorecards.json` so `compare_scorecards.py` fails closed as `not_comparable`); unverified CFP deadlines and fees remain `unverified` until captured and checked.
+
+```bash
+python3 research-scientist/scripts/build_research_inputs.py \
+  --topic "calibrated OOD detection in vision-language models" \
+  --target-venue "NeurIPS 2027" \
+  --subfield-preset cv_multimodal \
+  --offline \
+  --out-dir ./workspace/inputs \
+  --compact
+```
+
+```bash
+python3 research-scientist/scripts/build_research_inputs.py \
+  --pdf ./draft.pdf \
+  --target-venue "ACL 2027" \
+  --subfield-preset nlp_llm \
+  --panel-source acl \
+  --panel-venue-id acl-2025 \
+  --offline-panel-html ./panel.html \
+  --offline \
+  --out-dir ./workspace/inputs \
+  --compact
+```
+
+#### Step 2 — Initialize Canonical Project State & Shortlist Top 3 Gaps (`../scripts/project_state.py` + `../scripts/gap_pipeline.py`)
+Maintain a single `project_state.json` linking `Gap ID -> Idea ID -> RQ -> Experiment Run Receipt (SHA-256) -> Manuscript Claim -> Scorecard/Venue Verdict -> Rebuttal Point`. Inspected `full_text` digests and locators are preserved across stages and silent upgrades from `abstract` or `metadata_only` without locators are blocked.
+
+```bash
+python3 research-scientist/scripts/project_state.py \
+  --state ./workspace/project_state.json \
+  --init \
+  --project-id proj-001 \
+  --title "Calibrated OOD Detection" \
+  --subfield-preset cv_multimodal \
+  --target-venue "NeurIPS 2027" \
+  --author-profile ./workspace/author_profile.json \
+  --compact
+```
+
+```bash
+python3 research-scientist/scripts/gap_pipeline.py \
+  --corpus ./workspace/inputs/corpus.json \
+  --digests ./workspace/digests.json \
+  --candidates ./workspace/candidates.json \
+  --out ./workspace/gap_pipeline.json \
+  --compact
+```
+
+Shortlist at most 3 surviving gaps after checking `trajectory_tree`, `failure_cases`, author-advantage fit, and F32 gap lenses (`root_cause_barrier`, `why_now_enabler`, `evaluation_validity_gap`, `isomorphic_transfer_leads`, `so_what_decision_impact`, `durability_12_24m`).
+
+#### Step 3 — Ideation Framing, Mechanism Bottleneck & MPU Sizing (`../scripts/project_state.py`)
+Reject vague module stitching ("combine A + B + C" without a bottleneck mechanism or `simplest_alternative`). Evaluate Contribution-Type Pivot (`method` vs `empirical_analysis` / `diagnostic` / `scaling_law` / `theoretical_bound` / `benchmark_dataset`), Author-Advantage Socratic Scoping, and Minimum Publishable Unit (`MPU`) scope against the target tier.
+
+```bash
+python3 research-scientist/scripts/project_state.py \
+  --state ./workspace/project_state.json \
+  --ingest-kind idea_seed_bundle \
+  --ingest-file ./workspace/idea_bundle.json \
+  --evaluate-ideation IDEA-1 \
+  --compact
+```
+
+#### Step 4 — Freeze RQ Card & Run 1–2 Day Killer Pilot (`../scripts/check_question_card.py` + `../scripts/project_state.py`)
+Freeze `question_card.json` (`expected_if_focal`, `expected_if_rival`, `falsifying_result`, `indeterminate_result`, `prior_outcome_exposure`) BEFORE running the smallest 1–2 day Go/No-Go pilot with an explicit kill threshold.
+
+```bash
+python3 research-scientist/scripts/check_question_card.py ./workspace/question_card.json
+```
+
+```bash
+python3 research-scientist/scripts/project_state.py \
+  --state ./workspace/project_state.json \
+  --ingest-kind question_card \
+  --ingest-file ./workspace/question_card.json \
+  --link-idea IDEA-1 \
+  --compact
+```
+
+#### Step 5 — Post-Experiment Error-Slice, HARKing Block & Pivot Gate (`../scripts/analyze_experiment_outcome.py` + `../scripts/project_state.py`)
+Enforce `>= 2` concrete error slices (`length`, `difficulty`, `ood_shift`, `scale`, `subgroup`, etc.) alongside the frozen `question_card.json` and optional SHA-256 `experiment_manifest.json`. Block post-hoc HARKing, emit deterministic pivot guidance (`add_targeted_ablation`, `narrow_claim_scope`, `pivot_to_negative_or_diagnostic_paper`, `downgrade_venue_tier`), and export `failure_cases` if falsified.
+
+```bash
+python3 research-scientist/scripts/analyze_experiment_outcome.py \
+  --question-card ./workspace/question_card.json \
+  --outcomes ./workspace/outcomes.json \
+  --manifest ./workspace/manifest.json \
+  --verify-files \
+  --export-failure-cases ./workspace/failure_cases.json \
+  --out ./workspace/outcome_analysis.json \
+  --compact
+```
+
+Query the deterministic Interactive Advisor on `project_state.json` at any stage to audit lineage and retrieve the next exact CLI command:
+
+```bash
+python3 research-scientist/scripts/project_state.py \
+  --state ./workspace/project_state.json \
+  --audit \
+  --strict \
+  --advise \
+  --compact
+```
+
+#### Step 6 — Scoring, Multi-Venue Matching & Concise PDF Report (`../scripts/compare_scorecards.py`, `../scripts/compare_venue_novelty.py`, `../scripts/report_latex_pdf.py`)
+Score `>= 3` closest related papers in `full_text`, evaluate the multi-venue portfolio and cross-topic contribution bar, and generate a concise EN/VI PDF summary.
+
+```bash
+python3 research-scientist/scripts/compare_scorecards.py \
+  ./workspace/scorecards.json \
+  --target-id target_paper \
+  --strict-related-panel \
+  --min-related 3 \
+  --compact
+```
+
+```bash
+python3 research-scientist/scripts/compare_venue_novelty.py \
+  ./workspace/venue_profile.json \
+  --portfolio \
+  --require-panels \
+  --compact
+```
+
+```bash
+python3 research-scientist/scripts/report_latex_pdf.py \
+  --input ./workspace/summary.json \
+  --out ./workspace/report.pdf \
+  --strict \
+  --json \
+  --compact
+```
+
+| Status | Meaning in Lifecycle Gate |
+|---|---|
+| `passed` | Lineage, provenance, and structural checks succeeded |
+| `issues_detected` | Lineage gap, unverified `full_text` upgrade, or missing SHA-256 receipt detected |
+| `analyzed` | Error slices (`>= 2`) and frozen `question_card.json` checked with zero HARKing |
+| `blocked_harking` | Post-hoc hypothesis rewrite or falsifier-reversed `supports_focal` claim blocked |
+| `gate_failed` | Structural or error-slice gate failed (e.g., `< 2` distinct error slices or invalid manifest/card) |
+| `scaffolded` | Input bundle generated with strict `metadata_only` and `unverified` provenance |
