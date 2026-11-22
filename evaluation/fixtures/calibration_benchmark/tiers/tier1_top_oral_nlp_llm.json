@@ -1,0 +1,843 @@
+{
+  "meta": {
+    "tier_id": "tier1_top_oral",
+    "tier_rank": 1,
+    "subfield_preset": "nlp_llm",
+    "expected_band": "strong_top_tier_contender",
+    "expected_weighted_unrounded": "8.35",
+    "expected_portfolio_verdict": "ready_with_primary_and_fallback",
+    "as_of_utc": "2026-11-22T00:00:00Z"
+  },
+  "subfield_preset": "nlp_llm",
+  "target_id": "target_tier1_nlp_oral",
+  "venue_tier": "top_tier_flagship",
+  "scorecard": {
+    "weights": {
+      "importance": 15,
+      "novelty": 20,
+      "soundness": 20,
+      "evidence": 20,
+      "transparency": 15,
+      "clarity": 10
+    },
+    "ratings": {
+      "importance": 9,
+      "novelty": 8,
+      "soundness": 8,
+      "evidence": 9,
+      "transparency": 8,
+      "clarity": 8
+    }
+  },
+  "scorecards_bundle": {
+    "target_id": "target_tier1_nlp_oral",
+    "strict_related_panel": true,
+    "min_related": 3,
+    "weight_scenarios": [
+      {
+        "importance": 15,
+        "novelty": 20,
+        "soundness": 20,
+        "evidence": 20,
+        "transparency": 15,
+        "clarity": 10
+      },
+      {
+        "importance": 20,
+        "novelty": 20,
+        "soundness": 20,
+        "evidence": 20,
+        "transparency": 10,
+        "clarity": 10
+      }
+    ],
+    "profiles": [
+      {
+        "id": "target_tier1_nlp_oral",
+        "reading_basis": "full_text",
+        "closest_work": [
+          "rw_nlp_1",
+          "rw_nlp_2",
+          "rw_nlp_3"
+        ],
+        "contribution_delta": "Distinguishes target_tier1_nlp_oral mechanism and empirical tradeoff from nlp_llm closest work.",
+        "baseline_tradeoff_explanation": "Compares compute and stability tradeoffs cleanly across nlp_llm baselines.",
+        "ratings": {
+          "importance": 9,
+          "novelty": 8,
+          "soundness": 8,
+          "evidence": 9,
+          "transparency": 8,
+          "clarity": 8
+        },
+        "evidence_locators": {
+          "importance": [
+            "target_tier1_nlp_oral.txt#L1 \"Exact rank-preserving logit calibration eliminates RAG decoding drift under distribution shift\""
+          ],
+          "novelty": [
+            "target_tier1_nlp_oral.txt#L2 \"Controlled nlp_llm method evaluated in tier1_top_oral\""
+          ],
+          "soundness": [
+            "target_tier1_nlp_oral.txt#L3 \"Evaluates soundness controls for target_tier1_nlp_oral against closest baselines\""
+          ],
+          "evidence": [
+            "target_tier1_nlp_oral.txt#L4 \"Reports empirical evidence across benchmark splits for target_tier1_nlp_oral\""
+          ],
+          "transparency": [
+            "target_tier1_nlp_oral.txt#L5 \"Provides artifact reproducibility details for target_tier1_nlp_oral\""
+          ],
+          "clarity": [
+            "target_tier1_nlp_oral.txt#L6 \"Documents scope and limitations clearly for target_tier1_nlp_oral\""
+          ]
+        }
+      },
+      {
+        "id": "rw_nlp_1",
+        "reading_basis": "full_text",
+        "closest_work": [
+          "target_tier1_nlp_oral"
+        ],
+        "ratings": {
+          "importance": 7,
+          "novelty": 7,
+          "soundness": 7,
+          "evidence": 7,
+          "transparency": 7,
+          "clarity": 7
+        },
+        "evidence_locators": {
+          "importance": [
+            "rw_nlp_1.txt#L1 \"Token-level uncertainty filtering for RAG hallucination control\""
+          ],
+          "novelty": [
+            "rw_nlp_1.txt#L2 \"Implements nlp_llm closest-work baseline mechanism for direct comparison\""
+          ],
+          "soundness": [
+            "rw_nlp_1.txt#L3 \"Applies matched split controls and seed parity for rw_nlp_1\""
+          ],
+          "evidence": [
+            "rw_nlp_1.txt#L4 \"Reports multi-seed benchmarks and error intervals for rw_nlp_1\""
+          ],
+          "transparency": [
+            "rw_nlp_1.txt#L5 \"Releases deterministic reproduction artifacts and metrics for rw_nlp_1\""
+          ],
+          "clarity": [
+            "rw_nlp_1.txt#L6 \"Documents explicit failure cases and boundary assumptions for rw_nlp_1\""
+          ]
+        }
+      },
+      {
+        "id": "rw_nlp_2",
+        "reading_basis": "full_text",
+        "closest_work": [
+          "target_tier1_nlp_oral"
+        ],
+        "ratings": {
+          "importance": 7,
+          "novelty": 6,
+          "soundness": 7,
+          "evidence": 7,
+          "transparency": 6,
+          "clarity": 7
+        },
+        "evidence_locators": {
+          "importance": [
+            "rw_nlp_2.txt#L1 \"Prompt-ensemble calibration across instruction-tuned LLM decoders\""
+          ],
+          "novelty": [
+            "rw_nlp_2.txt#L2 \"Implements nlp_llm closest-work baseline mechanism for direct comparison\""
+          ],
+          "soundness": [
+            "rw_nlp_2.txt#L3 \"Applies matched split controls and seed parity for rw_nlp_2\""
+          ],
+          "evidence": [
+            "rw_nlp_2.txt#L4 \"Reports multi-seed benchmarks and error intervals for rw_nlp_2\""
+          ],
+          "transparency": [
+            "rw_nlp_2.txt#L5 \"Releases deterministic reproduction artifacts and metrics for rw_nlp_2\""
+          ],
+          "clarity": [
+            "rw_nlp_2.txt#L6 \"Documents explicit failure cases and boundary assumptions for rw_nlp_2\""
+          ]
+        }
+      },
+      {
+        "id": "rw_nlp_3",
+        "reading_basis": "full_text",
+        "closest_work": [
+          "target_tier1_nlp_oral"
+        ],
+        "ratings": {
+          "importance": 6,
+          "novelty": 6,
+          "soundness": 7,
+          "evidence": 6,
+          "transparency": 7,
+          "clarity": 7
+        },
+        "evidence_locators": {
+          "importance": [
+            "rw_nlp_3.txt#L1 \"Open-weight contamination audit across public QA evaluation suites\""
+          ],
+          "novelty": [
+            "rw_nlp_3.txt#L2 \"Implements nlp_llm closest-work baseline mechanism for direct comparison\""
+          ],
+          "soundness": [
+            "rw_nlp_3.txt#L3 \"Applies matched split controls and seed parity for rw_nlp_3\""
+          ],
+          "evidence": [
+            "rw_nlp_3.txt#L4 \"Reports multi-seed benchmarks and error intervals for rw_nlp_3\""
+          ],
+          "transparency": [
+            "rw_nlp_3.txt#L5 \"Releases deterministic reproduction artifacts and metrics for rw_nlp_3\""
+          ],
+          "clarity": [
+            "rw_nlp_3.txt#L6 \"Documents explicit failure cases and boundary assumptions for rw_nlp_3\""
+          ]
+        }
+      }
+    ]
+  },
+  "venue_portfolio": {
+    "target_scorecard": {
+      "weights": {
+        "importance": 15,
+        "novelty": 20,
+        "soundness": 20,
+        "evidence": 20,
+        "transparency": 15,
+        "clarity": 10
+      },
+      "ratings": {
+        "importance": 9,
+        "novelty": 8,
+        "soundness": 8,
+        "evidence": 9,
+        "transparency": 8,
+        "clarity": 8
+      }
+    },
+    "target": {
+      "id": "target_tier1_nlp_oral",
+      "claim": "Exact rank-preserving logit calibration eliminates RAG decoding drift under distribution shift.",
+      "contribution_type": "empirical mechanism study",
+      "reading_basis": "full_text",
+      "score": 8,
+      "low": 7,
+      "high": 9,
+      "closest_work_id": "target_tier1_nlp_oral",
+      "closest_work_locator": "target_tier1_nlp_oral.txt#L1 \"Exact rank-preserving logit calibration eliminates RAG decoding drift under distribution shift\"",
+      "contribution_delta": "Calibrated tier1_top_oral mechanism delta.",
+      "search_manifest": "target_tier1_nlp_oral_search.json",
+      "score_reason": "Calibrated tier1_top_oral anchor.",
+      "assessment_boundary": "Evaluated against 3-tier calibration portfolio as of 2026-11-22T00:00:00Z.",
+      "assessed_at_utc": "2026-11-22T00:00:00Z"
+    },
+    "candidate_venues": [
+      {
+        "venue_id": "flagship_conf",
+        "role": "primary",
+        "tier_expectation": "top_tier_flagship",
+        "venue": {
+          "name": "NeurIPS",
+          "edition": "2027",
+          "track": "Main Track",
+          "official_cfp_url": "https://example.org/neurips-2027/cfp",
+          "checked_at_utc": "2026-11-22T00:00:00Z",
+          "max_source_age_days": 30,
+          "submission_deadline_utc": "2027-05-15T23:59:00Z",
+          "notification_date_utc": "2027-09-18T17:00:00Z",
+          "simultaneous_submission_allowed": false
+        },
+        "fit_axes": [
+          {
+            "name": "scope_audience",
+            "score": 2,
+            "source_url": "https://example.org/neurips-2027/cfp",
+            "locator": "venue-sources.json \"Main Track\"",
+            "reason": "scope_audience verified against local CFP snapshot."
+          },
+          {
+            "name": "contribution_track",
+            "score": 2,
+            "source_url": "https://example.org/neurips-2027/cfp",
+            "locator": "venue-sources.json \"Call for Papers\"",
+            "reason": "contribution_track verified against local CFP snapshot."
+          },
+          {
+            "name": "evidence_maturity",
+            "score": 2,
+            "source_url": "https://example.org/neurips-2027/cfp",
+            "locator": "venue-sources.json \"anonymity\"",
+            "reason": "evidence_maturity verified against local CFP snapshot."
+          },
+          {
+            "name": "format_eligibility",
+            "score": 2,
+            "source_url": "https://example.org/neurips-2027/cfp",
+            "locator": "venue-sources.json \"official portal\"",
+            "reason": "format_eligibility verified against local CFP snapshot."
+          },
+          {
+            "name": "user_constraints",
+            "score": 2,
+            "source_url": "https://example.org/neurips-2027/cfp",
+            "locator": "venue-sources.json \"registration fees\"",
+            "reason": "user_constraints verified against local CFP snapshot."
+          }
+        ],
+        "hard_constraints": [
+          {
+            "name": "deadline",
+            "status": "met",
+            "source_url": "https://example.org/neurips-2027/cfp",
+            "reason": "deadline satisfied."
+          },
+          {
+            "name": "budget",
+            "status": "met",
+            "source_url": "https://example.org/neurips-2027/cfp",
+            "reason": "budget satisfied."
+          },
+          {
+            "name": "eligibility",
+            "status": "met",
+            "source_url": "https://example.org/neurips-2027/cfp",
+            "reason": "eligibility satisfied."
+          }
+        ],
+        "panel_selection": {
+          "search_manifest": "flagship_conf_panel_manifest.json",
+          "inclusion_rule": "NeurIPS Main Track accepted sample panel",
+          "exclusion_log": "flagship_conf_exclusions.json",
+          "date_window": "2024-2026",
+          "screened_count": 10,
+          "rubric_version": "research-scientist novelty anchors v2.8",
+          "calibration_notes": "Local full-text stubs verified.",
+          "selection_bias": "Calibrated 5-paper sample benchmark panel."
+        },
+        "accepted_panel": [
+          {
+            "id": "flagship_conf_p1",
+            "claim": "Calibrated NeurIPS Main Track paper 1 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 5,
+            "low": 4,
+            "high": 6,
+            "overall_score": 6.4,
+            "topic_relation": "same_topic",
+            "closest_work_id": "panel_flagship_1",
+            "closest_work_locator": "panel_flagship_1.txt#L1 \"Accepted NeurIPS study 1 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 1.",
+            "search_manifest": "flagship_conf_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "NeurIPS 2027 Main Track sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/flagship_conf/papers/p1",
+            "track": "Main Track",
+            "year": 2025
+          },
+          {
+            "id": "flagship_conf_p2",
+            "claim": "Calibrated NeurIPS Main Track paper 2 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 6,
+            "low": 5,
+            "high": 7,
+            "overall_score": 6.85,
+            "topic_relation": "adjacent_topic",
+            "closest_work_id": "panel_flagship_2",
+            "closest_work_locator": "panel_flagship_2.txt#L1 \"Accepted NeurIPS study 2 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 2.",
+            "search_manifest": "flagship_conf_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "NeurIPS 2027 Main Track sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/flagship_conf/papers/p2",
+            "track": "Main Track",
+            "year": 2025
+          },
+          {
+            "id": "flagship_conf_p3",
+            "claim": "Calibrated NeurIPS Main Track paper 3 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 6,
+            "low": 5,
+            "high": 7,
+            "overall_score": 7.05,
+            "topic_relation": "different_topic",
+            "closest_work_id": "panel_flagship_3",
+            "closest_work_locator": "panel_flagship_3.txt#L1 \"Accepted NeurIPS study 3 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 3.",
+            "search_manifest": "flagship_conf_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "NeurIPS 2027 Main Track sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/flagship_conf/papers/p3",
+            "track": "Main Track",
+            "year": 2025
+          },
+          {
+            "id": "flagship_conf_p4",
+            "claim": "Calibrated NeurIPS Main Track paper 4 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 7,
+            "low": 6,
+            "high": 8,
+            "overall_score": 7.35,
+            "topic_relation": "same_topic",
+            "closest_work_id": "panel_flagship_4",
+            "closest_work_locator": "panel_flagship_4.txt#L1 \"Accepted NeurIPS study 4 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 4.",
+            "search_manifest": "flagship_conf_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "NeurIPS 2027 Main Track sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/flagship_conf/papers/p4",
+            "track": "Main Track",
+            "year": 2025
+          },
+          {
+            "id": "flagship_conf_p5",
+            "claim": "Calibrated NeurIPS Main Track paper 5 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 8,
+            "low": 7,
+            "high": 9,
+            "overall_score": 7.9,
+            "topic_relation": "different_topic",
+            "closest_work_id": "panel_flagship_5",
+            "closest_work_locator": "panel_flagship_5.txt#L1 \"Accepted NeurIPS study 5 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 5.",
+            "search_manifest": "flagship_conf_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "NeurIPS 2027 Main Track sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/flagship_conf/papers/p5",
+            "track": "Main Track",
+            "year": 2025
+          }
+        ]
+      },
+      {
+        "venue_id": "findings_tier_a",
+        "role": "alternative",
+        "tier_expectation": "q1_or_tier_a",
+        "venue": {
+          "name": "Findings of ACL",
+          "edition": "2027",
+          "track": "Findings",
+          "official_cfp_url": "https://example.org/acl-2027/findings-cfp",
+          "checked_at_utc": "2026-11-22T00:00:00Z",
+          "max_source_age_days": 30,
+          "submission_deadline_utc": "2027-10-05T23:59:00Z",
+          "notification_date_utc": "2028-01-15T17:00:00Z",
+          "simultaneous_submission_allowed": false
+        },
+        "fit_axes": [
+          {
+            "name": "scope_audience",
+            "score": 2,
+            "source_url": "https://example.org/acl-2027/findings-cfp",
+            "locator": "venue-sources.json \"Findings\"",
+            "reason": "scope_audience verified against local CFP snapshot."
+          },
+          {
+            "name": "contribution_track",
+            "score": 2,
+            "source_url": "https://example.org/acl-2027/findings-cfp",
+            "locator": "venue-sources.json \"Call for Papers\"",
+            "reason": "contribution_track verified against local CFP snapshot."
+          },
+          {
+            "name": "evidence_maturity",
+            "score": 2,
+            "source_url": "https://example.org/acl-2027/findings-cfp",
+            "locator": "venue-sources.json \"anonymity\"",
+            "reason": "evidence_maturity verified against local CFP snapshot."
+          },
+          {
+            "name": "format_eligibility",
+            "score": 2,
+            "source_url": "https://example.org/acl-2027/findings-cfp",
+            "locator": "venue-sources.json \"official portal\"",
+            "reason": "format_eligibility verified against local CFP snapshot."
+          },
+          {
+            "name": "user_constraints",
+            "score": 2,
+            "source_url": "https://example.org/acl-2027/findings-cfp",
+            "locator": "venue-sources.json \"registration fees\"",
+            "reason": "user_constraints verified against local CFP snapshot."
+          }
+        ],
+        "hard_constraints": [
+          {
+            "name": "deadline",
+            "status": "met",
+            "source_url": "https://example.org/acl-2027/findings-cfp",
+            "reason": "deadline satisfied."
+          },
+          {
+            "name": "budget",
+            "status": "met",
+            "source_url": "https://example.org/acl-2027/findings-cfp",
+            "reason": "budget satisfied."
+          },
+          {
+            "name": "eligibility",
+            "status": "met",
+            "source_url": "https://example.org/acl-2027/findings-cfp",
+            "reason": "eligibility satisfied."
+          }
+        ],
+        "panel_selection": {
+          "search_manifest": "findings_tier_a_panel_manifest.json",
+          "inclusion_rule": "Findings of ACL Findings accepted sample panel",
+          "exclusion_log": "findings_tier_a_exclusions.json",
+          "date_window": "2024-2026",
+          "screened_count": 10,
+          "rubric_version": "research-scientist novelty anchors v2.8",
+          "calibration_notes": "Local full-text stubs verified.",
+          "selection_bias": "Calibrated 5-paper sample benchmark panel."
+        },
+        "accepted_panel": [
+          {
+            "id": "findings_tier_a_p1",
+            "claim": "Calibrated Findings of ACL Findings paper 1 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 4,
+            "low": 3,
+            "high": 5,
+            "overall_score": 5.85,
+            "topic_relation": "same_topic",
+            "closest_work_id": "panel_findings_1",
+            "closest_work_locator": "panel_findings_1.txt#L1 \"Accepted Findings of ACL study 1 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 1.",
+            "search_manifest": "findings_tier_a_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "Findings of ACL 2027 Findings sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/findings_tier_a/papers/p1",
+            "track": "Findings",
+            "year": 2025
+          },
+          {
+            "id": "findings_tier_a_p2",
+            "claim": "Calibrated Findings of ACL Findings paper 2 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 5,
+            "low": 4,
+            "high": 6,
+            "overall_score": 6.15,
+            "topic_relation": "adjacent_topic",
+            "closest_work_id": "panel_findings_2",
+            "closest_work_locator": "panel_findings_2.txt#L1 \"Accepted Findings of ACL study 2 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 2.",
+            "search_manifest": "findings_tier_a_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "Findings of ACL 2027 Findings sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/findings_tier_a/papers/p2",
+            "track": "Findings",
+            "year": 2025
+          },
+          {
+            "id": "findings_tier_a_p3",
+            "claim": "Calibrated Findings of ACL Findings paper 3 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 5,
+            "low": 4,
+            "high": 6,
+            "overall_score": 6.35,
+            "topic_relation": "different_topic",
+            "closest_work_id": "panel_findings_3",
+            "closest_work_locator": "panel_findings_3.txt#L1 \"Accepted Findings of ACL study 3 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 3.",
+            "search_manifest": "findings_tier_a_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "Findings of ACL 2027 Findings sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/findings_tier_a/papers/p3",
+            "track": "Findings",
+            "year": 2025
+          },
+          {
+            "id": "findings_tier_a_p4",
+            "claim": "Calibrated Findings of ACL Findings paper 4 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 6,
+            "low": 5,
+            "high": 7,
+            "overall_score": 6.6,
+            "topic_relation": "same_topic",
+            "closest_work_id": "panel_findings_4",
+            "closest_work_locator": "panel_findings_4.txt#L1 \"Accepted Findings of ACL study 4 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 4.",
+            "search_manifest": "findings_tier_a_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "Findings of ACL 2027 Findings sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/findings_tier_a/papers/p4",
+            "track": "Findings",
+            "year": 2025
+          },
+          {
+            "id": "findings_tier_a_p5",
+            "claim": "Calibrated Findings of ACL Findings paper 5 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 7,
+            "low": 6,
+            "high": 8,
+            "overall_score": 6.9,
+            "topic_relation": "different_topic",
+            "closest_work_id": "panel_findings_5",
+            "closest_work_locator": "panel_findings_5.txt#L1 \"Accepted Findings of ACL study 5 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 5.",
+            "search_manifest": "findings_tier_a_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "Findings of ACL 2027 Findings sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/findings_tier_a/papers/p5",
+            "track": "Findings",
+            "year": 2025
+          }
+        ]
+      },
+      {
+        "venue_id": "workshop_track",
+        "role": "fallback",
+        "tier_expectation": "workshop_or_preliminary",
+        "venue": {
+          "name": "ICML Rigorous Workshop",
+          "edition": "2027",
+          "track": "Workshop",
+          "official_cfp_url": "https://example.org/icml-2027/workshop-cfp",
+          "checked_at_utc": "2026-11-22T00:00:00Z",
+          "max_source_age_days": 30,
+          "submission_deadline_utc": "2028-02-10T23:59:00Z",
+          "notification_date_utc": "2028-03-20T17:00:00Z",
+          "simultaneous_submission_allowed": true
+        },
+        "fit_axes": [
+          {
+            "name": "scope_audience",
+            "score": 2,
+            "source_url": "https://example.org/icml-2027/workshop-cfp",
+            "locator": "venue-sources.json \"Workshop\"",
+            "reason": "scope_audience verified against local CFP snapshot."
+          },
+          {
+            "name": "contribution_track",
+            "score": 2,
+            "source_url": "https://example.org/icml-2027/workshop-cfp",
+            "locator": "venue-sources.json \"Call for Papers\"",
+            "reason": "contribution_track verified against local CFP snapshot."
+          },
+          {
+            "name": "evidence_maturity",
+            "score": 2,
+            "source_url": "https://example.org/icml-2027/workshop-cfp",
+            "locator": "venue-sources.json \"anonymity\"",
+            "reason": "evidence_maturity verified against local CFP snapshot."
+          },
+          {
+            "name": "format_eligibility",
+            "score": 2,
+            "source_url": "https://example.org/icml-2027/workshop-cfp",
+            "locator": "venue-sources.json \"official portal\"",
+            "reason": "format_eligibility verified against local CFP snapshot."
+          },
+          {
+            "name": "user_constraints",
+            "score": 2,
+            "source_url": "https://example.org/icml-2027/workshop-cfp",
+            "locator": "venue-sources.json \"registration fees\"",
+            "reason": "user_constraints verified against local CFP snapshot."
+          }
+        ],
+        "hard_constraints": [
+          {
+            "name": "deadline",
+            "status": "met",
+            "source_url": "https://example.org/icml-2027/workshop-cfp",
+            "reason": "deadline satisfied."
+          },
+          {
+            "name": "budget",
+            "status": "met",
+            "source_url": "https://example.org/icml-2027/workshop-cfp",
+            "reason": "budget satisfied."
+          },
+          {
+            "name": "eligibility",
+            "status": "met",
+            "source_url": "https://example.org/icml-2027/workshop-cfp",
+            "reason": "eligibility satisfied."
+          }
+        ],
+        "panel_selection": {
+          "search_manifest": "workshop_track_panel_manifest.json",
+          "inclusion_rule": "ICML Rigorous Workshop Workshop accepted sample panel",
+          "exclusion_log": "workshop_track_exclusions.json",
+          "date_window": "2024-2026",
+          "screened_count": 10,
+          "rubric_version": "research-scientist novelty anchors v2.8",
+          "calibration_notes": "Local full-text stubs verified.",
+          "selection_bias": "Calibrated 5-paper sample benchmark panel."
+        },
+        "accepted_panel": [
+          {
+            "id": "workshop_track_p1",
+            "claim": "Calibrated ICML Rigorous Workshop Workshop paper 1 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 3,
+            "low": 2,
+            "high": 4,
+            "overall_score": 5.05,
+            "topic_relation": "same_topic",
+            "closest_work_id": "panel_workshop_1",
+            "closest_work_locator": "panel_workshop_1.txt#L1 \"Accepted ICML Rigorous Workshop study 1 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 1.",
+            "search_manifest": "workshop_track_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "ICML Rigorous Workshop 2027 Workshop sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/workshop_track/papers/p1",
+            "track": "Workshop",
+            "year": 2025
+          },
+          {
+            "id": "workshop_track_p2",
+            "claim": "Calibrated ICML Rigorous Workshop Workshop paper 2 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 4,
+            "low": 3,
+            "high": 5,
+            "overall_score": 5.25,
+            "topic_relation": "adjacent_topic",
+            "closest_work_id": "panel_workshop_2",
+            "closest_work_locator": "panel_workshop_2.txt#L1 \"Accepted ICML Rigorous Workshop study 2 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 2.",
+            "search_manifest": "workshop_track_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "ICML Rigorous Workshop 2027 Workshop sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/workshop_track/papers/p2",
+            "track": "Workshop",
+            "year": 2025
+          },
+          {
+            "id": "workshop_track_p3",
+            "claim": "Calibrated ICML Rigorous Workshop Workshop paper 3 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 4,
+            "low": 3,
+            "high": 5,
+            "overall_score": 5.4,
+            "topic_relation": "different_topic",
+            "closest_work_id": "panel_workshop_3",
+            "closest_work_locator": "panel_workshop_3.txt#L1 \"Accepted ICML Rigorous Workshop study 3 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 3.",
+            "search_manifest": "workshop_track_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "ICML Rigorous Workshop 2027 Workshop sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/workshop_track/papers/p3",
+            "track": "Workshop",
+            "year": 2025
+          },
+          {
+            "id": "workshop_track_p4",
+            "claim": "Calibrated ICML Rigorous Workshop Workshop paper 4 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 5,
+            "low": 4,
+            "high": 6,
+            "overall_score": 5.65,
+            "topic_relation": "same_topic",
+            "closest_work_id": "panel_workshop_4",
+            "closest_work_locator": "panel_workshop_4.txt#L1 \"Accepted ICML Rigorous Workshop study 4 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 4.",
+            "search_manifest": "workshop_track_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "ICML Rigorous Workshop 2027 Workshop sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/workshop_track/papers/p4",
+            "track": "Workshop",
+            "year": 2025
+          },
+          {
+            "id": "workshop_track_p5",
+            "claim": "Calibrated ICML Rigorous Workshop Workshop paper 5 mechanism.",
+            "contribution_type": "empirical mechanism study",
+            "reading_basis": "full_text",
+            "score": 6,
+            "low": 5,
+            "high": 7,
+            "overall_score": 5.85,
+            "topic_relation": "different_topic",
+            "closest_work_id": "panel_workshop_5",
+            "closest_work_locator": "panel_workshop_5.txt#L1 \"Accepted ICML Rigorous Workshop study 5 on calibrated mechanism analysis\"",
+            "contribution_delta": "Demonstrated verified empirical improvement in panel paper 5.",
+            "search_manifest": "workshop_track_panel_manifest.json",
+            "score_reason": "Verified against local full-text stub.",
+            "assessment_boundary": "ICML Rigorous Workshop 2027 Workshop sample panel.",
+            "assessed_at_utc": "2026-11-22T00:00:00Z",
+            "official_acceptance_url": "https://example.org/workshop_track/papers/p5",
+            "track": "Workshop",
+            "year": 2025
+          }
+        ]
+      }
+    ]
+  },
+  "target_comparison_profile": {
+    "benchmarks_count": 4,
+    "sota_baselines_covered": 5,
+    "ablation_depth": "comprehensive",
+    "theoretical_rigor": "empirical_bounds",
+    "effect_size_ci_stability": "5_seeds_ci95",
+    "code_artifact_openness": "anonymous_repo_verified"
+  },
+  "anchors": [
+    {
+      "anchor_id": "nlp_llm_anchor_same",
+      "topic_relation": "same_topic",
+      "overall_score": "7.45",
+      "novelty_score": 7,
+      "benchmarks_count": 4,
+      "sota_baselines_covered": 5,
+      "ablation_depth": "comprehensive",
+      "theoretical_rigor": "empirical_bounds",
+      "effect_size_ci_stability": "5_seeds_ci95",
+      "code_artifact_openness": "public_github"
+    },
+    {
+      "anchor_id": "nlp_llm_anchor_cross",
+      "topic_relation": "different_topic",
+      "overall_score": "7.10",
+      "novelty_score": 7,
+      "benchmarks_count": 3,
+      "sota_baselines_covered": 4,
+      "ablation_depth": "component_ablation",
+      "theoretical_rigor": "empirical_bounds",
+      "effect_size_ci_stability": "5_seeds_ci95",
+      "code_artifact_openness": "public_github"
+    }
+  ]
+}

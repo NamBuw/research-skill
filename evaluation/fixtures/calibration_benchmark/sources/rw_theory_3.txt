@@ -1,0 +1,6 @@
+Title and Claim: Optimization stability under non-Lipschitz smooth surrogate losses.
+Method and Setup: Implements ml_theory closest-work baseline mechanism for direct comparison.
+Soundness and Controls: Applies matched split controls and seed parity for rw_theory_3.
+Results and Evidence: Reports multi-seed benchmarks and error intervals for rw_theory_3.
+Reproducibility and Artifacts: Releases deterministic reproduction artifacts and metrics for rw_theory_3.
+Clarity and Limitations: Documents explicit failure cases and boundary assumptions for rw_theory_3.

@@ -1,0 +1,79 @@
+{
+  "target_id": "triage_ml_theory",
+  "subfield_preset": "ml_theory",
+  "venue_tier": "top_tier_flagship",
+  "scorecard": {
+    "weights": {
+      "importance": 15,
+      "novelty": 20,
+      "soundness": 20,
+      "evidence": 20,
+      "transparency": 15,
+      "clarity": 10
+    },
+    "ratings": {
+      "importance": 8,
+      "novelty": 7,
+      "soundness": 4,
+      "evidence": 7,
+      "transparency": 7,
+      "clarity": 7
+    }
+  },
+  "subfield_checks": {
+    "assumption_tightness_realism": "fail",
+    "lower_vs_upper_bound_gap": "missing",
+    "empirical_sanity_validation": "pass"
+  },
+  "anchors": [
+    {
+      "anchor_id": "ml_theory_acc_1",
+      "topic_relation": "same_topic",
+      "overall_score": "7.40",
+      "benchmarks_count": 4,
+      "sota_baselines_covered": 5,
+      "ablation_depth": "full",
+      "theoretical_rigor": "bounds",
+      "effect_size_ci_stability": "5_seeds",
+      "code_artifact_openness": "public"
+    },
+    {
+      "anchor_id": "ml_theory_acc_2",
+      "topic_relation": "different_topic",
+      "overall_score": "7.10",
+      "benchmarks_count": 3,
+      "sota_baselines_covered": 4,
+      "ablation_depth": "full",
+      "theoretical_rigor": "bounds",
+      "effect_size_ci_stability": "5_seeds",
+      "code_artifact_openness": "public"
+    }
+  ],
+  "ledger": {
+    "status": "structural_issues",
+    "issues": [
+      "inflated_method_name:HyperOptimalTheory"
+    ],
+    "grandiose_finding_count": 1,
+    "argument_audit": {
+      "enabled": true,
+      "claim_scope_alignment": {
+        "status": "PASS",
+        "finding_count": 0
+      },
+      "contribution_evidence_map": {
+        "status": "PASS",
+        "mapped_count": 2,
+        "orphan_count": 0
+      },
+      "related_work_differentiation": {
+        "status": "FAIL",
+        "expected_count": 3,
+        "missing_count": 1,
+        "lacks_differentiation_count": 1
+      },
+      "recommended_transparency_cap": 3,
+      "recommended_evidence_cap": 4
+    }
+  }
+}

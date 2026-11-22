@@ -1,0 +1,82 @@
+{
+  "schema": "research_scientist_calibration_benchmark_v1",
+  "as_of_utc": "2026-11-22T00:00:00Z",
+  "sources_dir": "sources",
+  "subfields": [
+    "nlp_llm",
+    "cv_multimodal",
+    "ml_theory",
+    "ai_systems"
+  ],
+  "tiers": [
+    {
+      "tier_id": "tier1_top_oral",
+      "tier_rank": 1,
+      "file": "tiers/tier1_top_oral_nlp_llm.json",
+      "subfield_preset": "nlp_llm",
+      "target_id": "target_tier1_nlp_oral",
+      "expected_weighted_unrounded": "8.35",
+      "expected_band": "strong_top_tier_contender",
+      "expected_portfolio_verdict": "ready_with_primary_and_fallback"
+    },
+    {
+      "tier_id": "tier2_main_accept",
+      "tier_rank": 2,
+      "file": "tiers/tier2_main_accept_cv_multimodal.json",
+      "subfield_preset": "cv_multimodal",
+      "target_id": "target_tier2_cv_accept",
+      "expected_weighted_unrounded": "7.15",
+      "expected_band": "competitive_top_tier_main_track",
+      "expected_portfolio_verdict": "ready_with_primary_and_fallback"
+    },
+    {
+      "tier_id": "tier3_borderline_findings",
+      "tier_rank": 3,
+      "file": "tiers/tier3_borderline_ai_systems.json",
+      "subfield_preset": "ai_systems",
+      "target_id": "target_tier3_sys_borderline",
+      "expected_weighted_unrounded": "6.35",
+      "expected_band": "borderline_top_tier_competitive_findings_tier_a",
+      "expected_portfolio_verdict": "ready_with_primary_and_fallback"
+    },
+    {
+      "tier_id": "tier4_workshop",
+      "tier_rank": 4,
+      "file": "tiers/tier4_workshop_ml_theory.json",
+      "subfield_preset": "ml_theory",
+      "target_id": "target_tier4_theory_workshop",
+      "expected_weighted_unrounded": "5.40",
+      "expected_band": "workshop_or_preliminary_only",
+      "expected_portfolio_verdict": "retargeted_to_matched_tier"
+    },
+    {
+      "tier_id": "tier5a_clear_reject",
+      "tier_rank": 5,
+      "file": "tiers/tier5_clear_reject_nlp_llm.json",
+      "subfield_preset": "nlp_llm",
+      "target_id": "target_tier5_nlp_reject",
+      "expected_weighted_unrounded": "4.50",
+      "expected_band": "not_ready_major_rework",
+      "expected_portfolio_verdict": "no_viable_venue_in_portfolio"
+    },
+    {
+      "tier_id": "tier5b_fatal_gate",
+      "tier_rank": 5,
+      "file": "tiers/tier5_fatal_gate_cv_multimodal.json",
+      "subfield_preset": "cv_multimodal",
+      "target_id": "target_tier5_cv_fatal",
+      "expected_weighted_unrounded": "7.20",
+      "expected_band": "not_ready_fatal_gate",
+      "expected_portfolio_verdict": "hold_for_rework"
+    }
+  ],
+  "triage_fixtures": {
+    "mode1": [
+      "triage/mode1_pre_submission_nlp_llm.json",
+      "triage/mode1_pre_submission_cv_multimodal.json",
+      "triage/mode1_pre_submission_ml_theory.json",
+      "triage/mode1_pre_submission_ai_systems.json"
+    ],
+    "mode2": "triage/mode2_post_reject_h1_h17_triage.json"
+  }
+}

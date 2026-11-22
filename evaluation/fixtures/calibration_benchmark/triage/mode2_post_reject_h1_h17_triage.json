@@ -1,0 +1,93 @@
+{
+  "venue_a": "NeurIPS 2026",
+  "venue_b": {
+    "name": "ICLR",
+    "edition": "2027",
+    "track": "Main Track",
+    "tier_expectation": "top_tier_flagship",
+    "submission_deadline_utc": "2026-12-20T23:59:00Z",
+    "resubmission_allowed": true,
+    "dual_submission_conflict": false,
+    "anonymity_reset_verified": true
+  },
+  "scorecard": {
+    "weights": {
+      "importance": 15,
+      "novelty": 20,
+      "soundness": 20,
+      "evidence": 20,
+      "transparency": 15,
+      "clarity": 10
+    },
+    "ratings": {
+      "importance": 8,
+      "novelty": 7,
+      "soundness": 7,
+      "evidence": 7,
+      "transparency": 7,
+      "clarity": 7
+    }
+  },
+  "comments": [
+    {
+      "id": "R1.1",
+      "reviewer": "R1",
+      "heuristic_tag": "H5",
+      "author_claimed_sota": false,
+      "text": "Does not surpass latest unconstrained 70B SOTA on GSM8K."
+    },
+    {
+      "id": "R1.2",
+      "reviewer": "R1",
+      "heuristic_tag": "H7",
+      "text": "This method is too simple; just a 2-step calibration rule."
+    },
+    {
+      "id": "R2.1",
+      "reviewer": "R2",
+      "heuristic_tag": "H13",
+      "core_claim_fails_without_it": false,
+      "text": "Authors could also test extra experiment on robotic manipulation."
+    },
+    {
+      "id": "R2.2",
+      "reviewer": "R2",
+      "heuristic_tag": "H16",
+      "text": "The limitations section admits compute bounds are only measured on single-node GPUs."
+    },
+    {
+      "id": "R2.3",
+      "reviewer": "R2",
+      "heuristic_tag": "H12",
+      "reference_is_preprint_only": true,
+      "reference_months_before_deadline": 1,
+      "text": "Missing comparison to recent concurrent arXiv preprint from last month."
+    },
+    {
+      "id": "R3.1",
+      "reviewer": "R3",
+      "code_hint": "M2",
+      "text": "Missing exact random seeds, split manifest, and training hyperparameters for baseline reproduction."
+    },
+    {
+      "id": "R3.2",
+      "reviewer": "R3",
+      "code_hint": "R1",
+      "text": "Baseline hyperparameter tuning budget appears lower than candidate method (untuned baseline)."
+    },
+    {
+      "id": "R3.3",
+      "reviewer": "R3",
+      "code_hint": "R5",
+      "text": "Missing 95% confidence intervals and multi-seed statistical significance tests in Table 2."
+    },
+    {
+      "id": "R4.1",
+      "reviewer": "R4",
+      "code_hint": "G3",
+      "cited_precedent": "Smith et al. ACL 2025",
+      "reference_months_before_deadline": 8,
+      "text": "Missing differentiation from Smith et al. (2025) published 8 months before deadline."
+    }
+  ]
+}

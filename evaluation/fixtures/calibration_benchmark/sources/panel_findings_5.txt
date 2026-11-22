@@ -1,0 +1,6 @@
+Title and Claim: Accepted Findings of ACL study 5 on calibrated mechanism analysis.
+Method and Setup: Formulates controlled baseline intervention 5 with bounded parameters.
+Soundness and Controls: Verifies invariance and split isolation across 5 fixed seeds in run 5.
+Results and Evidence: Demonstrates consistent empirical gain over matched baseline 5.
+Reproducibility and Artifacts: Provides deterministic config, seed table, and checksummed eval script 5.
+Clarity and Limitations: States explicit domain scope and failure boundaries for panel paper 5.

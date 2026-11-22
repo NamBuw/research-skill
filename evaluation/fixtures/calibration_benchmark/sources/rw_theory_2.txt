@@ -1,0 +1,6 @@
+Title and Claim: Tighter minimax lower bounds under sub-Gaussian label noise.
+Method and Setup: Implements ml_theory closest-work baseline mechanism for direct comparison.
+Soundness and Controls: Applies matched split controls and seed parity for rw_theory_2.
+Results and Evidence: Reports multi-seed benchmarks and error intervals for rw_theory_2.
+Reproducibility and Artifacts: Releases deterministic reproduction artifacts and metrics for rw_theory_2.
+Clarity and Limitations: Documents explicit failure cases and boundary assumptions for rw_theory_2.

@@ -1,0 +1,6 @@
+Title and Claim: Finite-sample generalization bounds for regularized RKHS kernels.
+Method and Setup: Implements ml_theory closest-work baseline mechanism for direct comparison.
+Soundness and Controls: Applies matched split controls and seed parity for rw_theory_1.
+Results and Evidence: Reports multi-seed benchmarks and error intervals for rw_theory_1.
+Reproducibility and Artifacts: Releases deterministic reproduction artifacts and metrics for rw_theory_1.
+Clarity and Limitations: Documents explicit failure cases and boundary assumptions for rw_theory_1.

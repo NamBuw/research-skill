@@ -1,0 +1,6 @@
+Title and Claim: Open-weight contamination audit across public QA evaluation suites.
+Method and Setup: Implements nlp_llm closest-work baseline mechanism for direct comparison.
+Soundness and Controls: Applies matched split controls and seed parity for rw_nlp_3.
+Results and Evidence: Reports multi-seed benchmarks and error intervals for rw_nlp_3.
+Reproducibility and Artifacts: Releases deterministic reproduction artifacts and metrics for rw_nlp_3.
+Clarity and Limitations: Documents explicit failure cases and boundary assumptions for rw_nlp_3.

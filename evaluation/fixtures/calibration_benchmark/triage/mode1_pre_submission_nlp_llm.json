@@ -1,0 +1,110 @@
+{
+  "target_id": "triage_nlp_llm",
+  "subfield_preset": "nlp_llm",
+  "venue_tier": "top_tier_flagship",
+  "scorecard": {
+    "weights": {
+      "importance": 15,
+      "novelty": 20,
+      "soundness": 20,
+      "evidence": 20,
+      "transparency": 15,
+      "clarity": 10
+    },
+    "ratings": {
+      "importance": 7,
+      "novelty": 6,
+      "soundness": 7,
+      "evidence": 6,
+      "transparency": 6,
+      "clarity": 6
+    }
+  },
+  "subfield_checks": {
+    "contamination_check": "fail",
+    "multi_prompt_variance": "pass",
+    "compute_matched_open_weight_baseline": "pass"
+  },
+  "anchors": [
+    {
+      "anchor_id": "nlp_llm_acc_1",
+      "topic_relation": "same_topic",
+      "overall_score": "7.40",
+      "benchmarks_count": 4,
+      "sota_baselines_covered": 5,
+      "ablation_depth": "full",
+      "theoretical_rigor": "bounds",
+      "effect_size_ci_stability": "5_seeds",
+      "code_artifact_openness": "public"
+    },
+    {
+      "anchor_id": "nlp_llm_acc_2",
+      "topic_relation": "different_topic",
+      "overall_score": "7.10",
+      "benchmarks_count": 3,
+      "sota_baselines_covered": 4,
+      "ablation_depth": "full",
+      "theoretical_rigor": "bounds",
+      "effect_size_ci_stability": "5_seeds",
+      "code_artifact_openness": "public"
+    }
+  ],
+  "rigor": [
+    {
+      "schema": "experiment_rigor_contamination_v1",
+      "verdict": "CONTAMINATION_DETECTED",
+      "contaminated_eval_count": 18
+    },
+    {
+      "schema": "experiment_rigor_rliable_v1",
+      "verdict": "PASS_WITH_WARNINGS",
+      "warnings": [
+        "underpowered_seeds:2"
+      ]
+    }
+  ],
+  "ledger": {
+    "status": "structural_issues",
+    "issues": [
+      "claim_scope_overreach"
+    ],
+    "grandiose_finding_count": 0,
+    "argument_audit": {
+      "enabled": true,
+      "claim_scope_alignment": {
+        "status": "FAIL",
+        "finding_count": 2
+      },
+      "contribution_evidence_map": {
+        "status": "PASS",
+        "mapped_count": 3,
+        "orphan_count": 0
+      },
+      "related_work_differentiation": {
+        "status": "PASS",
+        "expected_count": 3,
+        "missing_count": 0,
+        "lacks_differentiation_count": 0
+      },
+      "recommended_transparency_cap": 3,
+      "recommended_evidence_cap": 4
+    }
+  },
+  "preflight": [
+    {
+      "schema": "submission_anonymization_v1",
+      "verdict": "PASS",
+      "summary": {
+        "ERROR": 0,
+        "WARN": 0,
+        "INFO": 0
+      }
+    }
+  ],
+  "artifact_readiness": {
+    "schema": "artifact_readiness_v1",
+    "verdict": "PASS",
+    "ready_to_submit": true,
+    "recommended_transparency_cap": null
+  }
+}

@@ -1,0 +1,6 @@
+Title and Claim: Token-budgeted cross-attention routing improves dense visual grounding at matched FLOPs.
+Method and Setup: Controlled cv_multimodal method evaluated in tier2_main_accept.
+Soundness and Controls: Evaluates soundness controls for target_tier2_cv_accept against closest baselines.
+Results and Evidence: Reports empirical evidence across benchmark splits for target_tier2_cv_accept.
+Reproducibility and Artifacts: Provides artifact reproducibility details for target_tier2_cv_accept.
+Clarity and Limitations: Documents scope and limitations clearly for target_tier2_cv_accept.

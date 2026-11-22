@@ -1,0 +1,10 @@
+{
+  "name": "ICLR",
+  "edition": "2027",
+  "track": "Main Track",
+  "tier_expectation": "top_tier_flagship",
+  "submission_deadline_utc": "2026-12-20T23:59:00Z",
+  "resubmission_allowed": true,
+  "dual_submission_conflict": false,
+  "anonymity_reset_verified": true
+}

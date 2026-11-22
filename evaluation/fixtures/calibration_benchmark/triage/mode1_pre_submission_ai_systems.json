@@ -1,0 +1,68 @@
+{
+  "target_id": "triage_ai_systems",
+  "subfield_preset": "ai_systems",
+  "venue_tier": "top_tier_flagship",
+  "scorecard": {
+    "weights": {
+      "importance": 15,
+      "novelty": 20,
+      "soundness": 20,
+      "evidence": 20,
+      "transparency": 15,
+      "clarity": 10
+    },
+    "ratings": {
+      "importance": 7,
+      "novelty": 7,
+      "soundness": 7,
+      "evidence": 7,
+      "transparency": 7,
+      "clarity": 7
+    }
+  },
+  "subfield_checks": {
+    "end_to_end_vs_microbenchmark": "fail",
+    "tail_latency_p99": "missing",
+    "peak_vram_comm_overhead": "pass",
+    "matched_hardware": "pass"
+  },
+  "anchors": [
+    {
+      "anchor_id": "ai_systems_acc_1",
+      "topic_relation": "same_topic",
+      "overall_score": "7.40",
+      "benchmarks_count": 4,
+      "sota_baselines_covered": 5,
+      "ablation_depth": "full",
+      "theoretical_rigor": "bounds",
+      "effect_size_ci_stability": "5_seeds",
+      "code_artifact_openness": "public"
+    },
+    {
+      "anchor_id": "ai_systems_acc_2",
+      "topic_relation": "different_topic",
+      "overall_score": "7.10",
+      "benchmarks_count": 3,
+      "sota_baselines_covered": 4,
+      "ablation_depth": "full",
+      "theoretical_rigor": "bounds",
+      "effect_size_ci_stability": "5_seeds",
+      "code_artifact_openness": "public"
+    }
+  ],
+  "engineering_diagnostics": {
+    "verdict": "ENGINEERING_BUG_DETECTED",
+    "findings": [
+      {
+        "category": "hardware_mismatch",
+        "severity": "error",
+        "detail": "Baseline measured on different batch size."
+      }
+    ]
+  },
+  "venue_sources": {
+    "verification_passed": true,
+    "source_text_status": "all_supplied_critical_quotes_found",
+    "blocking_source_issues": []
+  }
+}

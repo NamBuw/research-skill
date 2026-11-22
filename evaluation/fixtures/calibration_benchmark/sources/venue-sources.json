@@ -1,0 +1,38 @@
+{
+  "format": "research_scientist_venue_sources_v1",
+  "sources": [
+    {
+      "requested_url": "https://example.org/neurips-2027/cfp",
+      "final_url": "https://example.org/neurips-2027/cfp",
+      "status_code": 200,
+      "extraction_status": "ok",
+      "fetched_at_utc": "2026-11-22T00:00:00Z",
+      "same_host_path_redirect_year_mismatch": false,
+      "js_rendered_suspected": false,
+      "unverified_dynamic_page": false,
+      "text": "NeurIPS 2027 Call for Papers: Main Track submissions are open for original empirical and theoretical research. Double-blind anonymity policy enforced with fixed page limits and reproducibility checklist. Author registration fees and travel grant schedules are published cleanly on the official portal."
+    },
+    {
+      "requested_url": "https://example.org/acl-2027/findings-cfp",
+      "final_url": "https://example.org/acl-2027/findings-cfp",
+      "status_code": 200,
+      "extraction_status": "ok",
+      "fetched_at_utc": "2026-11-22T00:00:00Z",
+      "same_host_path_redirect_year_mismatch": false,
+      "js_rendered_suspected": false,
+      "unverified_dynamic_page": false,
+      "text": "Findings of ACL 2027 Call for Papers invites concise findings and bounded empirical analyses. Submissions must pass double-blind anonymity and full-text artifact reporting standards. Author registration fees and fee schedule are published cleanly on the official portal."
+    },
+    {
+      "requested_url": "https://example.org/icml-2027/workshop-cfp",
+      "final_url": "https://example.org/icml-2027/workshop-cfp",
+      "status_code": 200,
+      "extraction_status": "ok",
+      "fetched_at_utc": "2026-11-22T00:00:00Z",
+      "same_host_path_redirect_year_mismatch": false,
+      "js_rendered_suspected": false,
+      "unverified_dynamic_page": false,
+      "text": "ICML 2027 Call for Papers: Workshop track welcomes preliminary results, negative findings, and early studies. Short 4-page archival or non-archival submissions follow double-blind anonymity formatting rules. Author registration fees and schedule are published cleanly on the official portal."
+    }
+  ]
+}
