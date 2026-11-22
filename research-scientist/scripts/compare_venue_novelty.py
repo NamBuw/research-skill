@@ -26,12 +26,24 @@ if _SCRIPTS_DIR not in sys.path:
 
 from compare_scorecards import _snapshot_is_blocked, index_sources_dir, verify_locator
 from score_math import (
+    DEFAULT_PAPER_WEIGHTS,
     DIMENSIONS as SCORECARD_DIMENSIONS,
+    SUBFIELD_PRESETS,
     VENUE_TIER_FLOORS,
     VENUE_TIER_ORDER,
+    VENUE_TYPE_PROFILES,
+    build_evidence_anchor_table,
+    compute_deal_breaker_sensitivity,
+    compute_merit_vs_packaging,
+    evaluate_subfield_readiness,
+    evaluate_venue_profile_checks,
     evaluate_venue_tier_fit,
     resolve_venue_tier,
+    resolve_venue_type,
     score as score_math_score,
+    simulate_reviewer_panel,
+    simulate_what_if_roi,
+    translate_to_native_scales,
 )
 from venue_leads import load_venue_quality_refs, lookup_venue_quality
 
@@ -386,6 +398,7 @@ def _build_venue_submission_readiness(
     errors,
     *,
     venue_tier=None,
+    venue_type=None,
     target_info=None,
     contribution_bar=None,
     has_tier_context=False,
@@ -452,6 +465,7 @@ def _build_venue_submission_readiness(
         target_novelty=target_score,
         panel_median_novelty=panel_median,
         target_vs_venue_overall_delta=(contribution_bar or {}).get('target_vs_venue_overall_delta'),
+        venue_type=venue_type,
     )
     tier_rejected = tier_fit['rejected_below_venue_tier']
 
@@ -582,6 +596,9 @@ def _check_single_venue(
     refs=None,
     portfolio_optional_panel=False,
     target_overall_override=None,
+    venue_type=None,
+    subfield_preset=None,
+    what_if=False,
 ):
     errors, warnings = [], []
     as_of = as_of or datetime.now(timezone.utc)
@@ -847,7 +864,41 @@ def _check_single_venue(
 
     tier_exp = profile.get('tier_expectation') or profile.get('venue_tier') or venue.get('tier_expectation')
     q_tier = (venue_quality_context or {}).get('quality_tier', 'Unknown')
+    eff_vtype = resolve_venue_type(
+        venue_type if venue_type is not None else (profile.get('venue_type') or profile.get('venue_profile') or venue.get('venue_type'))
+    )
+    venue_profile_eval = evaluate_venue_profile_checks(eff_vtype, profile) if eff_vtype is not None else None
+    eff_preset = subfield_preset if subfield_preset is not None else profile.get('subfield_preset')
+    subfield_readiness = (
+        evaluate_subfield_readiness(eff_preset, profile.get('subfield_checks'))
+        if eff_preset is not None
+        else None
+    )
+
+    checks_fatal = bool(venue_profile_eval and venue_profile_eval.get('checks_gate_failed'))
+    eff_panel = (
+        profile.get('reviewer_panel')
+        if profile.get('reviewer_panel') is not None
+        else (profile.get('target_scorecard') or {}).get('reviewer_panel')
+    )
+    t_weights = (
+        (profile.get('target_scorecard') or {}).get('weights')
+        or target.get('weights')
+        or (VENUE_TYPE_PROFILES[eff_vtype]['weights'] if eff_vtype in VENUE_TYPE_PROFILES else DEFAULT_PANEL_WEIGHTS)
+    )
+    panel_analysis = (
+        simulate_reviewer_panel(
+            eff_panel,
+            t_weights,
+            aggregate_fatal_gate=bool(target_info['fatal_gate_triggered'] or checks_fatal),
+        )
+        if eff_panel is not None
+        else None
+    )
+
     venue_tier = resolve_venue_tier(venue.get('name'), venue.get('track'), q_tier, tier_exp)
+    if venue_tier is None and venue_profile_eval is not None:
+        venue_tier = venue_profile_eval['venue_tier']
     has_tier_context = bool(
         target_info['has_explicit_overall']
         or (isinstance(tier_exp, str) and tier_exp.strip())
@@ -862,10 +913,87 @@ def _check_single_venue(
         constraint_map,
         errors,
         venue_tier=venue_tier,
+        venue_type=eff_vtype,
         target_info=target_info,
         contribution_bar=contribution_bar,
         has_tier_context=has_tier_context,
     )
+    if checks_fatal and not errors:
+        submission_readiness['ready_to_submit'] = False
+        submission_readiness['verdict'] = 'not_ready_fatal_gate'
+        check_parts = []
+        if venue_profile_eval.get('failed_checks'):
+            check_parts.append(f"failed: {', '.join(venue_profile_eval['failed_checks'])}")
+        if eff_vtype == 'dataset_benchmark' and venue_profile_eval.get('missing_checks'):
+            check_parts.append(f"unverified: {', '.join(venue_profile_eval['missing_checks'])}")
+        detail = '; '.join(check_parts) or 'required checks not verified'
+        submission_readiness['guidance'] = (
+            f"Blocked by {eff_vtype} profile gate ({detail}). "
+            + submission_readiness['guidance']
+        )
+    if panel_analysis and panel_analysis.get('fatal_defect_blocks_averaging') and not errors:
+        submission_readiness['ready_to_submit'] = False
+        submission_readiness['verdict'] = 'not_ready_fatal_gate'
+        submission_readiness['guidance'] = (
+            f"Blocked by reviewer panel fatal defect ({panel_analysis.get('meta_review_verdict')}): "
+            + submission_readiness['guidance']
+        )
+
+    evidence_anchor_table = None
+    if isinstance(profile.get('evidence_anchors'), list) and profile['evidence_anchors']:
+        evidence_anchor_table = build_evidence_anchor_table(target, profile['evidence_anchors'])
+    else:
+        anchor_items = [
+            item for item in panel
+            if isinstance(item, dict)
+            and (isinstance(item.get('evidence_profile'), dict) or isinstance(item.get('evidence_anchors'), dict))
+        ]
+        if len(anchor_items) >= 2:
+            evidence_anchor_table = build_evidence_anchor_table(target, anchor_items[:3])
+
+    overall_fatal_gate = bool(
+        target_info['fatal_gate_triggered']
+        or checks_fatal
+        or (panel_analysis and panel_analysis.get('fatal_defect_blocks_averaging'))
+    )
+    non_rating_fatal = bool(
+        checks_fatal
+        or (panel_analysis and panel_analysis.get('panel_verified_fatal_defect'))
+    )
+
+    native_venue_scales = None
+    if target_info['weighted_dec'] is not None:
+        native_venue_scales = translate_to_native_scales(
+            target_info['weighted_dec'],
+            fatal_gate_triggered=overall_fatal_gate,
+            ratings=target_info['ratings'],
+            reviewer_confidence=profile.get('reviewer_confidence') if profile.get('reviewer_confidence') is not None else target.get('confidence'),
+            reviewer_panel=eff_panel,
+        )
+
+    merit_vs_packaging = None
+    deal_breaker_sensitivity = None
+    what_if_roi = None
+    if isinstance(target_info['ratings'], dict):
+        merit_vs_packaging = compute_merit_vs_packaging(t_weights, target_info['ratings'])
+        deal_breaker_sensitivity = compute_deal_breaker_sensitivity(
+            t_weights,
+            target_info['ratings'],
+            venue_tier=venue_tier,
+            venue_type=eff_vtype,
+            reviewer_panel=eff_panel,
+            is_idea=(target_info['fatal_gate_triggered'] and 'unrun_idea_results' in target_info['fatal_reasons']),
+        )
+        if what_if:
+            what_if_roi = simulate_what_if_roi(
+                t_weights,
+                target_info['ratings'],
+                venue_tier=venue_tier,
+                venue_type=eff_vtype,
+                is_idea=(target_info['fatal_gate_triggered'] and 'unrun_idea_results' in target_info['fatal_reasons']),
+                non_rating_fatal_gate=non_rating_fatal,
+            )
+
     out = {
         'status': 'invalid' if errors else 'structurally_checked',
         'errors': errors,
@@ -883,6 +1011,24 @@ def _check_single_venue(
             'and never contribute to fit_score_out_of_10 or novelty_comparison.'
         ),
     }
+    if eff_vtype is not None:
+        out['venue_type'] = eff_vtype
+        out['venue_type_profile'] = venue_profile_eval
+    if subfield_readiness is not None:
+        out['subfield_preset'] = eff_preset.strip().lower()
+        out['subfield_readiness'] = subfield_readiness
+    if evidence_anchor_table is not None:
+        out['evidence_anchor_table'] = evidence_anchor_table
+    if native_venue_scales is not None:
+        out['native_venue_scales'] = native_venue_scales
+    if merit_vs_packaging is not None:
+        out['merit_vs_packaging'] = merit_vs_packaging
+    if deal_breaker_sensitivity is not None:
+        out['deal_breaker_sensitivity'] = deal_breaker_sensitivity
+    if what_if_roi is not None:
+        out['what_if_roi'] = what_if_roi
+    if panel_analysis is not None:
+        out['reviewer_panel_analysis'] = panel_analysis
     if locator_verification is not None:
         out['locator_verification'] = locator_verification
     return out
@@ -897,6 +1043,9 @@ def _check_portfolio(
     require_panels=False,
     min_venues=None,
     target_overall=None,
+    venue_type=None,
+    subfield_preset=None,
+    what_if=False,
 ):
     as_of = as_of or datetime.now(timezone.utc)
     eff_require_panels = require_panels
@@ -938,6 +1087,47 @@ def _check_portfolio(
         )
         if not ok_cw:
             top_errors.append(f'target:closest_work_locator_unverified:{reason_cw}')
+
+    eff_vtype = resolve_venue_type(
+        venue_type if venue_type is not None else (profile.get('venue_type') or profile.get('venue_profile'))
+    )
+    top_vtype_prof = evaluate_venue_profile_checks(eff_vtype, profile) if eff_vtype is not None else None
+    top_checks_fatal = bool(top_vtype_prof and top_vtype_prof.get('checks_gate_failed'))
+    top_panel = (
+        profile.get('reviewer_panel')
+        if profile.get('reviewer_panel') is not None
+        else (profile.get('target_scorecard') or {}).get('reviewer_panel')
+    )
+    top_panel_analysis = None
+    if top_panel is not None:
+        t_weights = (
+            (profile.get('target_scorecard') or {}).get('weights')
+            or top_target.get('weights')
+            or (VENUE_TYPE_PROFILES[eff_vtype]['weights'] if eff_vtype in VENUE_TYPE_PROFILES else DEFAULT_PANEL_WEIGHTS)
+        )
+        top_panel_analysis = simulate_reviewer_panel(
+            top_panel,
+            t_weights,
+            aggregate_fatal_gate=bool(target_info['fatal_gate_triggered'] or top_checks_fatal),
+        )
+    top_fatal_reasons = list(target_info['fatal_reasons'])
+    if top_checks_fatal and top_vtype_prof:
+        if top_vtype_prof.get('failed_checks'):
+            r_msg = f"venue_checks_failed:{','.join(top_vtype_prof['failed_checks'])}"
+            if r_msg not in top_fatal_reasons:
+                top_fatal_reasons.append(r_msg)
+        if eff_vtype == 'dataset_benchmark' and top_vtype_prof.get('missing_checks'):
+            r_msg = f"venue_checks_unverified:{','.join(top_vtype_prof['missing_checks'])}"
+            if r_msg not in top_fatal_reasons:
+                top_fatal_reasons.append(r_msg)
+    if top_panel_analysis and top_panel_analysis.get('panel_verified_fatal_defect'):
+        if 'reviewer_panel_fatal_defect' not in top_fatal_reasons:
+            top_fatal_reasons.append('reviewer_panel_fatal_defect')
+    top_fatal_gate = bool(
+        target_info['fatal_gate_triggered']
+        or top_checks_fatal
+        or (top_panel_analysis and top_panel_analysis.get('fatal_defect_blocks_averaging'))
+    )
 
     candidates = profile.get('candidate_venues')
     if not isinstance(candidates, list):
@@ -1019,6 +1209,17 @@ def _check_portfolio(
             sub_profile['tier_expectation'] = cand['tier_expectation']
         if cand.get('venue_tier') is not None:
             sub_profile['venue_tier'] = cand['venue_tier']
+        cand_vtype = cand.get('venue_type') or cand.get('venue_profile') or venue_type or profile.get('venue_type') or profile.get('venue_profile')
+        if cand_vtype is not None:
+            sub_profile['venue_type'] = cand_vtype
+        for pass_k in (
+            'venue_checks', 'dataset_checks', 'ethics_license_verified', 't1_t2_verified',
+            'subfield_checks', 'evidence_anchors', 'reviewer_panel', 'reviewer_confidence', 'confidence',
+        ):
+            if pass_k in cand:
+                sub_profile[pass_k] = cand[pass_k]
+            elif pass_k in profile:
+                sub_profile[pass_k] = profile[pass_k]
 
         cand_res = _check_single_venue(
             sub_profile,
@@ -1027,6 +1228,9 @@ def _check_portfolio(
             refs=refs,
             portfolio_optional_panel=not eff_require_panels,
             target_overall_override=target_overall,
+            venue_type=cand_vtype,
+            subfield_preset=(subfield_preset if subfield_preset is not None else profile.get('subfield_preset')),
+            what_if=what_if,
         )
         cand_errors = list(cand_res['errors'])
         if is_dup:
@@ -1047,9 +1251,13 @@ def _check_portfolio(
         failed_constraints = sr['failed_constraints']
         unverified_constraints = sr['unverified_constraints']
 
+        cand_vtype_prof = cand_res.get('venue_type_profile')
+        cand_panel_analysis = cand_res.get('reviewer_panel_analysis')
         q_tier = (cand_res.get('venue_quality_context') or {}).get('quality_tier', 'Unknown')
         tier_exp = cand.get('tier_expectation') or cand.get('venue_tier') or cand_venue.get('tier_expectation')
         venue_tier = resolve_venue_tier(cand_venue.get('name'), cand_venue.get('track'), q_tier, tier_exp)
+        if venue_tier is None and isinstance(cand_vtype_prof, dict):
+            venue_tier = cand_vtype_prof.get('venue_tier')
         vbar = cand_res.get('venue_contribution_bar')
         panel_med_nov = (cand_res.get('novelty_comparison') or {}).get('accepted_panel_median_score')
         tier_fit = evaluate_venue_tier_fit(
@@ -1060,6 +1268,7 @@ def _check_portfolio(
             target_novelty=target_info['target_novelty_score'],
             panel_median_novelty=panel_med_nov,
             target_vs_venue_overall_delta=(vbar or {}).get('target_vs_venue_overall_delta'),
+            venue_type=cand_res.get('venue_type'),
         )
 
         # Classification in exact precedence order
@@ -1087,11 +1296,17 @@ def _check_portfolio(
             if eff_require_panels and cand_res['novelty_comparison'] is None:
                 withhold_reasons.append('missing_required_accepted_panel')
 
+        cand_fatal_gate = bool(
+            top_fatal_gate
+            or (isinstance(cand_vtype_prof, dict) and cand_vtype_prof.get('checks_gate_failed'))
+            or (isinstance(cand_panel_analysis, dict) and cand_panel_analysis.get('fatal_defect_blocks_averaging'))
+            or sr.get('verdict') == 'not_ready_fatal_gate'
+        )
         if disq_reasons:
             classification = 'disqualified'
         elif withhold_reasons:
             classification = 'withheld_unverified'
-        elif target_info['fatal_gate_triggered']:
+        elif cand_fatal_gate:
             classification = 'hold_for_rework'
         elif tier_fit['rejected_below_venue_tier']:
             classification = 'rejected_below_venue_tier'
@@ -1294,9 +1509,9 @@ def _check_portfolio(
     matched_ids = [ve['venue_id'] for ve in matched_sorted]
     top_matched = matched_sorted[0] if matched_sorted else None
 
-    if target_info['fatal_gate_triggered']:
+    if top_fatal_gate:
         matched_rationale = 'Hold for rework: target triggered a fatal gate blocking all archival venues.'
-        action_if_empty = 'Resolve fatal scorecard/idea defects before targeting any archival venue.'
+        action_if_empty = 'Resolve fatal scorecard/idea/panel/profile defects before targeting any archival venue.'
     elif top_matched is not None:
         top_gaps_note = ''
         if rejected_below_tier:
@@ -1339,11 +1554,11 @@ def _check_portfolio(
     else:
         portfolio_status = 'structurally_checked'
 
-    if target_info['fatal_gate_triggered']:
+    if top_fatal_gate:
         portfolio_verdict = 'hold_for_rework'
         guidance = (
             'Hold for rework: target triggered fatal gate ('
-            + ', '.join(target_info['fatal_reasons'])
+            + ', '.join(top_fatal_reasons)
             + '); all archival venues blocked.'
         )
     elif len(candidates) < eff_min_venues or top_errors:
@@ -1355,6 +1570,11 @@ def _check_portfolio(
             guidance = (
                 f"No viable venue in portfolio: {', '.join(rejected_below_tier)} rejected below venue tier. "
                 + (action_if_empty or '')
+            )
+        elif hold_blocked:
+            portfolio_verdict = 'hold_for_rework'
+            guidance = (
+                f"Hold for rework: all evaluated venues blocked by fatal gate ({', '.join(hold_blocked)})."
             )
         else:
             portfolio_verdict = 'no_verified_viable_venues'
@@ -1374,6 +1594,13 @@ def _check_portfolio(
             f"matched={matched_ids}."
         )
 
+    eff_preset = subfield_preset if subfield_preset is not None else profile.get('subfield_preset')
+    subfield_readiness = (
+        evaluate_subfield_readiness(eff_preset, profile.get('subfield_checks'))
+        if eff_preset is not None
+        else None
+    )
+
     out = {
         'mode': 'portfolio',
         'status': portfolio_status,
@@ -1383,16 +1610,16 @@ def _check_portfolio(
         'require_panels': eff_require_panels,
         'venue_count': len(candidates),
         'target_readiness': {
-            'fatal_gate_triggered': target_info['fatal_gate_triggered'],
-            'fatal_reasons': target_info['fatal_reasons'],
+            'fatal_gate_triggered': top_fatal_gate,
+            'fatal_reasons': top_fatal_reasons,
             'weighted_unrounded': target_info['weighted_unrounded'],
-            'band': target_info['band'],
+            'band': 'not_ready_fatal_gate' if top_fatal_gate else target_info['band'],
             'target_novelty_score': target_info['target_novelty_score'],
             'recommended_matched_tier': paper_matched_tier,
         },
         'venue_portfolio_recommendations': {
             'portfolio_verdict': portfolio_verdict,
-            'hold_for_rework': target_info['fatal_gate_triggered'],
+            'hold_for_rework': top_fatal_gate or (portfolio_verdict == 'hold_for_rework'),
             'recommended_now': recommended_now,
             'stretch_high_risk': stretch_high_risk,
             'viable_fallback': viable_fallback,
@@ -1412,6 +1639,50 @@ def _check_portfolio(
             'from supplied evidence only; never invent acceptance probabilities.'
         ),
     }
+    if eff_vtype is not None:
+        out['venue_type'] = eff_vtype
+        out['venue_type_profile'] = top_vtype_prof
+    if subfield_readiness is not None:
+        out['subfield_preset'] = eff_preset.strip().lower()
+        out['subfield_readiness'] = subfield_readiness
+    if target_info['weighted_dec'] is not None:
+        out['native_venue_scales'] = translate_to_native_scales(
+            target_info['weighted_dec'],
+            fatal_gate_triggered=top_fatal_gate,
+            ratings=target_info['ratings'],
+            reviewer_confidence=profile.get('reviewer_confidence') if profile.get('reviewer_confidence') is not None else top_target.get('confidence'),
+            reviewer_panel=top_panel,
+        )
+    if isinstance(target_info['ratings'], dict):
+        t_weights = (
+            (profile.get('target_scorecard') or {}).get('weights')
+            or top_target.get('weights')
+            or (VENUE_TYPE_PROFILES[eff_vtype]['weights'] if eff_vtype in VENUE_TYPE_PROFILES else DEFAULT_PANEL_WEIGHTS)
+        )
+        out['merit_vs_packaging'] = compute_merit_vs_packaging(t_weights, target_info['ratings'])
+        out['deal_breaker_sensitivity'] = compute_deal_breaker_sensitivity(
+            t_weights,
+            target_info['ratings'],
+            venue_type=eff_vtype,
+            reviewer_panel=top_panel,
+            is_idea=(target_info['fatal_gate_triggered'] and 'unrun_idea_results' in target_info['fatal_reasons']),
+        )
+        if what_if:
+            non_rating_fatal_top = bool(
+                top_checks_fatal
+                or (top_panel_analysis and top_panel_analysis.get('panel_verified_fatal_defect'))
+            )
+            out['what_if_roi'] = simulate_what_if_roi(
+                t_weights,
+                target_info['ratings'],
+                venue_type=eff_vtype,
+                is_idea=(target_info['fatal_gate_triggered'] and 'unrun_idea_results' in target_info['fatal_reasons']),
+                non_rating_fatal_gate=non_rating_fatal_top,
+            )
+    if top_panel_analysis is not None:
+        out['reviewer_panel_analysis'] = top_panel_analysis
+    if isinstance(profile.get('evidence_anchors'), list) and profile['evidence_anchors']:
+        out['evidence_anchor_table'] = build_evidence_anchor_table(top_target, profile['evidence_anchors'])
     if source_index is not None:
         out['locator_verification'] = {
             'sources_dir': str(source_index['root']),
@@ -1434,6 +1705,9 @@ def check(
     require_panels=False,
     min_venues=None,
     target_overall=None,
+    venue_type=None,
+    subfield_preset=None,
+    what_if=False,
 ):
     if not isinstance(profile, dict):
         raise ValueError('profile must be an object')
@@ -1444,8 +1718,14 @@ def check(
         raise ValueError('portfolio must be a boolean')
     if type(require_panels) is not bool:
         raise ValueError('require_panels must be a boolean')
+    if type(what_if) is not bool:
+        raise ValueError('what_if must be a boolean')
     if min_venues is not None and (type(min_venues) is not int or min_venues < 1):
         raise ValueError('min_venues must be an integer >= 1')
+    if venue_type is not None:
+        resolve_venue_type(venue_type)
+    if subfield_preset is not None:
+        evaluate_subfield_readiness(subfield_preset)
     parsed_target_overall = _parse_overall_decimal(target_overall, '--target-overall') if target_overall is not None else None
 
     if 'venue' in profile and 'candidate_venues' in profile:
@@ -1505,6 +1785,9 @@ def check(
             require_panels=require_panels,
             min_venues=min_venues,
             target_overall=parsed_target_overall,
+            venue_type=venue_type,
+            subfield_preset=subfield_preset,
+            what_if=what_if,
         )
 
     if 'candidate_venues' in profile:
@@ -1516,6 +1799,9 @@ def check(
             require_panels=require_panels,
             min_venues=min_venues,
             target_overall=parsed_target_overall,
+            venue_type=venue_type,
+            subfield_preset=subfield_preset,
+            what_if=what_if,
         )
 
     return _check_single_venue(
@@ -1524,6 +1810,9 @@ def check(
         sources_dir=sources_dir,
         quality_refs_dir=quality_refs_dir,
         target_overall_override=parsed_target_overall,
+        venue_type=venue_type,
+        subfield_preset=subfield_preset,
+        what_if=what_if,
     )
 
 
@@ -1588,6 +1877,7 @@ def _compact_portfolio_output(result: dict, out_path: str | None = None) -> dict
         'viable_fallback': (rec.get('viable_fallback') or [])[:8],
         'conflicted_fallback': (rec.get('conflicted_fallback') or [])[:6],
         'rejected_below_venue_tier': (rec.get('rejected_below_venue_tier') or [])[:8],
+        'blocked_hold_for_rework': (rec.get('blocked_hold_for_rework') or [])[:8],
         'disqualified': (rec.get('disqualified') or [])[:8],
         'withheld_unverified': (rec.get('withheld_unverified') or [])[:8],
         'recommended_matched_tier': compact_matched,
@@ -1613,10 +1903,51 @@ def _compact_portfolio_output(result: dict, out_path: str | None = None) -> dict
         'warnings': [w[:120] for w in warnings[:10]],
         'artifact_path': out_path,
     }
+    for opt_k in ('venue_type', 'subfield_preset'):
+        if result.get(opt_k) is not None:
+            compact[opt_k] = result[opt_k]
+    if isinstance(result.get('subfield_readiness'), dict):
+        sfr = result['subfield_readiness']
+        compact['subfield_readiness'] = {
+            'preset': sfr.get('preset'),
+            'passed_count': len(sfr.get('passed_checks') or []),
+            'failed_checks': sfr.get('failed_checks'),
+            'missing_checks': sfr.get('missing_checks'),
+            'subfield_checks_passed': sfr.get('subfield_checks_passed'),
+        }
+    if isinstance(result.get('native_venue_scales'), dict):
+        compact['native_venue_scales'] = copy.deepcopy(result['native_venue_scales'])
+    if isinstance(result.get('merit_vs_packaging'), dict):
+        compact['merit_vs_packaging'] = copy.deepcopy(result['merit_vs_packaging'])
+    if isinstance(result.get('reviewer_panel_analysis'), dict):
+        rpa = result['reviewer_panel_analysis']
+        compact['reviewer_panel_summary'] = {
+            'reviewer_count': rpa.get('reviewer_count'),
+            'confidence_weighted_mean': rpa.get('confidence_weighted_mean'),
+            'variance_risk': rpa.get('variance_risk'),
+            'assassin_reviewer_flag': rpa.get('assassin_reviewer_flag'),
+            'fatal_defect_blocks_averaging': rpa.get('fatal_defect_blocks_averaging'),
+            'meta_review_verdict': rpa.get('meta_review_verdict'),
+        }
+    if isinstance(result.get('evidence_anchor_table'), dict):
+        eat = result['evidence_anchor_table']
+        compact['evidence_anchor_table'] = {
+            'anchor_count': eat.get('anchor_count'),
+            'same_topic_anchor_count': eat.get('same_topic_anchor_count'),
+            'cross_topic_anchor_count': eat.get('cross_topic_anchor_count'),
+            'target_vs_anchors_summary': eat.get('target_vs_anchors_summary'),
+        }
     id_list_keys = (
         'recommended_now', 'stretch_high_risk', 'viable_fallback',
-        'conflicted_fallback', 'rejected_below_venue_tier',
+        'conflicted_fallback', 'rejected_below_venue_tier', 'blocked_hold_for_rework',
         'disqualified', 'withheld_unverified', 'ranked_order',
+    )
+    m9a_p_keys = (
+        'reviewer_panel_summary',
+        'evidence_anchor_table',
+        'merit_vs_packaging',
+        'native_venue_scales',
+        'subfield_readiness',
     )
     trim_stage = 0
     while _encoded_utf8_len(compact) > 3950:
@@ -1632,12 +1963,16 @@ def _compact_portfolio_output(result: dict, out_path: str | None = None) -> dict
             compact['venue_summaries_truncated'] = max(0, len(evals) - len(compact['venue_summaries']))
             compact_rec['guidance'] = compact_rec['guidance'][:120]
             compact_rec['ranked_order'] = compact_rec['ranked_order'][:6]
+            compact.pop('evidence_anchor_table', None)
+            compact.pop('merit_vs_packaging', None)
         elif trim_stage == 2:
             compact['errors'] = []
             compact['warnings'] = []
             compact['venue_summaries'] = compact['venue_summaries'][:2]
             compact['venue_summaries_truncated'] = max(0, len(evals) - len(compact['venue_summaries']))
             compact_rec['timeline_conflicts'] = []
+            for mk in m9a_p_keys:
+                compact.pop(mk, None)
             if isinstance(compact_rec.get('recommended_matched_tier'), dict):
                 compact_rec['recommended_matched_tier'] = {
                     'matched_tier': compact_rec['recommended_matched_tier'].get('matched_tier'),
@@ -1647,7 +1982,7 @@ def _compact_portfolio_output(result: dict, out_path: str | None = None) -> dict
         elif trim_stage == 3:
             compact['venue_summaries'] = []
             compact['venue_summaries_truncated'] = len(evals)
-            for k in ('recommended_now', 'stretch_high_risk', 'viable_fallback', 'rejected_below_venue_tier'):
+            for k in ('recommended_now', 'stretch_high_risk', 'viable_fallback', 'rejected_below_venue_tier', 'blocked_hold_for_rework'):
                 compact_rec[k] = compact_rec[k][:3]
             for k in ('conflicted_fallback', 'disqualified', 'withheld_unverified'):
                 compact_rec[k] = compact_rec[k][:2]
@@ -1760,6 +2095,47 @@ def _compact_output(result: dict, out_path: str | None = None) -> dict:
         'warnings': warnings[:20],
         'artifact_path': out_path,
     }
+    for opt_k in ('venue_type', 'subfield_preset'):
+        if result.get(opt_k) is not None:
+            compact[opt_k] = result[opt_k]
+    if isinstance(result.get('subfield_readiness'), dict):
+        sfr = result['subfield_readiness']
+        compact['subfield_readiness'] = {
+            'preset': sfr.get('preset'),
+            'passed_count': len(sfr.get('passed_checks') or []),
+            'failed_checks': sfr.get('failed_checks'),
+            'missing_checks': sfr.get('missing_checks'),
+            'subfield_checks_passed': sfr.get('subfield_checks_passed'),
+        }
+    if isinstance(result.get('native_venue_scales'), dict):
+        compact['native_venue_scales'] = copy.deepcopy(result['native_venue_scales'])
+    if isinstance(result.get('merit_vs_packaging'), dict):
+        compact['merit_vs_packaging'] = copy.deepcopy(result['merit_vs_packaging'])
+    if isinstance(result.get('reviewer_panel_analysis'), dict):
+        rpa = result['reviewer_panel_analysis']
+        compact['reviewer_panel_summary'] = {
+            'reviewer_count': rpa.get('reviewer_count'),
+            'confidence_weighted_mean': rpa.get('confidence_weighted_mean'),
+            'variance_risk': rpa.get('variance_risk'),
+            'assassin_reviewer_flag': rpa.get('assassin_reviewer_flag'),
+            'fatal_defect_blocks_averaging': rpa.get('fatal_defect_blocks_averaging'),
+            'meta_review_verdict': rpa.get('meta_review_verdict'),
+        }
+    if isinstance(result.get('evidence_anchor_table'), dict):
+        eat = result['evidence_anchor_table']
+        compact['evidence_anchor_table'] = {
+            'anchor_count': eat.get('anchor_count'),
+            'same_topic_anchor_count': eat.get('same_topic_anchor_count'),
+            'cross_topic_anchor_count': eat.get('cross_topic_anchor_count'),
+            'target_vs_anchors_summary': eat.get('target_vs_anchors_summary'),
+        }
+    m9a_s_keys = (
+        'reviewer_panel_summary',
+        'evidence_anchor_table',
+        'merit_vs_packaging',
+        'native_venue_scales',
+        'subfield_readiness',
+    )
     trim_stage = 0
     while _encoded_utf8_len(compact) > 3950:
         if trim_stage == 0:
@@ -1773,10 +2149,14 @@ def _compact_output(result: dict, out_path: str | None = None) -> dict:
         elif trim_stage == 1:
             if isinstance(compact.get('submission_readiness'), dict):
                 compact['submission_readiness'].pop('guidance', None)
+            compact.pop('evidence_anchor_table', None)
+            compact.pop('merit_vs_packaging', None)
         elif trim_stage == 2:
             if isinstance(compact.get('submission_readiness'), dict):
                 compact['submission_readiness'].pop('upgrade_gaps_to_target_tier', None)
                 compact['submission_readiness'].pop('weak_fit_axes', None)
+            for mk in m9a_s_keys:
+                compact.pop(mk, None)
         elif trim_stage == 3:
             compact['errors'] = []
             compact['warnings'] = []
@@ -1823,6 +2203,10 @@ def main(argv=None):
     parser.add_argument('--require-panels', action='store_true', help='Require >= 5 recent same-track full-text accepted_panel for every portfolio venue')
     parser.add_argument('--min-venues', type=int, default=None, help='Minimum candidate venues required in portfolio mode (default: 3)')
     parser.add_argument('--target-overall', default=None, help='Optional target overall /10 score for cross-topic venue bar comparison')
+    parser.add_argument('--venue-type', default=None, choices=sorted(VENUE_TYPE_PROFILES), help='Optional venue-type profile')
+    parser.add_argument('--venue-profile', default=None, choices=sorted(VENUE_TYPE_PROFILES), help='Alias for --venue-type')
+    parser.add_argument('--subfield-preset', default=None, choices=sorted(SUBFIELD_PRESETS), help='Optional AI/CS subfield depth preset')
+    parser.add_argument('--what-if', action='store_true', help='Include What-If Score-Lift ROI plan when target ratings are present')
     parser.add_argument('--out', default=None, help='Optional output JSON file path for full report')
     parser.add_argument('--compact', action='store_true', help='Emit compact bounded summary JSON to stdout')
     args = parser.parse_args(argv)
@@ -1836,6 +2220,8 @@ def main(argv=None):
             _require_nonempty_path(args.quality_refs_dir, '--quality-refs-dir')
         if args.target_overall is not None:
             _require_nonempty_path(args.target_overall, '--target-overall')
+        if args.venue_type and args.venue_profile and args.venue_type != args.venue_profile:
+            raise ValueError('--venue-type and --venue-profile cannot conflict')
         profile = json.loads(prof_path.read_text(encoding='utf-8'), parse_constant=_reject_nonfinite)
         result = check(
             profile,
@@ -1845,6 +2231,9 @@ def main(argv=None):
             require_panels=bool(args.require_panels),
             min_venues=args.min_venues,
             target_overall=args.target_overall,
+            venue_type=(args.venue_type or args.venue_profile),
+            subfield_preset=args.subfield_preset,
+            what_if=bool(args.what_if),
         )
         full_rendered = json.dumps(result, ensure_ascii=False)
         out_str = None

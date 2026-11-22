@@ -1,15 +1,56 @@
 #!/usr/bin/env python3
 """Check scorecard completeness and ranking sensitivity under declared weights."""
 import argparse
+import hashlib
 import html
 import json
+import math
 import re
 import sys
 import unicodedata
 from decimal import BasicContext, Decimal, ROUND_HALF_UP, localcontext
 from pathlib import Path
 
-from score_math import DIMENSIONS, score
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from score_math import (
+    DEFAULT_IDEA_WEIGHTS,
+    DIMENSIONS,
+    FATAL_THRESHOLDS,
+    HEX64_RE,
+    IDEA_DIMENSIONS,
+    IDEA_FATAL_THRESHOLDS,
+    SUBFIELD_PRESETS,
+    VENUE_TYPE_PROFILES,
+    build_evidence_anchor_table,
+    compute_deal_breaker_sensitivity,
+    compute_merit_vs_packaging,
+    detect_halo_sanity_warnings,
+    diff_scorecards,
+    evaluate_subfield_readiness,
+    evaluate_venue_profile_checks,
+    resolve_venue_type,
+    score,
+    score_section_diagnostics,
+    simulate_reviewer_panel,
+    simulate_what_if_roi,
+    translate_to_native_scales,
+)
+
+IDEA_GOAL_MODES = ('safe_fast_publish', 'high_risk_q1_top_tier', 'low_compute_constrained')
+_CANONICAL_PORTFOLIO_ANGLE = {
+    'minimal_fix': 'minimal_fix',
+    'minimal_fix_f19': 'minimal_fix',
+    'high_novelty_mechanism': 'high_novelty_mechanism',
+    'high_novelty_mechanism_q1': 'high_novelty_mechanism',
+    'benchmark_diagnostic_analysis': 'benchmark_diagnostic_analysis',
+    'low_gpu_fallback': 'low_gpu_fallback',
+}
+_ROOT_CAUSE_BARRIERS = {'theoretical_limit', 'measurement_gap', 'data_supervision_gap', 'compute_infra_barrier'}
+_SO_WHAT_IMPACTS = {'decision_changing', 'marginal_gain'}
+_DURABILITY_LEVELS = {'durable_structural_limit', 'high_scaling_erasure_risk'}
 
 try:
     import fitz  # PyMuPDF
@@ -686,7 +727,7 @@ def _build_per_paper_readiness(profiles, scenario_scores, issues_by_pid):
 
 
 def _build_related_work_comparison(
-    eff_target_id, profiles, scenario_scores, issues_by_pid, eff_min_related, eff_strict
+    eff_target_id, profiles, scenario_scores, issues_by_pid, eff_min_related, eff_strict, *, active_dims=DIMENSIONS
 ):
     target_idx = None
     for idx, item in enumerate(profiles):
@@ -736,7 +777,7 @@ def _build_related_work_comparison(
         best_related_overall = float(str(best_q))
         max_related_by_dim = {
             d: max(item['ratings'][d] for item, _ in qualified)
-            for d in DIMENSIONS
+            for d in active_dims
         }
         if target_sc is not None and target_sc.get('status') == 'calculated':
             with localcontext(BasicContext) as ctx:
@@ -752,7 +793,7 @@ def _build_related_work_comparison(
                     if type(target_item['ratings'].get(d)) is int
                     else None
                 )
-                for d in DIMENSIONS
+                for d in active_dims
             }
 
     warnings = []
@@ -762,9 +803,11 @@ def _build_related_work_comparison(
             contrib_delta = target_item.get('contribution_delta') or target_item.get('target_contribution_delta')
             if not isinstance(contrib_delta, str) or not contrib_delta.strip():
                 warnings.append('novelty_inflation_risk:missing_contribution_delta')
+            snd_key = 'soundness' if 'soundness' in active_dims else 'feasibility'
+            ev_key = 'evidence' if 'evidence' in active_dims else 'evidence_coverage'
             if dim_deltas_vs_max is not None and (
-                (dim_deltas_vs_max['soundness'] is not None and dim_deltas_vs_max['soundness'] < 0)
-                or (dim_deltas_vs_max['evidence'] is not None and dim_deltas_vs_max['evidence'] < 0)
+                (dim_deltas_vs_max.get(snd_key) is not None and dim_deltas_vs_max[snd_key] < 0)
+                or (dim_deltas_vs_max.get(ev_key) is not None and dim_deltas_vs_max[ev_key] < 0)
             ):
                 rationale = (
                     target_item.get('baseline_tradeoff_explanation')
@@ -792,17 +835,733 @@ def _build_related_work_comparison(
     }, target_unscored_cw, scored_related_ids
 
 
+def _tok_set(text):
+    return {t for t in re.findall(r'[a-z0-9]+', str(text or '').lower()) if len(t) > 1}
+
+
+def _jaccard(a, b):
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def _normalize_seed_bundle_document(doc):
+    """Convert research_scientist_idea_seed_bundle_v1 (or gap_pipeline output) into scorecards-compatible dict."""
+    bundle = doc.get('idea_seed_bundle') if (isinstance(doc.get('idea_seed_bundle'), dict) and 'seeds' not in doc) else doc
+    seeds = bundle.get('seeds')
+    if not isinstance(seeds, list) or not seeds:
+        raise ValueError('idea_seed_bundle must contain a non-empty seeds list')
+
+    profiles = []
+    for seed in seeds:
+        if not isinstance(seed, dict):
+            raise ValueError('each seed in idea_seed_bundle must be a JSON object')
+        gid = str(seed.get('gap_id') or '').strip()
+        cw_ids = list(seed.get('closest_work_ids') or [])
+        pab = seed.get('prior_art_boundary') if isinstance(seed.get('prior_art_boundary'), dict) else {}
+        if not cw_ids and isinstance(pab.get('closest_work_ids'), list):
+            cw_ids = list(pab['closest_work_ids'])
+        sv = seed.get('subfield_vetting') if isinstance(seed.get('subfield_vetting'), dict) else {}
+        covered = {c: True for c in (sv.get('covered_checks') or []) if isinstance(c, str)}
+        portfolio = seed.get('idea_portfolio')
+        if isinstance(portfolio, list) and portfolio:
+            for item in portfolio:
+                if not isinstance(item, dict):
+                    continue
+                prof = dict(item)
+                raw_id = item.get('id')
+                if not isinstance(raw_id, str) or not raw_id.strip():
+                    alt_id = item.get('idea_id')
+                    if isinstance(alt_id, str) and alt_id.strip():
+                        prof['id'] = alt_id.strip()
+                if not isinstance(prof.get('gap_id'), str) or not prof['gap_id'].strip():
+                    prof['gap_id'] = gid
+                if not isinstance(prof.get('object_type'), str) or not prof['object_type'].strip():
+                    prof['object_type'] = 'idea'
+                if not isinstance(prof.get('status'), str) or not prof['status'].strip():
+                    prof['status'] = 'idea'
+                if not isinstance(prof.get('reading_basis'), str) or not prof['reading_basis'].strip():
+                    prof['reading_basis'] = 'full_text'
+                if not prof.get('closest_work'):
+                    prof['closest_work'] = list(cw_ids)
+                raw_r = prof.get('ratings')
+                if raw_r is None:
+                    prof['ratings'] = {d: None for d in IDEA_DIMENSIONS}
+                elif (
+                    isinstance(raw_r, dict)
+                    and set(raw_r).issubset(set(IDEA_DIMENSIONS))
+                    and len(raw_r) < len(IDEA_DIMENSIONS)
+                ):
+                    prof['ratings'] = {d: raw_r.get(d) for d in IDEA_DIMENSIONS}
+                if 'evidence_locators' not in prof or prof['evidence_locators'] is None:
+                    prof['evidence_locators'] = {}
+                for inherit_k in (
+                    'resource_feasibility', 'durability_12_24m', 'so_what_decision_impact',
+                    'gap_tier_ceiling', 'pre_mortem', 'root_cause_barrier',
+                ):
+                    if inherit_k not in prof and inherit_k in seed:
+                        prof[inherit_k] = seed[inherit_k]
+                if covered and 'subfield_checks' not in prof:
+                    prof['subfield_checks'] = covered
+                profiles.append(prof)
+        else:
+            profiles.append({
+                'id': gid or f'seed_{len(profiles) + 1}',
+                'gap_id': gid,
+                'object_type': 'idea',
+                'status': 'idea',
+                'reading_basis': 'full_text',
+                'closest_work': list(cw_ids),
+                'title': str(seed.get('claim') or gid),
+                'summary': str(seed.get('claim') or ''),
+                'ratings': {d: None for d in IDEA_DIMENSIONS},
+                'evidence_locators': {},
+                'resource_feasibility': seed.get('resource_feasibility'),
+                'durability_12_24m': seed.get('durability_12_24m'),
+                'so_what_decision_impact': seed.get('so_what_decision_impact'),
+                'gap_tier_ceiling': seed.get('gap_tier_ceiling'),
+                'pre_mortem': seed.get('pre_mortem'),
+                'subfield_checks': covered,
+            })
+
+    normalized = {
+        'mode': 'idea',
+        'profiles': profiles,
+        'weight_scenarios': doc.get('weight_scenarios') or bundle.get('weight_scenarios') or [dict(DEFAULT_IDEA_WEIGHTS)],
+        'idea_seed_bundle': bundle,
+    }
+    for passthrough in ('goal', 'subfield_preset', 'venue_type', 'portfolio_mode', 'target_id'):
+        val = doc.get(passthrough) if doc.get(passthrough) is not None else bundle.get(passthrough)
+        if val is not None:
+            normalized[passthrough] = val
+    return normalized
+
+
+def _validate_pre_mortem_obj(pm):
+    if not isinstance(pm, dict):
+        return ['pre_mortem_must_be_object']
+    errs = []
+    fms = pm.get('top_failure_modes')
+    if not isinstance(fms, list) or len([x for x in fms if isinstance(x, str) and x.strip()]) < 3:
+        errs.append('top_failure_modes_lt_3')
+    kexp = pm.get('killer_experiment')
+    if not isinstance(kexp, dict):
+        errs.append('killer_experiment_missing')
+    else:
+        dur = kexp.get('duration_days')
+        if isinstance(dur, bool) or not isinstance(dur, (int, float)) or not math.isfinite(float(dur)) or dur <= 0 or dur > 2:
+            errs.append('killer_experiment_duration_not_1_to_2_days')
+        kt = kexp.get('kill_threshold')
+        if not isinstance(kt, str) or not kt.strip():
+            errs.append('killer_experiment_kill_threshold_missing')
+    pivot = pm.get('pivot_path')
+    if not isinstance(pivot, str) or not pivot.strip():
+        errs.append('pivot_path_missing')
+    return errs
+
+
+def _validate_idea_linkage_and_portfolio(
+    profiles,
+    *,
+    sources_dir=None,
+    gap_record=None,
+    question_card=None,
+    idea_seed_bundle=None,
+    require_idea_portfolio=False,
+    require_pre_mortem=False,
+    record_issue_fn=None,
+):
+    linkage = {
+        'gap_record_checked': False,
+        'gap_record_valid': None,
+        'question_card_checked': False,
+        'question_card_valid': None,
+        'seed_bundle_linked': False,
+        'seed_count': 0,
+        'trajectory_tree_generations_count': 0,
+        'support_ids': [],
+        'cited_ids': [],
+        'closest_work_ids': [],
+        'f32_lenses': [],
+        'portfolio_distinct_ideas': 0,
+        'portfolio_distinct_angles': [],
+        'pre_mortem_warnings': [],
+    }
+    known_gap_ids = set()
+
+    if gap_record is not None:
+        import check_gap_record
+        linkage['gap_record_checked'] = True
+        ev_dir = None
+        if sources_dir is not None:
+            s_root = Path(sources_dir).expanduser().resolve()
+            if s_root.is_dir() and any(s_root.rglob('*.json')):
+                ev_dir = sources_dir
+        gr_res = check_gap_record.check(gap_record, evidence_dir=ev_dir)
+        linkage['gap_record_valid'] = bool(gr_res.get('valid_structure'))
+        if not gr_res.get('valid_structure'):
+            for err in gr_res.get('errors') or ['invalid_gap_record']:
+                record_issue_fn(f'gap_record_invalid:{err}', None)
+        for cand in gap_record.get('candidates') or []:
+            if isinstance(cand, dict) and isinstance(cand.get('id'), str) and cand['id'].strip():
+                known_gap_ids.add(cand['id'].strip())
+        for ev in gap_record.get('evidence') or []:
+            if isinstance(ev, dict) and isinstance(ev.get('id'), str):
+                linkage['support_ids'].append(ev['id'])
+
+    if question_card is not None:
+        import check_question_card
+        linkage['question_card_checked'] = True
+        qc_res = check_question_card.check(question_card)
+        linkage['question_card_valid'] = bool(qc_res.get('valid_structure'))
+        if not qc_res.get('valid_structure'):
+            for err in qc_res.get('errors') or ['invalid_question_card']:
+                record_issue_fn(f'question_card_invalid:{err}', None)
+        qc_gid = question_card.get('gap_id')
+        if isinstance(qc_gid, str) and qc_gid.strip() and known_gap_ids and qc_gid.strip() not in known_gap_ids:
+            record_issue_fn(f'question_card_unlinked_gap_id:{qc_gid.strip()}', None)
+        qc_iid = question_card.get('idea_id')
+        prof_ids = {p['id'] for p in profiles}
+        if isinstance(qc_iid, str) and qc_iid.strip() and qc_iid.strip() not in prof_ids:
+            record_issue_fn(f'question_card_unlinked_idea_id:{qc_iid.strip()}', None)
+
+    if idea_seed_bundle is not None:
+        bundle = (
+            idea_seed_bundle.get('idea_seed_bundle')
+            if isinstance(idea_seed_bundle, dict) and 'idea_seed_bundle' in idea_seed_bundle and 'seeds' not in idea_seed_bundle
+            else idea_seed_bundle
+        )
+        if not isinstance(bundle, dict) or bundle.get('schema') != 'research_scientist_idea_seed_bundle_v1':
+            record_issue_fn('invalid_idea_seed_bundle_schema', None)
+        else:
+            linkage['seed_bundle_linked'] = True
+            seeds = bundle.get('seeds') if isinstance(bundle.get('seeds'), list) else []
+            linkage['seed_count'] = len(seeds)
+            if not seeds:
+                record_issue_fn('idea_seed_bundle_empty_seeds', None)
+            traj_trees = bundle.get('trajectory_trees')
+            if isinstance(traj_trees, dict):
+                for tk, tv in traj_trees.items():
+                    if not isinstance(tv, dict) or not isinstance(tv.get('generations'), list) or not tv['generations']:
+                        record_issue_fn(f'invalid_trajectory_tree:{tk}', None)
+            for s_idx, seed in enumerate(seeds):
+                if not isinstance(seed, dict):
+                    continue
+                gid = str(seed.get('gap_id') or f'seed_{s_idx}').strip()
+                known_gap_ids.add(gid)
+                tt = seed.get('trajectory_tree')
+                if tt is not None:
+                    if not isinstance(tt, dict) or not isinstance(tt.get('generations'), list) or not tt['generations']:
+                        record_issue_fn(f'invalid_seed_trajectory_tree:{gid}', None)
+                    else:
+                        linkage['trajectory_tree_generations_count'] += len(tt['generations'])
+                pab = seed.get('prior_art_boundary')
+                if not isinstance(pab, dict):
+                    record_issue_fn(f'missing_prior_art_boundary:{gid}', None)
+                else:
+                    for key_name in ('support_ids', 'cited_ids', 'closest_work_ids'):
+                        vals = [str(x).strip() for x in (pab.get(key_name) or []) if isinstance(x, str) and x.strip()]
+                        for v in vals:
+                            if v not in linkage[key_name]:
+                                linkage[key_name].append(v)
+                ft_digests = seed.get('full_text_digests')
+                if isinstance(ft_digests, dict):
+                    for cw in seed.get('closest_work_ids') or []:
+                        dig = ft_digests.get(cw)
+                        basis_ok = isinstance(dig, dict) and (
+                            dig.get('reading_basis') in ('full_text', 'selected_full_text')
+                            or dig.get('access') in ('full_text', 'selected_full_text')
+                        )
+                        if not basis_ok:
+                            record_issue_fn(f'seed_closest_work_not_full_text:{gid}:{cw}', None)
+                rcb = seed.get('root_cause_barrier')
+                sw = seed.get('so_what_decision_impact')
+                dur = seed.get('durability_12_24m')
+                if rcb is not None and rcb not in _ROOT_CAUSE_BARRIERS:
+                    record_issue_fn(f'invalid_f32_root_cause_barrier:{gid}:{rcb}', None)
+                if sw is not None and sw not in _SO_WHAT_IMPACTS:
+                    record_issue_fn(f'invalid_f32_so_what:{gid}:{sw}', None)
+                if dur is not None and dur not in _DURABILITY_LEVELS:
+                    record_issue_fn(f'invalid_f32_durability:{gid}:{dur}', None)
+                linkage['f32_lenses'].append({
+                    'gap_id': gid,
+                    'root_cause_barrier': rcb,
+                    'why_now_enabler': seed.get('why_now_enabler'),
+                    'so_what_decision_impact': sw,
+                    'durability_12_24m': dur,
+                })
+
+    if known_gap_ids:
+        for item in profiles:
+            gid = item.get('gap_id')
+            if isinstance(gid, str) and gid.strip() and gid.strip() not in known_gap_ids:
+                record_issue_fn(f'unlinked_gap_id:{item["id"]}:{gid.strip()}', item['id'])
+
+    # F28 portfolio & pre-mortem checks (validated per gap_id group)
+    grouped_profiles = {}
+    for item in profiles:
+        raw_gid = item.get('gap_id')
+        g_key = raw_gid.strip() if isinstance(raw_gid, str) and raw_gid.strip() else ''
+        grouped_profiles.setdefault(g_key, []).append(item)
+
+    all_distinct_ideas = 0
+    all_distinct_angles = set()
+    portfolio_by_gap = {}
+    multi_group = len(grouped_profiles) > 1
+    for g_key, g_profiles in grouped_profiles.items():
+        g_distinct_toks = []
+        g_distinct_angles = set()
+        for item in g_profiles:
+            raw_angle = str(item.get('angle') or item.get('canonical_angle') or '').strip()
+            canon = _CANONICAL_PORTFOLIO_ANGLE.get(raw_angle)
+            summary_blob = ' '.join(
+                str(item.get(k) or '').strip()
+                for k in ('title', 'mechanism_summary', 'summary')
+                if isinstance(item.get(k), str) and str(item.get(k)).strip()
+            )
+            toks = _tok_set(summary_blob or item['id'])
+            redundant = bool(toks) and any(_jaccard(toks, prev) >= 0.80 for prev in g_distinct_toks)
+            if redundant:
+                if require_idea_portfolio:
+                    record_issue_fn(f'idea_portfolio_redundant_idea:{item["id"]}', item['id'])
+            else:
+                g_distinct_toks.append(toks)
+                if canon:
+                    g_distinct_angles.add(canon)
+                elif raw_angle and require_idea_portfolio:
+                    record_issue_fn(f'invalid_portfolio_angle:{item["id"]}:{raw_angle}', item['id'])
+
+            pm = item.get('pre_mortem')
+            if pm is not None:
+                pm_errs = _validate_pre_mortem_obj(pm)
+                if pm_errs:
+                    msg = f'incomplete_pre_mortem:{item["id"]}:{",".join(pm_errs)}'
+                    if require_pre_mortem:
+                        record_issue_fn(msg, item['id'])
+                    else:
+                        linkage['pre_mortem_warnings'].append(msg)
+            elif require_pre_mortem:
+                record_issue_fn(f'missing_pre_mortem:{item["id"]}', item['id'])
+
+        all_distinct_ideas += len(g_distinct_toks)
+        all_distinct_angles.update(g_distinct_angles)
+        portfolio_by_gap[g_key or '_default'] = {
+            'total_ideas': len(g_profiles),
+            'distinct_ideas': len(g_distinct_toks),
+            'distinct_angles': sorted(g_distinct_angles),
+        }
+        if require_idea_portfolio:
+            if len(g_distinct_toks) < 3 or len(g_distinct_angles) < 3 or len(g_profiles) > 4:
+                if multi_group:
+                    record_issue_fn(
+                        f'tunnel_vision_idea_portfolio:{g_key or "default"}:ideas={len(g_distinct_toks)},angles={len(g_distinct_angles)},total={len(g_profiles)}',
+                        None,
+                    )
+                else:
+                    record_issue_fn(
+                        f'tunnel_vision_idea_portfolio:ideas={len(g_distinct_toks)},angles={len(g_distinct_angles)}',
+                        None,
+                    )
+
+    linkage['portfolio_distinct_ideas'] = all_distinct_ideas
+    linkage['portfolio_distinct_angles'] = sorted(all_distinct_angles)
+    linkage['portfolio_by_gap'] = portfolio_by_gap
+
+    return linkage
+
+
+def _extract_finite_gpu_hours(item):
+    res = item.get('resource_feasibility') if isinstance(item.get('resource_feasibility'), dict) else {}
+    gpu_h = item.get('required_gpu_hours')
+    if isinstance(gpu_h, bool) or not isinstance(gpu_h, (int, float)) or not math.isfinite(float(gpu_h)) or float(gpu_h) < 0:
+        gpu_h = res.get('required_gpu_hours')
+    if isinstance(gpu_h, (int, float)) and not isinstance(gpu_h, bool) and math.isfinite(float(gpu_h)) and float(gpu_h) >= 0:
+        return Decimal(str(gpu_h))
+    return None
+
+
+def _compute_pareto_frontier(profiles, scenario_scores, goal):
+    """Compute goal-conditioned non-dominated Pareto frontier across ideas (Decimal-safe)."""
+    eff_goal = (goal or 'safe_fast_publish').strip().lower()
+    if eff_goal not in IDEA_GOAL_MODES:
+        raise ValueError(f'Unknown --goal: {goal!r}')
+
+    entries = []
+    with localcontext(BasicContext) as ctx:
+        ctx.prec = 28
+        max_known_gpu = Decimal(0)
+        for item in profiles:
+            g_dec = _extract_finite_gpu_hours(item)
+            if g_dec is not None and g_dec > max_known_gpu:
+                max_known_gpu = g_dec
+        for idx, item in enumerate(profiles):
+            pid = item['id']
+            sc = scenario_scores[0][idx][1]
+            if sc.get('status') != 'calculated':
+                continue
+            r = item['ratings']
+            w_dec = Decimal(sc['weighted_unrounded'])
+            raw_angle = str(item.get('canonical_angle') or item.get('angle') or '').strip()
+            canon_angle = _CANONICAL_PORTFOLIO_ANGLE.get(raw_angle, raw_angle)
+            gtags = {str(x).strip().lower() for x in (item.get('goal_tags') or []) if isinstance(x, str)}
+
+            if eff_goal == 'safe_fast_publish':
+                tag_bonus = Decimal(1) if ('safe_fast_publish' in gtags or canon_angle in {'minimal_fix', 'benchmark_diagnostic_analysis'}) else Decimal(0)
+                vec = (
+                    Decimal(r.get('feasibility', r.get('soundness', 0))),
+                    Decimal(r.get('answerability', r.get('evidence', 0))),
+                    Decimal(r.get('evidence_coverage', r.get('evidence', 0))),
+                    Decimal(r.get('falsifiability', r.get('transparency', 0))),
+                    w_dec,
+                    tag_bonus,
+                )
+                tie_score = Decimal(vec[0]) * Decimal(3) + Decimal(vec[1]) * Decimal(2) + w_dec + tag_bonus
+            elif eff_goal == 'high_risk_q1_top_tier':
+                dur = str(item.get('durability_12_24m') or '').strip()
+                so_what = str(item.get('so_what_decision_impact') or '').strip()
+                dur_score = Decimal(1) if dur == 'durable_structural_limit' else (Decimal(-1) if dur == 'high_scaling_erasure_risk' else Decimal(0))
+                impact_bonus = Decimal(-1) if so_what == 'marginal_gain' else (Decimal(1) if so_what == 'decision_changing' else Decimal(0))
+                vec = (
+                    Decimal(r.get('novelty', 0)),
+                    Decimal(r.get('importance', 0)),
+                    Decimal(r.get('falsifiability', r.get('soundness', 0))),
+                    w_dec,
+                    dur_score + impact_bonus,
+                )
+                tie_score = Decimal(vec[0]) * Decimal(3) + Decimal(vec[1]) * Decimal(2) + w_dec + dur_score + impact_bonus
+            else:  # low_compute_constrained
+                res = item.get('resource_feasibility') if isinstance(item.get('resource_feasibility'), dict) else {}
+                infeasible = res.get('infeasible_under_user_resources') is True
+                feasible_flag = Decimal(0) if infeasible else Decimal(1)
+                gpu_dec = _extract_finite_gpu_hours(item)
+                if gpu_dec is not None:
+                    compute_reported = Decimal(1)
+                    compute_inv = Decimal(-1) * gpu_dec
+                    tie_compute = compute_inv
+                else:
+                    compute_reported = Decimal(0)
+                    compute_inv = Decimal(0)
+                    tag_tie = Decimal('0.5') if ('low_compute_constrained' in gtags or canon_angle == 'low_gpu_fallback') else Decimal(0)
+                    tie_compute = Decimal(-1) * (max_known_gpu + Decimal(1)) + tag_tie
+                vec = (
+                    feasible_flag,
+                    Decimal(r.get('feasibility', r.get('soundness', 0))),
+                    Decimal(r.get('answerability', r.get('evidence', 0))),
+                    Decimal(r.get('evidence_coverage', r.get('evidence', 0))),
+                    compute_reported,
+                    compute_inv,
+                )
+                tie_score = (
+                    feasible_flag * Decimal(10000)
+                    + Decimal(vec[1]) * Decimal(3)
+                    + Decimal(vec[2]) * Decimal(2)
+                    + tie_compute
+                    + w_dec * Decimal('0.5')
+                )
+
+            entries.append({'id': pid, 'vec': vec, 'tie_score': tie_score, 'weighted': str(w_dec)})
+
+        dominance_map = {e['id']: [] for e in entries}
+        for a in entries:
+            for b in entries:
+                if a['id'] == b['id']:
+                    continue
+                if all(x >= y for x, y in zip(a['vec'], b['vec'])) and any(x > y for x, y in zip(a['vec'], b['vec'])):
+                    dominance_map[b['id']].append(a['id'])
+
+        frontier_ids = [e['id'] for e in entries if not dominance_map[e['id']]]
+        dominated_ids = [e['id'] for e in entries if dominance_map[e['id']]]
+        goal_ranked = sorted(
+            entries,
+            key=lambda e: (1 if dominance_map[e['id']] else 0, -e['tie_score'], e['id']),
+        )
+
+    return {
+        'goal': eff_goal,
+        'frontier_ids': frontier_ids,
+        'dominated_ids': dominated_ids,
+        'dominance_map': dominance_map,
+        'goal_ranked_ids': [e['id'] for e in goal_ranked],
+    }
+
+
+def _extract_profile_for_diff(doc, preferred_id=None):
+    if not isinstance(doc, dict):
+        raise ValueError('Revision document must be a JSON object')
+    if 'profiles' in doc:
+        profiles = doc.get('profiles')
+        if not isinstance(profiles, list) or not profiles:
+            raise ValueError('Revision document profiles list is empty')
+        target_id = preferred_id or doc.get('target_id')
+        chosen = None
+        if target_id:
+            for p in profiles:
+                if isinstance(p, dict) and p.get('id') == target_id:
+                    chosen = p
+                    break
+            if chosen is None:
+                raise ValueError(f'Profile {target_id!r} not found in revision document')
+        else:
+            chosen = profiles[0]
+        vtype = doc.get('venue_type') if doc.get('venue_type') is not None else doc.get('venue_profile')
+        r = chosen.get('ratings') if isinstance(chosen.get('ratings'), dict) else {}
+        scenarios = doc.get('weight_scenarios')
+        if isinstance(scenarios, list) and scenarios:
+            weights = scenarios[0]
+        elif set(r) == set(IDEA_DIMENSIONS):
+            weights = dict(DEFAULT_IDEA_WEIGHTS)
+        elif vtype in VENUE_TYPE_PROFILES:
+            weights = dict(VENUE_TYPE_PROFILES[vtype]['weights'])
+        else:
+            weights = None
+        return chosen, weights
+    if 'ratings' in doc:
+        vtype = doc.get('venue_type') if doc.get('venue_type') is not None else doc.get('venue_profile')
+        r = doc.get('ratings') if isinstance(doc.get('ratings'), dict) else {}
+        weights = doc.get('weights')
+        if weights is None and set(r) == set(IDEA_DIMENSIONS):
+            weights = dict(DEFAULT_IDEA_WEIGHTS)
+        if weights is None and vtype in VENUE_TYPE_PROFILES:
+            weights = dict(VENUE_TYPE_PROFILES[vtype]['weights'])
+        return doc, weights
+    raise ValueError('Revision document must contain ratings or profiles')
+
+
+def _validate_receipt_entry(rec, sources_root, receipt_errors, *, allow_hash_alias=True):
+    """Validate receipt path safety and (when sources_root is provided) disk existence & SHA-256."""
+    if not isinstance(rec, dict):
+        return True
+    if 'path' in rec and rec['path'] is not None:
+        raw_path = rec['path']
+        if not isinstance(raw_path, str) or not raw_path.strip():
+            receipt_errors.append(f'unsafe_receipt_path:{raw_path!r}')
+            return False
+        p_str = raw_path.strip()
+        if (
+            '\x00' in p_str
+            or '\\' in p_str
+            or p_str.startswith('~')
+            or p_str.lower().startswith('file:')
+            or (len(p_str) >= 2 and p_str[1] == ':')
+        ):
+            receipt_errors.append(f'unsafe_receipt_path:{p_str}')
+            return False
+        p_path = Path(p_str)
+        if p_path.is_absolute() or '..' in p_path.parts:
+            receipt_errors.append(f'unsafe_receipt_path:{p_str}')
+            return False
+        if sources_root is not None:
+            resolved = (sources_root / p_path).resolve()
+            if not resolved.is_relative_to(sources_root) or not resolved.is_file():
+                receipt_errors.append(f'missing_receipt_file:{p_str}')
+                return False
+            actual_sha = hashlib.sha256(resolved.read_bytes()).hexdigest().lower()
+            raw_decl = rec.get('sha256') if not allow_hash_alias else (rec.get('sha256') or rec.get('hash'))
+            decl_sha = str(raw_decl or '').strip().lower()
+            if decl_sha.startswith('sha256:'):
+                decl_sha = decl_sha.split(':', 1)[1].strip()
+            if actual_sha != decl_sha:
+                receipt_errors.append(f'receipt_sha256_mismatch:{p_str}')
+                return False
+    return True
+
+
+def _sanitize_v2_receipts(v2_prof, sources_root):
+    v2_clean = dict(v2_prof)
+    receipt_errors = []
+    for key in ('run_receipts', 'experiment_receipts', 'receipts'):
+        raw_val = v2_prof.get(key)
+        if isinstance(raw_val, list):
+            v2_clean[key] = [
+                rec for rec in raw_val
+                if _validate_receipt_entry(rec, sources_root, receipt_errors, allow_hash_alias=True)
+            ]
+        elif isinstance(raw_val, dict):
+            if _validate_receipt_entry(raw_val, sources_root, receipt_errors, allow_hash_alias=True):
+                v2_clean[key] = raw_val
+            else:
+                v2_clean.pop(key, None)
+    rev_ev = v2_prof.get('revision_evidence')
+    if isinstance(rev_ev, dict):
+        cleaned_rev = {}
+        for dim, entry in rev_ev.items():
+            if isinstance(entry, list):
+                cleaned_rev[dim] = [
+                    it for it in entry
+                    if _validate_receipt_entry(it, sources_root, receipt_errors, allow_hash_alias=False)
+                ]
+            elif _validate_receipt_entry(entry, sources_root, receipt_errors, allow_hash_alias=False):
+                cleaned_rev[dim] = entry
+        v2_clean['revision_evidence'] = cleaned_rev
+    return v2_clean, receipt_errors
+
+
+def revision_diff(v1_doc, v2_doc, *, sources_dir=None, target_id=None):
+    """Compare v1 vs v2 scorecards, check new locators/SHA-256 receipts, and flag suspected grade inflation."""
+    eff_tid = target_id
+    if eff_tid is None and isinstance(v2_doc, dict) and isinstance(v2_doc.get('target_id'), str):
+        eff_tid = v2_doc['target_id'].strip()
+    elif eff_tid is None and isinstance(v1_doc, dict) and isinstance(v1_doc.get('target_id'), str):
+        eff_tid = v1_doc['target_id'].strip()
+
+    v1_prof, v1_w = _extract_profile_for_diff(v1_doc, eff_tid)
+    v2_prof, v2_w = _extract_profile_for_diff(v2_doc, eff_tid)
+    weights = v2_w if v2_w is not None else v1_w
+    if weights is None:
+        raise ValueError('weights are required in v1 or v2 for revision diff')
+
+    r1 = v1_prof.get('ratings') if isinstance(v1_prof.get('ratings'), dict) else {}
+    r2 = v2_prof.get('ratings') if isinstance(v2_prof.get('ratings'), dict) else {}
+    if set(r1) == set(IDEA_DIMENSIONS) and set(r2) == set(IDEA_DIMENSIONS):
+        active_dims = IDEA_DIMENSIONS
+        fatal_thresholds = IDEA_FATAL_THRESHOLDS
+    else:
+        active_dims = DIMENSIONS
+        fatal_thresholds = FATAL_THRESHOLDS
+
+    verified_loc_set = None
+    locator_verification = None
+    sources_root = None
+    if sources_dir is not None:
+        index = index_sources_dir(sources_dir)
+        sources_root = index['root']
+        pid = v2_prof.get('id') or eff_tid
+        v1_locs = v1_prof.get('evidence_locators') if isinstance(v1_prof.get('evidence_locators'), dict) else {}
+        v2_locs = v2_prof.get('evidence_locators') if isinstance(v2_prof.get('evidence_locators'), dict) else {}
+        verified_loc_set = set()
+        checked, verified, failed = 0, 0, 0
+        failed_new = []
+        for d in active_dims:
+            old_set = {x.strip() for x in (v1_locs.get(d) or []) if isinstance(x, str) and x.strip()}
+            for loc in (v2_locs.get(d) or []):
+                if not isinstance(loc, str) or not loc.strip():
+                    continue
+                loc_s = loc.strip()
+                if loc_s in old_set:
+                    continue
+                checked += 1
+                ok, reason = verify_locator(loc_s, index, default_source_ids=(pid,) if pid else ())
+                if ok:
+                    verified += 1
+                    verified_loc_set.add((d, loc_s))
+                else:
+                    failed += 1
+                    failed_new.append(f'{d}:{loc_s}:{reason}')
+        locator_verification = {
+            'sources_dir': str(index['root']),
+            'sources_indexed': index['sources_indexed'],
+            'checked': checked,
+            'verified': verified,
+            'failed': failed,
+            'failed_new_locators': failed_new,
+        }
+
+    # Verify receipt path safety unconditionally and disk SHA-256 digests when sources_dir is supplied
+    v2_clean, receipt_errors = _sanitize_v2_receipts(v2_prof, sources_root)
+
+    diff_res = diff_scorecards(
+        v1_prof,
+        v2_clean,
+        weights,
+        active_dims=active_dims,
+        fatal_thresholds=fatal_thresholds,
+        verified_v2_locators=verified_loc_set,
+    )
+    if receipt_errors:
+        diff_res['receipt_verification_errors'] = receipt_errors
+        diff_res['inflation_warnings'].extend(receipt_errors)
+        diff_res['suspected_grade_inflation'] = True
+        diff_res['status'] = 'grade_inflation_suspected'
+    if locator_verification is not None:
+        diff_res['locator_verification'] = locator_verification
+        if locator_verification['failed'] > 0 and diff_res['suspected_grade_inflation']:
+            diff_res['inflation_warnings'].append(
+                f"unverified_new_locators:{locator_verification['failed']}"
+            )
+    diff_res['mode'] = 'revision_diff'
+    diff_res['target_id'] = v2_prof.get('id') or eff_tid or 'target'
+    return diff_res
+
+
 def compare(
     document,
     sources_dir=None,
     target_id=None,
     strict_related_panel=None,
     min_related=None,
+    *,
+    venue_type=None,
+    mode=None,
+    goal=None,
+    subfield_preset=None,
+    gap_record=None,
+    question_card=None,
+    idea_seed_bundle=None,
+    require_idea_portfolio=False,
+    require_pre_mortem=False,
+    what_if=False,
 ):
-    if not isinstance(document, dict) or not isinstance(document.get('profiles'), list) or len(document['profiles']) < 2:
+    if not isinstance(document, dict):
+        raise ValueError('document must be a JSON object')
+
+    if (
+        document.get('schema') in {'research_scientist_idea_seed_bundle_v1', 'research_scientist_gap_pipeline_v1'}
+        or ('seeds' in document and 'profiles' not in document)
+        or (isinstance(document.get('idea_seed_bundle'), dict) and 'profiles' not in document)
+    ):
+        document = _normalize_seed_bundle_document(document)
+
+    eff_mode_raw = (mode if mode is not None else document.get('mode') or 'auto')
+    if type(eff_mode_raw) is not str or not eff_mode_raw.strip():
+        raise ValueError('mode must be a nonblank string')
+    eff_mode_raw = eff_mode_raw.strip().lower()
+    if eff_mode_raw not in {'auto', 'paper', 'idea'}:
+        raise ValueError(f'Unknown mode: {eff_mode_raw!r}')
+
+    eff_vtype = resolve_venue_type(venue_type if venue_type is not None else (document.get('venue_type') or document.get('venue_profile')))
+    eff_preset = subfield_preset if subfield_preset is not None else document.get('subfield_preset')
+    if eff_preset is not None:
+        evaluate_subfield_readiness(eff_preset)  # validate preset upfront
+
+    eff_goal = goal if goal is not None else document.get('goal')
+    if eff_goal is not None and (type(eff_goal) is not str or eff_goal.strip().lower() not in IDEA_GOAL_MODES):
+        raise ValueError(f'Unknown goal: {eff_goal!r}')
+
+    if not isinstance(document.get('profiles'), list) or len(document['profiles']) < 2:
         raise ValueError('at least two profiles are required')
+
+    profiles = document['profiles']
+    for item in profiles:
+        if not isinstance(item, dict) or not isinstance(item.get('id'), str) or not item['id'].strip():
+            raise ValueError('each profile needs a nonblank id')
+        if 'ratings' not in item:
+            raise ValueError(f'missing ratings for profile {item["id"]}')
+
+    has_idea_dim_profiles = any(
+        isinstance(p.get('ratings'), dict) and set(p['ratings']) == set(IDEA_DIMENSIONS)
+        for p in profiles
+    )
+    if eff_mode_raw == 'idea':
+        eff_mode = 'idea'
+    elif eff_mode_raw == 'paper':
+        eff_mode = 'paper'
+    elif has_idea_dim_profiles:
+        eff_mode = 'idea'
+    else:
+        eff_mode = 'paper'
+
+    active_dims = IDEA_DIMENSIONS if (eff_mode == 'idea' and has_idea_dim_profiles) else DIMENSIONS
+    fatal_thresholds = IDEA_FATAL_THRESHOLDS if active_dims == IDEA_DIMENSIONS else FATAL_THRESHOLDS
+
     scenarios = document.get('weight_scenarios')
-    if not isinstance(scenarios, list) or not scenarios:
+    if scenarios is None:
+        if active_dims == IDEA_DIMENSIONS:
+            scenarios = [dict(DEFAULT_IDEA_WEIGHTS)]
+        elif eff_vtype is not None:
+            scenarios = [dict(VENUE_TYPE_PROFILES[eff_vtype]['weights'])]
+        else:
+            raise ValueError('weight_scenarios must be a nonempty list')
+    elif not isinstance(scenarios, list) or not scenarios:
         raise ValueError('weight_scenarios must be a nonempty list')
 
     raw_target = target_id if target_id is not None else document.get('target_id')
@@ -832,13 +1591,6 @@ def compare(
     else:
         eff_min_related = 3 if eff_strict else None
 
-    profiles = document['profiles']
-    for item in profiles:
-        if not isinstance(item, dict) or not isinstance(item.get('id'), str) or not item['id'].strip():
-            raise ValueError('each profile needs a nonblank id')
-        if 'ratings' not in item:
-            raise ValueError(f'missing ratings for profile {item["id"]}')
-
     # Validate weights and ratings upfront so invalid ratings/weights are never masked
     # by early structural issues (e.g. reading_basis != 'full_text' or missing locators).
     scenario_scores = []
@@ -850,6 +1602,36 @@ def compare(
                 score_input['status'] = item['status']
             if 'object_type' in item:
                 score_input['object_type'] = item['object_type']
+            if eff_mode == 'idea':
+                score_input['mode'] = 'idea'
+            if eff_vtype is not None:
+                score_input['venue_type'] = eff_vtype
+                for vc_k in ('venue_checks', 'dataset_checks', 'ethics_license_verified', 't1_t2_verified'):
+                    if vc_k in item:
+                        score_input[vc_k] = item[vc_k]
+                    elif vc_k in document:
+                        score_input[vc_k] = document[vc_k]
+            if eff_preset is not None:
+                score_input['subfield_preset'] = eff_preset
+                if 'subfield_checks' in item:
+                    score_input['subfield_checks'] = item['subfield_checks']
+                elif 'subfield_checks' in document:
+                    score_input['subfield_checks'] = document['subfield_checks']
+            if 'reviewer_panel' in item:
+                score_input['reviewer_panel'] = item['reviewer_panel']
+            if 'reviewer_confidence' in item:
+                score_input['reviewer_confidence'] = item['reviewer_confidence']
+            if 'confidence' in item:
+                score_input['confidence'] = item['confidence']
+            if 'section_diagnostics' in item:
+                score_input['section_diagnostics'] = item['section_diagnostics']
+            if 'gap_tier_ceiling' in item:
+                score_input['gap_tier_ceiling'] = item['gap_tier_ceiling']
+            if 'resource_feasibility' in item:
+                score_input['resource_feasibility'] = item['resource_feasibility']
+            for ctx_k in ('closest_work', 'reading_basis', 'evidence_locators', 'evidence_rigor', 'has_ci_or_error_bars', 'has_ablation', 'seed_count', 'ablation_results', 'notes', 'evidence_notes'):
+                if ctx_k in item:
+                    score_input[ctx_k] = item[ctx_k]
             calculated = score(score_input)
             per_profile.append((item['id'], calculated))
         scenario_scores.append(per_profile)
@@ -878,10 +1660,10 @@ def compare(
             if any(x.strip() == pid for x in item['closest_work']):
                 _record_issue(f'closest_work_self_reference:{pid}', pid)
         locators = item.get('evidence_locators')
-        if not isinstance(locators, dict) or set(locators) != set(DIMENSIONS):
+        if not isinstance(locators, dict) or set(locators) != set(active_dims):
             _record_issue(f'evidence_locators_incomplete:{pid}', pid)
         else:
-            for dimension in DIMENSIONS:
+            for dimension in active_dims:
                 value = locators[dimension]
                 if not isinstance(value, list) or not value or any(not isinstance(x, str) or not x.strip() for x in value):
                     _record_issue(f'missing_locator:{pid}:{dimension}', pid)
@@ -897,7 +1679,7 @@ def compare(
             locators = item.get('evidence_locators')
             if not isinstance(locators, dict):
                 continue
-            for dimension in DIMENSIONS:
+            for dimension in active_dims:
                 value = locators.get(dimension)
                 if not isinstance(value, list):
                     continue
@@ -946,6 +1728,8 @@ def compare(
         unscored_by_profile[pid] = unscored
 
     related_work_comparison = None
+    target_unscored_cw = []
+    scored_related_ids = []
     if (eff_strict or eff_min_related is not None) and eff_target_id is None:
         _record_issue('target_id_required_for_strict_related_panel', None)
 
@@ -954,7 +1738,8 @@ def compare(
         if not target_exists:
             _record_issue(f'target_profile_not_found:{eff_target_id}', None)
         related_work_comparison, target_unscored_cw, scored_related_ids = _build_related_work_comparison(
-            eff_target_id, profiles, scenario_scores, issues_by_pid, eff_min_related, eff_strict
+            eff_target_id, profiles, scenario_scores, issues_by_pid, eff_min_related, eff_strict,
+            active_dims=active_dims,
         )
         if target_exists and (eff_strict or eff_min_related is not None):
             if eff_strict:
@@ -966,13 +1751,137 @@ def compare(
                     eff_target_id,
                 )
 
+    eff_gap_rec = gap_record if gap_record is not None else document.get('gap_record')
+    eff_q_card = question_card if question_card is not None else document.get('question_card')
+    eff_seed_bundle = idea_seed_bundle if idea_seed_bundle is not None else document.get('idea_seed_bundle')
+    eff_req_portfolio = bool(require_idea_portfolio or document.get('require_idea_portfolio') or document.get('portfolio_mode'))
+    eff_req_pm = bool(require_pre_mortem or document.get('require_pre_mortem'))
+
+    linkage_summary = None
+    if eff_mode == 'idea' or any(x is not None for x in (eff_gap_rec, eff_q_card, eff_seed_bundle)) or eff_req_portfolio or eff_req_pm:
+        linkage_summary = _validate_idea_linkage_and_portfolio(
+            profiles,
+            sources_dir=sources_dir,
+            gap_record=eff_gap_rec,
+            question_card=eff_q_card,
+            idea_seed_bundle=eff_seed_bundle,
+            require_idea_portfolio=eff_req_portfolio,
+            require_pre_mortem=eff_req_pm,
+            record_issue_fn=_record_issue,
+        )
+
+    # Halo-effect sanity warnings (non-blocking)
+    sanity_warnings_by_pid = {}
+    all_sanity_warnings = []
+    for idx, item in enumerate(profiles):
+        pid = item['id']
+        rel_cnt = len(scored_related_ids) if (eff_target_id == pid) else None
+        unr_cnt = len(target_unscored_cw) if (eff_target_id == pid) else None
+        sw = detect_halo_sanity_warnings(
+            item['ratings'],
+            item,
+            active_dims=active_dims,
+            related_count=rel_cnt,
+            unread_closest_count=unr_cnt,
+        )
+        if sw:
+            sanity_warnings_by_pid[pid] = sw
+            for msg in sw:
+                all_sanity_warnings.append(f'{pid}:{msg}')
+
+    per_paper_sr = _build_per_paper_readiness(profiles, scenario_scores, issues_by_pid)
+    # Propagate idea_viability_band & archival block when in idea mode
+    if eff_mode == 'idea':
+        for idx, item in enumerate(profiles):
+            pid = item['id']
+            sc0 = scenario_scores[0][idx][1]
+            if pid in per_paper_sr:
+                if 'idea_viability_band' in sc0:
+                    per_paper_sr[pid]['idea_viability_band'] = sc0['idea_viability_band']
+                per_paper_sr[pid]['ready_for_top_tier_main_track'] = False
+                per_paper_sr[pid]['ready_for_findings_or_tier_a'] = False
+                per_paper_sr[pid]['fatal_gate_triggered'] = True
+
+    # Build M9A enrichments cleanly outside rankings[*]['ordered']
+    reviewer_panels = {}
+    section_diags = {}
+    native_scales_map = {}
+    merit_packaging_map = {}
+    deal_breaker_map = {}
+    what_if_map = {}
+    for idx, item in enumerate(profiles):
+        pid = item['id']
+        sc0 = scenario_scores[0][idx][1]
+        if 'reviewer_panel_analysis' in sc0:
+            reviewer_panels[pid] = sc0['reviewer_panel_analysis']
+        if 'section_diagnostics' in sc0:
+            section_diags[pid] = sc0['section_diagnostics']
+        if 'native_venue_scales' in sc0:
+            native_scales_map[pid] = sc0['native_venue_scales']
+        if 'merit_vs_packaging' in sc0:
+            merit_packaging_map[pid] = sc0['merit_vs_packaging']
+        if 'deal_breaker_sensitivity' in sc0:
+            deal_breaker_map[pid] = sc0['deal_breaker_sensitivity']
+        if 'what_if_roi' in sc0 and (what_if or pid == eff_target_id or idx == 0):
+            what_if_map[pid] = sc0['what_if_roi']
+
+    subfield_readiness_top = None
+    if eff_preset is not None:
+        target_prof = next((p for p in profiles if p['id'] == eff_target_id), profiles[0])
+        merged_checks = dict(document.get('subfield_checks') or {})
+        if isinstance(target_prof.get('subfield_checks'), dict):
+            merged_checks.update(target_prof['subfield_checks'])
+        subfield_readiness_top = evaluate_subfield_readiness(eff_preset, merged_checks)
+
+    evidence_anchor_table = None
+    target_for_anchor = next((p for p in profiles if p['id'] == eff_target_id), None)
+    if target_for_anchor is not None and isinstance(document.get('evidence_anchors'), list):
+        evidence_anchor_table = build_evidence_anchor_table(target_for_anchor, document['evidence_anchors'])
+    elif target_for_anchor is not None:
+        anchor_cands = [
+            p for p in profiles
+            if p['id'] != eff_target_id
+            and (isinstance(p.get('evidence_profile'), dict) or isinstance(p.get('evidence_anchors'), dict))
+        ]
+        if len(anchor_cands) >= 2:
+            evidence_anchor_table = build_evidence_anchor_table(target_for_anchor, anchor_cands[:3])
+
+    def _attach_m9a_fields(out_dict):
+        if eff_mode != 'paper':
+            out_dict['mode'] = eff_mode
+        if eff_vtype is not None:
+            out_dict['venue_type'] = eff_vtype
+            out_dict['venue_type_profile'] = evaluate_venue_profile_checks(eff_vtype, document)
+        if eff_preset is not None:
+            out_dict['subfield_preset'] = eff_preset
+            out_dict['subfield_readiness'] = subfield_readiness_top
+        if sanity_warnings_by_pid:
+            out_dict['sanity_warnings'] = sanity_warnings_by_pid
+            out_dict['sanity_warnings_list'] = all_sanity_warnings
+        if native_scales_map:
+            out_dict['native_venue_scales'] = native_scales_map
+        if merit_packaging_map:
+            out_dict['merit_vs_packaging'] = merit_packaging_map
+        if deal_breaker_map:
+            out_dict['deal_breaker_sensitivity'] = deal_breaker_map
+        if what_if_map:
+            out_dict['what_if_roi'] = what_if_map
+        if reviewer_panels:
+            out_dict['reviewer_panel_analysis'] = reviewer_panels
+        if section_diags:
+            out_dict['section_diagnostics'] = section_diags
+        if evidence_anchor_table is not None:
+            out_dict['evidence_anchor_table'] = evidence_anchor_table
+        if linkage_summary is not None:
+            out_dict['linkage_summary'] = linkage_summary
+
     missing_rating_only = bool(issues) and all(iss.startswith('missing_rating:') for iss in issues)
     if issues:
         out = {
             'status': 'not_comparable',
             'issues': sorted(set(issues)),
             'rankings': [],
-            'submission_readiness': _build_per_paper_readiness(profiles, scenario_scores, issues_by_pid),
+            'submission_readiness': per_paper_sr,
             'unscored_closest_work_ids': unscored_by_profile,
             'warning': (
                 'Missing ratings cannot be silently reweighted.'
@@ -984,6 +1893,7 @@ def compare(
             out['related_work_comparison'] = related_work_comparison
         if locator_verification is not None:
             out['locator_verification'] = locator_verification
+        _attach_m9a_fields(out)
         return out
 
     rankings = []
@@ -1010,7 +1920,7 @@ def compare(
         'status': 'structurally_comparable',
         'rankings': rankings,
         'ranking_sensitivity': 'stable_top_within_supplied_weights' if len(leaders) == 1 else 'top_changes_across_supplied_weights',
-        'submission_readiness': _build_per_paper_readiness(profiles, scenario_scores, issues_by_pid),
+        'submission_readiness': per_paper_sr,
         'unscored_closest_work_ids': unscored_by_profile,
         'warning': 'No source text or rating is verified. Stability applies only to the supplied weight scenarios, not all defensible weights or reviewer judgments.',
     }
@@ -1018,6 +1928,9 @@ def compare(
         out['related_work_comparison'] = related_work_comparison
     if locator_verification is not None:
         out['locator_verification'] = locator_verification
+    _attach_m9a_fields(out)
+    if eff_mode == 'idea' or eff_goal is not None:
+        out['pareto_frontier'] = _compute_pareto_frontier(profiles, scenario_scores, eff_goal)
     return out
 
 
@@ -1041,12 +1954,50 @@ def _truncate_artifact_path(path_str, max_bytes=180):
 
 
 def _compact_output(result, out_path=None):
+    if result.get('mode') == 'revision_diff':
+        compact = {
+            'compact': True,
+            'mode': 'revision_diff',
+            'status': result.get('status'),
+            'target_id': result.get('target_id'),
+            'suspected_grade_inflation': result.get('suspected_grade_inflation'),
+            'v1_weighted_unrounded': result.get('v1_weighted_unrounded'),
+            'v2_weighted_unrounded': result.get('v2_weighted_unrounded'),
+            'weighted_delta': result.get('weighted_delta'),
+            'dimension_deltas': result.get('dimension_deltas'),
+            'unsubstantiated_gain_dimensions': result.get('unsubstantiated_gain_dimensions'),
+            'inflation_warnings': (result.get('inflation_warnings') or [])[:10],
+            'resolved_fatal_dimensions': result.get('resolved_fatal_dimensions'),
+            'remaining_fatal_dimensions': result.get('remaining_fatal_dimensions'),
+            'resolved_v1_defects': (result.get('resolved_v1_defects') or [])[:8],
+            'remaining_v1_defects': (result.get('remaining_v1_defects') or [])[:8],
+            'artifact_path': out_path,
+        }
+        trim = 0
+        while _encoded_utf8_len(compact) > 3950:
+            if trim == 0:
+                compact['artifact_path'] = _truncate_artifact_path(compact.get('artifact_path'), 180)
+                compact['inflation_warnings'] = [w[:100] for w in compact['inflation_warnings'][:4]]
+            elif trim == 1:
+                compact['resolved_v1_defects'] = compact['resolved_v1_defects'][:3]
+                compact['remaining_v1_defects'] = compact['remaining_v1_defects'][:3]
+            else:
+                compact['inflation_warnings'] = []
+                compact['resolved_v1_defects'] = []
+                compact['remaining_v1_defects'] = []
+                compact['artifact_path'] = _truncate_artifact_path(compact.get('artifact_path'), 64)
+                if _encoded_utf8_len(compact) > 3950:
+                    compact['artifact_path'] = None
+                break
+            trim += 1
+        return compact
+
     issues = result.get('issues') or []
     sr_items = list((result.get('submission_readiness') or {}).items())
     max_sr = 6 if len(sr_items) > 6 else len(sr_items)
     compact_sr = {}
     for pid, entry in sr_items[:max_sr]:
-        compact_sr[pid] = {
+        row = {
             'overall': entry.get('overall'),
             'weighted_unrounded': entry.get('weighted_unrounded'),
             'band': entry.get('band'),
@@ -1060,6 +2011,9 @@ def _compact_output(result, out_path=None):
             'band_stable_across_scenarios': entry.get('band_stable_across_scenarios'),
             'guidance': (entry.get('guidance') or '')[:140],
         }
+        if 'idea_viability_band' in entry:
+            row['idea_viability_band'] = entry['idea_viability_band']
+        compact_sr[pid] = row
     raw_rankings = result.get('rankings') or []
     compact_rankings = [
         {
@@ -1114,8 +2068,55 @@ def _compact_output(result, out_path=None):
         'issues_truncated': max(0, len(issues) - min(15, len(issues))),
         'artifact_path': out_path,
     }
+    for opt_k in ('mode', 'venue_type', 'subfield_preset'):
+        if result.get(opt_k) is not None:
+            compact[opt_k] = result[opt_k]
+    if isinstance(result.get('subfield_readiness'), dict):
+        sfr = result['subfield_readiness']
+        compact['subfield_readiness'] = {
+            'preset': sfr.get('preset'),
+            'passed_count': len(sfr.get('passed_checks') or []),
+            'failed_checks': sfr.get('failed_checks'),
+            'missing_checks': sfr.get('missing_checks'),
+            'subfield_checks_passed': sfr.get('subfield_checks_passed'),
+        }
+    if isinstance(result.get('pareto_frontier'), dict):
+        pf = result['pareto_frontier']
+        compact['pareto_frontier'] = {
+            'goal': pf.get('goal'),
+            'frontier_ids': (pf.get('frontier_ids') or [])[:8],
+            'goal_ranked_ids': (pf.get('goal_ranked_ids') or [])[:8],
+        }
+    if result.get('sanity_warnings_list'):
+        compact['sanity_warnings'] = result['sanity_warnings_list'][:8]
+    if isinstance(result.get('reviewer_panel_analysis'), dict):
+        compact['reviewer_panel_summary'] = {
+            pid: {
+                'confidence_weighted_mean': rpa.get('confidence_weighted_mean'),
+                'variance_risk': rpa.get('variance_risk'),
+                'assassin_reviewer_flag': rpa.get('assassin_reviewer_flag'),
+                'meta_review_verdict': rpa.get('meta_review_verdict'),
+            }
+            for pid, rpa in list(result['reviewer_panel_analysis'].items())[:3]
+        }
+    if isinstance(result.get('linkage_summary'), dict):
+        ls = result['linkage_summary']
+        compact['linkage_summary'] = {
+            'gap_record_valid': ls.get('gap_record_valid'),
+            'question_card_valid': ls.get('question_card_valid'),
+            'seed_bundle_linked': ls.get('seed_bundle_linked'),
+            'portfolio_distinct_ideas': ls.get('portfolio_distinct_ideas'),
+            'portfolio_distinct_angles': ls.get('portfolio_distinct_angles'),
+        }
 
     # Deterministic budget enforcement (< 4096 UTF-8 bytes)
+    m9a_opt_keys = (
+        'reviewer_panel_summary',
+        'sanity_warnings',
+        'linkage_summary',
+        'subfield_readiness',
+        'pareto_frontier',
+    )
     trim_stage = 0
     while _encoded_utf8_len(compact) > 3950:
         if trim_stage == 0:
@@ -1147,12 +2148,16 @@ def _compact_output(result, out_path=None):
             if compact['rankings']:
                 compact['rankings'] = compact['rankings'][:1]
                 compact['rankings'][0]['ordered'] = (compact['rankings'][0].get('ordered') or [])[:3]
+            for mk in m9a_opt_keys[:3]:
+                compact.pop(mk, None)
         elif trim_stage == 5:
             compact['issues'] = compact['issues'][:2]
             compact['issues_truncated'] = max(0, len(issues) - len(compact['issues']))
             compact['unscored_closest_work_ids'] = {
                 k: v[:2] for k, v in list(compact['unscored_closest_work_ids'].items())[:3]
             }
+            for mk in m9a_opt_keys:
+                compact.pop(mk, None)
         elif trim_stage == 6:
             if isinstance(compact['related_work_comparison'], dict):
                 rw = compact['related_work_comparison']
@@ -1201,31 +2206,80 @@ def _require_nonempty_path(val, flag):
     return val.strip()
 
 
+def _load_json_file(path_str, flag):
+    p = Path(_require_nonempty_path(path_str, flag))
+    return json.loads(p.read_text(encoding='utf-8'), parse_constant=_reject_nonfinite)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('scorecards_json')
+    parser.add_argument('scorecards_json', nargs='?', default=None)
     parser.add_argument('--sources-dir', default=None, help='Optional directory of local source files (.txt, .md, .json, .pdf) for locator verification')
     parser.add_argument('--target-id', default=None, help='Optional target profile ID for closest-related-work comparison')
     parser.add_argument('--strict-related-panel', action='store_true', help='Require target closest_work entries and >= min-related distinct full-text profiles to be scored')
     parser.add_argument('--min-related', type=int, default=None, help='Minimum distinct scored related profiles required (default: 3 with --strict-related-panel)')
+    parser.add_argument('--venue-type', default=None, choices=sorted(VENUE_TYPE_PROFILES), help='Optional venue-type profile')
+    parser.add_argument('--venue-profile', default=None, choices=sorted(VENUE_TYPE_PROFILES), help='Alias for --venue-type')
+    parser.add_argument('--mode', default=None, choices=['auto', 'paper', 'idea'], help='Comparison mode (paper or idea)')
+    parser.add_argument('--goal', default=None, choices=sorted(IDEA_GOAL_MODES), help='Goal-conditioned Pareto ranking mode for idea evaluation')
+    parser.add_argument('--subfield-preset', default=None, choices=sorted(SUBFIELD_PRESETS), help='Optional AI/CS subfield depth preset')
+    parser.add_argument('--gap-record', default=None, help='Optional gap_record.json for idea mode linkage validation')
+    parser.add_argument('--question-card', default=None, help='Optional question_card.json for idea mode linkage validation')
+    parser.add_argument('--idea-seed-bundle', default=None, help='Optional research_scientist_idea_seed_bundle_v1 JSON for linkage')
+    parser.add_argument('--seed-bundle', default=None, help='Alias for --idea-seed-bundle')
+    parser.add_argument('--require-idea-portfolio', action='store_true', help='Require 3-4 non-redundant ideas across >=3 angles in idea mode')
+    parser.add_argument('--require-pre-mortem', action='store_true', help='Require pre_mortem (top_failure_modes, 1-2d killer_experiment, pivot_path) in idea mode')
+    parser.add_argument('--what-if', action='store_true', help='Include What-If Score-Lift ROI simulations for all profiles')
+    parser.add_argument('--revision-diff', nargs=2, metavar=('V1_JSON', 'V2_JSON'), default=None, help='Compare v1 vs v2 scorecards and audit against grade inflation')
     parser.add_argument('--out', default=None, help='Optional output JSON file path for full report')
     parser.add_argument('--compact', action='store_true', help='Emit compact bounded summary JSON to stdout')
     args = parser.parse_args(argv)
     try:
-        sc_path = Path(_require_nonempty_path(args.scorecards_json, 'scorecards_json'))
         if args.out is not None:
             _require_nonempty_path(args.out, '--out')
         if args.sources_dir is not None:
             _require_nonempty_path(args.sources_dir, '--sources-dir')
         if args.target_id is not None:
             _require_nonempty_path(args.target_id, '--target-id')
-        result = compare(
-            json.loads(sc_path.read_text(encoding='utf-8'), parse_constant=_reject_nonfinite),
-            sources_dir=args.sources_dir,
-            target_id=args.target_id,
-            strict_related_panel=(True if args.strict_related_panel else None),
-            min_related=args.min_related,
-        )
+        if args.venue_type and args.venue_profile and args.venue_type != args.venue_profile:
+            raise ValueError('--venue-type and --venue-profile cannot conflict')
+        if args.idea_seed_bundle and args.seed_bundle and args.idea_seed_bundle != args.seed_bundle:
+            raise ValueError('--idea-seed-bundle and --seed-bundle cannot conflict')
+
+        if args.revision_diff is not None:
+            if args.scorecards_json is not None:
+                raise ValueError('Provide either scorecards_json or --revision-diff, not both')
+            v1_doc = _load_json_file(args.revision_diff[0], '--revision-diff v1')
+            v2_doc = _load_json_file(args.revision_diff[1], '--revision-diff v2')
+            result = revision_diff(v1_doc, v2_doc, sources_dir=args.sources_dir, target_id=args.target_id)
+            passed = result['status'] == 'verified_revision'
+        else:
+            if args.scorecards_json is None:
+                raise ValueError('scorecards_json is required unless --revision-diff is provided')
+            sc_doc = _load_json_file(args.scorecards_json, 'scorecards_json')
+            gap_rec = _load_json_file(args.gap_record, '--gap-record') if args.gap_record is not None else None
+            q_card = _load_json_file(args.question_card, '--question-card') if args.question_card is not None else None
+            seed_path = args.idea_seed_bundle or args.seed_bundle
+            seed_bundle = _load_json_file(seed_path, '--idea-seed-bundle') if seed_path is not None else None
+            result = compare(
+                sc_doc,
+                sources_dir=args.sources_dir,
+                target_id=args.target_id,
+                strict_related_panel=(True if args.strict_related_panel else None),
+                min_related=args.min_related,
+                venue_type=(args.venue_type or args.venue_profile),
+                mode=args.mode,
+                goal=args.goal,
+                subfield_preset=args.subfield_preset,
+                gap_record=gap_rec,
+                question_card=q_card,
+                idea_seed_bundle=seed_bundle,
+                require_idea_portfolio=bool(args.require_idea_portfolio),
+                require_pre_mortem=bool(args.require_pre_mortem),
+                what_if=bool(args.what_if),
+            )
+            passed = result['status'] == 'structurally_comparable'
+
         full_rendered = json.dumps(result, ensure_ascii=False)
         out_str = None
         if args.out is not None:
@@ -1240,7 +2294,7 @@ def main(argv=None):
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError, KeyError, TypeError, RuntimeError) as exc:
         print(json.dumps({'error': str(exc)}), file=sys.stderr)
         return 2
-    return 0 if result['status'] == 'structurally_comparable' else 1
+    return 0 if passed else 1
 
 
 if __name__ == '__main__':

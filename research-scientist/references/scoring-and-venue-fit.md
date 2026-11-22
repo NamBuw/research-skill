@@ -255,3 +255,73 @@ Apply the evidence gate separately to each contribution. A verified supplied pre
 ### Evidence checklist before a score is published
 
 For each dimension, write the source locator, claim or design feature it bears on, objection, and reason for the integer anchor. For novelty, include the exact closest-work claim and your proposed contribution delta. For soundness, trace the main inference from unit and design through measurement, controls, analysis and uncertainty. For evidence strength, distinguish a reported result from an independently reproduced result. For transparency, distinguish unavailable material from a documented refusal or a genuinely absent protocol. For clarity, score the actual prose/figures against the intended audience; clarity does not repair validity. A fatal defect is a separate gate even if weighted arithmetic yields a high number.
+
+## Scoring Engine v2: Venue-Type Profiles & Native Scales
+
+Use `../scripts/score_math.py [--venue-type ...] [--venue-profile ...] [--subfield-preset ...] [--what-if]` (and forward `--venue-type` / `--venue-profile` / `--subfield-preset` to `../scripts/compare_scorecards.py` and `../scripts/compare_venue_novelty.py`) to select a venue-appropriate weighting profile and deterministic native-scale calibration—**with zero invented `%` acceptance odds**:
+
+| Venue Type (`--venue-type`) | Default Weights (`Imp/Nov/Snd/Evd/Trn/Clr`) | Profile Emphasis & Required Checks |
+|---|---|---|
+| `conference_top_tier` | `15/25/20/20/10/10` | Heavy novelty/insight and matched-SOTA depth (`competitive_overall >= 6.80`) |
+| `journal_q1` | `15/15/25/25/10/10` | Heavy soundness, comprehensive ablations, and full reproducibility (`comprehensive_ablations`, `reproducibility_details`) |
+| `dataset_benchmark` | `15/15/20/20/20/10` | Heavy transparency/data quality, annotation protocol, and `T1–T2` ethics/license verification (`data_quality_audit`, `annotation_protocol`, `ethics_and_license_t1_t2`) |
+| `survey_review` | `15/15/20/25/15/10` | Systematic coverage protocol, taxonomy, and synthesis breadth (`systematic_coverage_protocol`) |
+| `workshop_preliminary` | `15/20/20/15/15/15` | Early mechanism/diagnostic viability (`min_viable_overall >= 5.00`) |
+
+For `dataset_benchmark`, missing or failed mandatory `T1–T2` checks (`data_quality_audit`, `annotation_protocol`, `ethics_and_license_t1_t2`) fail closed (`not_ready_fatal_gate`) until explicitly verified.
+
+### Deterministic Native Scale Translations (`native_venue_scales`)
+
+`../scripts/score_math.py` deterministically translates `/10` weighted scores and fatal gates into venue-native review scales (capped below acceptance bar whenever `fatal_gate_triggered` is `True`):
+
+- **ARR (`1–5`, 0.5 steps):** `>= 3.5` strong, `3.0` borderline, `<= 2.5` below bar (capped `<= 2.5` on fatal gate).
+- **NeurIPS (`1–6`):** `4` = borderline accept, `5` = accept, `6` = strong accept (capped `<= 3` on fatal gate).
+- **ICLR (`1–10`) + Confidence (`1–5`):** `6` = weak accept, `8` = strong accept (capped `<= 3` on fatal gate); `confidence` is populated strictly from `reviewer_panel` or declared integer `reviewer_confidence` (`null` otherwise, never fabricated).
+- **Journal Decisions:** `Accept`, `Minor Revision`, `Major Revision`, `Reject`.
+
+## Multi-Reviewer Simulation & Area Chair Synthesis
+
+Attach an optional `reviewer_panel` (`>= 3` role-based reviewers such as `method_theory`, `experiments_baselines`, `novelty_positioning`, each with 6-dimension integer `ratings` and `confidence` in `1..5`) to compute `confidence_weighted_mean`, `unweighted_mean`, `spread`, `std_dev`, `variance_risk` (`low`, `moderate`, `high_disagreement`), `assassin_reviewer_flag`, `champion_flag`, `worst_case_reviewer_floor`, and Area Chair `meta_review_verdict`.
+
+| Status (`meta_review_verdict`) | Trigger & AC Rule |
+|---|---|
+| `reject_fatal_defect` | Triggered whenever `fatal_gate_triggered` or a confident (`>= 3`) reviewer exposes a verified fatal defect (`never_averaged_away` by champion scores) |
+| `reject` | `confidence_weighted_mean < 5.00` |
+| `reject_workshop_level` | `confidence_weighted_mean` in `5.00–5.99` |
+| `borderline_high_variance_risk` | `confidence_weighted_mean` in `6.00–6.79` with `high_disagreement` or `assassin_reviewer_flag` |
+| `borderline_discussion_needed` | `confidence_weighted_mean` in `6.00–6.79` without high disagreement/assassin flag |
+| `accept_pending_rebuttal` | `confidence_weighted_mean >= 6.80` with `high_disagreement` or `assassin_reviewer_flag` |
+| `accept` | `confidence_weighted_mean >= 6.80`, no fatal defects, and low/moderate variance |
+
+## Dedicated Idea Scoring, Goal-Conditioned Pareto Ranking & Gap Linkage
+
+Score pre-execution research ideas separately from completed manuscripts using `--mode idea` (`IDEA_DIMENSIONS`: `evidence_coverage`, `novelty`, `importance`, `answerability`, `feasibility`, `falsifiability`). Unrun ideas ALWAYS enforce `ready_for_top_tier_main_track: False`, `ready_for_findings_or_tier_a: False`, and `archival_submission_blocked: True` (while legacy `status="idea"` with paper 6-dimensions still returns `not_ready_fatal_gate` with `unrun_idea_results`).
+
+| Status (`idea_viability_band`) | Idea Triage Criteria |
+|---|---|
+| `pursue_high_priority` | Weighted idea score `>= 7.20` and all 6 idea dimensions `>= 6` |
+| `refine_and_de_risk` | Weighted idea score in `6.00–7.19` or at least one dimension `<= 5` above fatal floor |
+| `pivot_or_narrow` | Weighted idea score in `4.80–5.99` or `feasibility <= 4` or `falsifiability <= 4` |
+| `kill_early` | Any idea fatal threshold hit (`<= 2` on `evidence_coverage`/`novelty`/`importance`; `<= 3` on `answerability`/`feasibility`/`falsifiability`), `< 4.80`, or `gap_tier_ceiling == "low_impact_dead_end"` |
+
+Run multi-idea ranking and cross-artifact linkage via:
+
+```bash
+python3 ../scripts/compare_scorecards.py ideas.json --mode idea --goal safe_fast_publish --gap-record gap.json --question-card qc.json --idea-seed-bundle bundle.json --require-idea-portfolio --require-pre-mortem --sources-dir sources/ --out idea_report.json --compact
+```
+
+- **Direct `research_scientist_idea_seed_bundle_v1` ingestion:** Pass a `gap_pipeline.py` bundle (via `ideas.json` or `--idea-seed-bundle` / `--seed-bundle`); unrated scaffolds (`ratings: null` or `{}` locators) fail closed (`not_comparable`) rather than fabricating ratings.
+- **Goal-Conditioned Pareto Frontier (`--goal`):** Computes non-dominated frontier sets for `safe_fast_publish`, `high_risk_q1_top_tier`, and `low_compute_constrained` (under `low_compute_constrained`, report explicit `required_gpu_hours`; omitted compute never dominates finite reported GPU hours).
+- **Portfolio & Pre-Mortem Checks:** `--require-idea-portfolio` enforces `3–4` non-redundant ideas per `gap_id` across `>= 3` canonical angles (`minimal_fix`, `high_novelty_mechanism`, `benchmark_diagnostic_analysis`, `low_gpu_fallback`); `--require-pre-mortem` enforces `top_failure_modes >= 3`, `killer_experiment` (`0 < duration_days <= 2` + `kill_threshold`), and `pivot_path`.
+
+## What-If ROI, Revision Diff, Halo Guard & Deep Diagnostics
+
+- **What-If Score-Lift ROI (`--what-if`):** `../scripts/score_math.py` and `../scripts/compare_scorecards.py` compute minimal `+1`/`+2` single-axis upgrades and minimal multi-axis paths to clear `fatal_gate_triggered`, `rejected_below_venue_tier`, `6.00`, `6.80`, and the venue bar, ranked by ROI leverage (`weight / 100` + blocking-gate priority).
+- **Revision Diff & Anti-Grade-Inflation Audit:** `../scripts/compare_scorecards.py --revision-diff v1.json v2.json [--sources-dir sources/ --target-id target --out diff.json --compact]` audits per-dimension and weighted deltas, tracks resolved vs remaining `v1` defects, and flags `suspected_grade_inflation` (`grade_inflation_suspected`, exit `1`) if any positive score delta lacks a NEW verified locator or NEW valid 64-hex SHA-256 run receipt (`verified_revision` exits `0`).
+- **Halo-Effect Guard (`sanity_warnings`):** Emits non-blocking consistency warnings when `soundness >= 8` and `transparency <= 4`, `evidence >= 8` without CI/seed/ablation support, `novelty >= 8` with thin/unread closest work, or `feasibility >= 8` despite `infeasible_under_user_resources`.
+- **Deep Scoring Diagnostics:**
+  1. **Side-by-Side Evidence Anchor Table (`evidence_anchor_table`):** Compares target against `2–3` full-text accepted papers (supporting `same_topic`, `adjacent_topic`, `different_topic`) across `benchmarks_count`, `sota_baselines_covered`, `ablation_depth`, `theoretical_rigor`, `effect_size_ci_stability`, and `code_artifact_openness` (missing stays `null` / `unreported`).
+  2. **Scientific Merit vs Publishability Packaging (`merit_vs_packaging`):** Splits `scientific_merit_score` (`importance`, `novelty`, `soundness`, `evidence`) from `publishability_packaging_score` (`transparency`, `clarity`).
+  3. **Section-by-Section Diagnostic Scoring (`section_diagnostics`):** Optional integer `/10` breakdown across `abstract`, `introduction`, `related_work`, `method`, `experiments`, and `limitations` with `prioritized_edit_order`.
+  4. **Worst-Case Floor & Deal-Breaker Sensitivity (`deal_breaker_sensitivity`):** Reports `worst_case_reviewer_floor` plus `-1` deal-breaker triggers and `+1` non-rescuing axes.
+- **4 Subfield Depth Presets (`--subfield-preset`):** `nlp_llm`, `cv_multimodal`, `ml_theory`, and `ai_systems` readiness packs surfaced across `../scripts/score_math.py`, `../scripts/compare_scorecards.py`, and `../scripts/compare_venue_novelty.py`.
