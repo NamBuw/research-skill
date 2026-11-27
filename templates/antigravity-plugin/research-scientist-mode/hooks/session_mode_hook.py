@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 EXPECTED_SCHEMA = "research_scientist_project_state_v1"
-REMINDER_INTERVAL_TURNS = 6
+REMINDER_INTERVAL_TURNS = 2
 STALE_SESSION_SECONDS = 30 * 86400
 FULL_TEXT_LEVELS = frozenset({"full_text", "selected_full_text"})
 PLACEHOLDER_LOCATORS = frozenset({
@@ -44,6 +44,33 @@ SKILL_CANDIDATES = (
 
 OFF_RE = re.compile(r"(?:^|\s)/research[-_ ]?off(?:\s|$|[.,!?:;])", re.I)
 ON_RE = re.compile(r"(?:^|\s)/research[-_ ]?(?:scientist|on)(?:\s|$|[.,!?:;])", re.I)
+
+_FIREWALL_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\b(?:great|excellent|brilliant|fantastic|wonderful|amazing|awesome|superb|outstanding|terrific|insightful|clever|smart)\s+(?:idea|question|point|insight|observation|approach|intuition|direction|suggestion|proposal|work|catch)\b", re.I),
+    re.compile(r"\byou(?:'re| are)\s+(?:absolutely|completely|totally|entirely|100%)\s+right\b", re.I),
+    re.compile(r"\byour\s+(?:intuition|instinct|hypothesis|framing|analysis)\s+is\s+(?:spot[- ]on|exact|brilliant|compelling)\b", re.I),
+    re.compile(r"\b(?:groundbreaking|revolutionary|paradigm[- ]shifting|transformative|game[- ]changing|trailblazing)\b", re.I),
+    re.compile(r"\b(?:completely|fully|definitively|conclusively|irrefutably)\s+(?:solves?|resolves?|proves?|eliminates?|closes?)\b", re.I),
+    re.compile(r"(?:(?<!\d)100%|completely\s+free\s+of)\s+(?:clean\s+of\s+)?confounders?\b", re.I),
+    re.compile(r"\bno\s+reviewer\s+(?:can|could|will)\s+(?:object|challenge|question|fault)\b", re.I),
+    re.compile(r"\b(?:bulletproof|airtight|unassailable)\s+(?:proof|evidence|argument|contribution|paper|rqs?)\b", re.I),
+    re.compile(r"\bý\s+tưởng\s+(?:tuyệt\s+vời|xuất\s+sắc|đỉnh\s+cao|rất\s+hay|quá\s+hay|quá\s+đỉnh)\b", re.I),
+    re.compile(r"\bbạn\s+(?:hoàn\s+toàn\s+đúng|nói\s+(?:rất|quá)\s+đúng|nhìn\s+ra\s+quá\s+chuẩn)\b", re.I),
+    re.compile(r"\bbạn\s+thấy\s+điều\s+gì\s+vừa\s+khớp\s+nối\s+lịch\s+sử\s+chưa\b", re.I),
+    re.compile(r"\bgiải\s+quyết\s+triệt\s+để\b", re.I),
+    re.compile(r"\bkhóa\s+chặt\s+mọi\s+đường\b", re.I),
+    re.compile(r"\bkhông\s+một\s+reviewer\s+nào\s+(?:có\s+thể\s+)?bắt\s+bẻ\b", re.I),
+    re.compile(r"\bhoàn\s+toàn\s+sạch\s+bóng\s+biến\s+nhiễu\b", re.I),
+    re.compile(r"(?<!\d)100%\s*(?:sạch(?:\s+bóng)?|chứng\s+minh)\b", re.I),
+    re.compile(r"\bphát\s+hiện\s+(?:đột\s+phá|lý\s+thuyết\s+cực\s+lớn)\b", re.I),
+    re.compile(r"\bđột\s+phá\s+ngay\s+lúc\s+này\b", re.I),
+    re.compile(r"\bbài\s+học\s+triệu\s+đô\b", re.I),
+    re.compile(r"\bdòng\s+huyết\s+thống\s+quý\s+tộc\b", re.I),
+    re.compile(r"\b(?:đối\s+nghịch\s+)?tuyệt\s+đẹp\b", re.I),
+    re.compile(r"\bhoàn\s+hảo\s+đến\s+từng\s+chữ\b", re.I),
+    re.compile(r"\bchứng\s+minh\s+tuyệt\s+đối\b", re.I),
+    re.compile(r"\b(?:đập\s+bẹp\s+tất\s+cả|đè\s+bẹp)\b", re.I),
+)
 
 
 def _utc_now() -> str:
@@ -195,24 +222,28 @@ def _summarize_state(workspace: Path | None, status: str, data: dict[str, Any] |
 
 
 def _activation_message(skill_ref: str, state_note: str) -> str:
+    mindset_ref = str(Path(skill_ref).parent / "references" / "researcher-mindset-and-epistemic-calibration.md")
     return (
         "[research-scientist session mode ACTIVE for this conversation] "
-        f"Read {skill_ref} immediately and keep this session locked to the 6-spoke research-scientist workflow "
-        "(Precedent -> Gap/RQ/Parsimony -> Experiment Coding/Rigor -> Novelty/Venue/Rebuttal -> Writing/Figures/Preflight -> User Report). "
-        "Enforce zero-sycophancy falsification-first checks, read-before-cite (unread papers remain metadata_only with ratings=null), "
-        "zero-fabrication (never invent % acceptance odds; unverified CFP/fees remain unverified), "
-        "engineering-before-novelty (pass --subfield-preset speech_audio for speech/audio), F19 parsimony ('least is best'), "
-        "and disk-offloaded --out + --compact script execution. "
+        f"Read {skill_ref} and {mindset_ref} immediately. Keep this session locked to Q1/A* researcher rigor across all 6 spokes "
+        "(Precedent -> Gap/RQ/Parsimony -> Pre-GPU 5-Step Gate & Rigor -> Novelty/Venue/Rebuttal -> Writing/Preflight -> User Report). "
+        "MANDATORY COLD CONTRACT: (1) Zero EN+VI flattery/hype/sweeping claims ('great idea', 'ý tưởng tuyệt vời', 'tuyệt đẹp', 'đột phá', 'triệu đô', "
+        "'đập bẹp', 'giải quyết triệt để', 'khóa chặt mọi đường', 'không một reviewer nào bắt bẻ', 'hoàn toàn sạch bóng biến nhiễu', '100% free of confounders', 'completely solves'). "
+        "(2) Enforce the L0-L4 Claim-Strength Ladder: never call untested hypotheses or post-hoc observations 'Theorem'/'Định lý'; static weight norms ||ΔW||_F do not prove behavior; "
+        "tag exploratory post-hoc explanations explicitly; enforce 1-2 Acronym Budget and Cross-Paradigm Baselines. "
+        "(3) Format substantive critiques strictly into 4 blocks: Verified Facts & Receipts | Unverified / Post-Hoc Hypotheses | Strongest Confounders & Reviewer #2 Kill-Shots | Cheapest Disconfirming Test. "
+        "(4) Read-before-cite (metadata_only -> ratings=null), zero-fabrication, engineering-before-novelty, F19 parsimony, and --out + --compact scripts. "
         f"{state_note}"
     )
 
 
 def _refresh_message(skill_ref: str, state_note: str, compacted: bool) -> str:
-    reason = "context compaction detected" if compacted else "periodic session-lock anchor"
+    reason = "context compaction detected" if compacted else "periodic 2-turn cold researcher anchor"
     return (
-        f"[research-scientist session mode REMINDER ({reason})] Re-anchor to {skill_ref}: enforce zero-sycophancy, "
-        "read-before-cite (metadata_only -> ratings=null), zero-fabrication, engineering-before-novelty, F19 parsimony, "
-        f"and --out + --compact script verification. {state_note}"
+        f"[research-scientist session mode REMINDER ({reason})] Re-anchor to {skill_ref}: "
+        "ZERO EN+VI flattery, hype ('tuyệt đẹp', 'đột phá', 'triệu đô'), or sweeping overclaims ('giải quyết triệt để', 'sạch bóng biến nhiễu', 'completely solves', 'no reviewer can object'). "
+        "Never promote L0/L1 post-hoc hypotheses to 'Theorem'/'Định lý'; use 4 cold blocks (Verified / Unverified / Confounders & Kill-Shots / Cheapest Disconfirming Test), "
+        f"read-before-cite, F19 parsimony, and --out + --compact scripts. {state_note}"
     )
 
 
@@ -253,7 +284,6 @@ def _handle_pre_invocation(payload: dict[str, Any], state_dir: Path) -> dict[str
     state = _load_session_state(sess_path)
     currently_active = bool(state.get("active"))
 
-    # Case 1: Off trigger checked first
     if OFF_RE.search(last_input):
         if currently_active:
             new_state = {
@@ -286,7 +316,6 @@ def _handle_pre_invocation(payload: dict[str, Any], state_dir: Path) -> dict[str
     ps_status, ps_data, ps_err = _load_project_state(workspace)
     state_note = _summarize_state(workspace, ps_status, ps_data, ps_err)
 
-    # Case 2: On trigger
     if ON_RE.search(last_input):
         if not currently_active:
             _prune_stale_sessions(state_dir)
@@ -307,7 +336,7 @@ def _handle_pre_invocation(payload: dict[str, Any], state_dir: Path) -> dict[str
                         "systemMessage": {
                             "systemMessage": _activation_message(skill_ref, state_note),
                             "metadata": {
-                                "user_markdown": "🔒 **Research Scientist mode ACTIVE** cho cả đoạn chat này (gõ `/research-off` để tắt).",
+                                "user_markdown": "🔒 **Research Scientist mode ACTIVE** (Q1/A* Epistemic Lock + Live Firewall; gõ `/research-off` để tắt).",
                             },
                         }
                     }
@@ -337,14 +366,13 @@ def _handle_pre_invocation(payload: dict[str, Any], state_dir: Path) -> dict[str
                     "systemMessage": {
                         "systemMessage": _refresh_message(skill_ref, state_note, compacted=False),
                         "metadata": {
-                            "user_markdown": "🔒 **Research Scientist mode đang ACTIVE** cho đoạn chat này (gõ `/research-off` để tắt).",
+                            "user_markdown": "🔒 **Research Scientist mode đang ACTIVE** (gõ `/research-off` để tắt).",
                         },
                     }
                 }
             ]
         }
 
-    # Case 3: Neither trigger matched
     if not currently_active:
         return {}
 
@@ -446,6 +474,95 @@ def _check_state_integrity(data: dict[str, Any]) -> list[str]:
     return violations
 
 
+def _extract_latest_planner_content(transcript_raw: Any) -> str | None:
+    if not isinstance(transcript_raw, str) or not transcript_raw.strip():
+        return None
+    tp = Path(transcript_raw).expanduser()
+    if not tp.is_file():
+        return None
+    try:
+        lines = tp.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+
+    target_rec: dict[str, Any] | None = None
+    for raw_line in reversed(lines):
+        s = raw_line.strip()
+        if not s:
+            continue
+        try:
+            rec = json.loads(s, parse_constant=_reject_nonfinite)
+        except Exception:
+            continue
+        if (
+            isinstance(rec, dict)
+            and rec.get("type") == "PLANNER_RESPONSE"
+            and rec.get("source") == "MODEL"
+            and not rec.get("tool_calls")
+            and isinstance(rec.get("content"), str)
+            and rec["content"].strip()
+        ):
+            target_rec = rec
+            break
+
+    if target_rec is None:
+        return None
+
+    content = target_rec["content"]
+    trunc = target_rec.get("truncated_fields")
+    if isinstance(trunc, list) and "content" in trunc:
+        full_tp = tp.with_name("transcript_full.jsonl")
+        if full_tp.is_file():
+            step_idx = target_rec.get("step_index")
+            try:
+                for raw_line in reversed(full_tp.read_text(encoding="utf-8", errors="replace").splitlines()):
+                    s = raw_line.strip()
+                    if not s:
+                        continue
+                    try:
+                        frec = json.loads(s, parse_constant=_reject_nonfinite)
+                    except Exception:
+                        continue
+                    if (
+                        isinstance(frec, dict)
+                        and frec.get("step_index") == step_idx
+                        and frec.get("type") == "PLANNER_RESPONSE"
+                        and isinstance(frec.get("content"), str)
+                    ):
+                        return frec["content"]
+            except OSError:
+                pass
+    return content
+
+
+def _mask_non_asserted_text(text: str) -> str:
+    masked = re.sub(r"```[\s\S]*?```", " ", text)
+    masked = re.sub(r"~~~[\s\S]*?~~~", " ", masked)
+    masked = re.sub(r"`[^`\n]+`", " ", masked)
+    masked = re.sub(r"(?m)^\s*>.*$", " ", masked)
+    masked = re.sub(r'"[^"\n]{1,260}"|“[^”\n]{1,260}”', " ", masked)
+    return masked
+
+
+def _scan_transcript_firewall(transcript_raw: Any) -> list[str]:
+    content = _extract_latest_planner_content(transcript_raw)
+    if not content:
+        return []
+    prose = _mask_non_asserted_text(content)
+    hits: list[str] = []
+    seen: set[str] = set()
+    for pat in _FIREWALL_PATTERNS:
+        for m in pat.finditer(prose):
+            phrase = " ".join(m.group(0).split())
+            key = phrase.casefold()
+            if key not in seen:
+                seen.add(key)
+                hits.append(phrase)
+            if len(hits) >= 6:
+                return hits
+    return hits
+
+
 def _handle_stop(payload: dict[str, Any], state_dir: Path) -> dict[str, Any]:
     if payload.get("continuationActive"):
         return {}
@@ -462,28 +579,30 @@ def _handle_stop(payload: dict[str, Any], state_dir: Path) -> dict[str, Any]:
     if not state.get("active"):
         return {}
 
+    reasons: list[str] = []
     workspace = _resolve_workspace(payload)
     status, data, err = _load_project_state(workspace)
-    if status == "absent":
-        return {}
-    if status == "corrupt" or data is None or workspace is None:
-        return {
-            "decision": "continue",
-            "reason": (
-                f"research-scientist session mode Stop check failed: {workspace / 'project_state.json' if workspace else 'project_state.json'} "
-                f"is unreadable/corrupt ({err}). Repair project_state.json before finishing."
-            ),
-        }
+    if status == "corrupt" or (status == "valid" and (data is None or workspace is None)):
+        reasons.append(
+            f"project_state.json is unreadable/corrupt ({err})"
+        )
+    elif status == "valid" and data is not None:
+        violations = _check_state_integrity(data)
+        if violations:
+            reasons.append("project_state.json provenance violations: " + "; ".join(violations[:4]))
 
-    violations = _check_state_integrity(data)
-    if violations:
-        preview = "; ".join(violations[:5])
+    firewall_hits = _scan_transcript_firewall(payload.get("transcriptPath"))
+    if firewall_hits:
+        quoted = ", ".join(f"'{h}'" for h in firewall_hits)
+        reasons.append(
+            f"unverified hype/sycophancy/overclaim phrases detected in response ({quoted}). "
+            "Rewrite in cold Q1/A* researcher tone using Verified Facts / Unverified Hypotheses / Confounders & Kill-Shots / Cheapest Disconfirming Test"
+        )
+
+    if reasons:
         return {
             "decision": "continue",
-            "reason": (
-                f"research-scientist session mode Stop check detected provenance/state violations in "
-                f"{workspace / 'project_state.json'}: {preview}. Repair project_state.json before finishing."
-            ),
+            "reason": "research-scientist session mode Stop guard blocked output: " + " | ".join(reasons),
         }
     return {}
 

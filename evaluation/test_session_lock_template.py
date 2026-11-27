@@ -283,6 +283,39 @@ class TestSessionLockTemplate(unittest.TestCase):
             self.assertEqual(cp2.returncode, 0, cp2.stderr)
             self.assertEqual((target_ws / "AGENTS.md").read_text(encoding="utf-8"), custom_agents)
 
+    def test_stop_transcript_firewall(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ws = root / "ws"
+            ws.mkdir()
+            tp = root / "transcript.jsonl"
+
+            def _write_transcript(content: str) -> None:
+                recs = [
+                    {"step_index": 1, "source": "MODEL", "type": "PLANNER_RESPONSE", "status": "DONE", "content": content},
+                ]
+                tp.write_text("\n".join(json.dumps(r) for r in recs) + "\n", encoding="utf-8")
+
+            _write_transcript("Bài học triệu đô này giải quyết triệt để vấn đề.")
+            res_bad = _run_hook(
+                HOOK_SCRIPT,
+                "Stop",
+                {"cwd": str(ws), "terminationReason": "NO_TOOL_CALL", "transcriptPath": str(tp)},
+            )
+            self.assertEqual(res_bad.returncode, 0)
+            out_bad = json.loads(res_bad.stdout)
+            self.assertEqual(out_bad.get("decision"), "continue")
+            self.assertIn("giải quyết triệt để", out_bad.get("reason", ""))
+
+            _write_transcript("Cần loại bỏ cụm `giải quyết triệt để` khi phản biện.\n### Verified Facts & Receipts\nChưa chạy thử.")
+            res_ok = _run_hook(
+                HOOK_SCRIPT,
+                "Stop",
+                {"cwd": str(ws), "terminationReason": "NO_TOOL_CALL", "transcriptPath": str(tp)},
+            )
+            self.assertEqual(res_ok.returncode, 0)
+            self.assertEqual(json.loads(res_ok.stdout), {})
+
 
 if __name__ == "__main__":
     unittest.main()

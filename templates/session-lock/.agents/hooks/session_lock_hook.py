@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,33 @@ SKILL_CANDIDATES = (
     Path.home() / ".agents" / "skills" / "research-scientist" / "SKILL.md",
     Path.home() / ".claude" / "skills" / "research-scientist" / "SKILL.md",
     Path.home() / ".codex" / "skills" / "research-scientist" / "SKILL.md",
+)
+
+_FIREWALL_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\b(?:great|excellent|brilliant|fantastic|wonderful|amazing|awesome|superb|outstanding|terrific|insightful|clever|smart)\s+(?:idea|question|point|insight|observation|approach|intuition|direction|suggestion|proposal|work|catch)\b", re.I),
+    re.compile(r"\byou(?:'re| are)\s+(?:absolutely|completely|totally|entirely|100%)\s+right\b", re.I),
+    re.compile(r"\byour\s+(?:intuition|instinct|hypothesis|framing|analysis)\s+is\s+(?:spot[- ]on|exact|brilliant|compelling)\b", re.I),
+    re.compile(r"\b(?:groundbreaking|revolutionary|paradigm[- ]shifting|transformative|game[- ]changing|trailblazing)\b", re.I),
+    re.compile(r"\b(?:completely|fully|definitively|conclusively|irrefutably)\s+(?:solves?|resolves?|proves?|eliminates?|closes?)\b", re.I),
+    re.compile(r"(?:(?<!\d)100%|completely\s+free\s+of)\s+(?:clean\s+of\s+)?confounders?\b", re.I),
+    re.compile(r"\bno\s+reviewer\s+(?:can|could|will)\s+(?:object|challenge|question|fault)\b", re.I),
+    re.compile(r"\b(?:bulletproof|airtight|unassailable)\s+(?:proof|evidence|argument|contribution|paper|rqs?)\b", re.I),
+    re.compile(r"\bý\s+tưởng\s+(?:tuyệt\s+vời|xuất\s+sắc|đỉnh\s+cao|rất\s+hay|quá\s+hay|quá\s+đỉnh)\b", re.I),
+    re.compile(r"\bbạn\s+(?:hoàn\s+toàn\s+đúng|nói\s+(?:rất|quá)\s+đúng|nhìn\s+ra\s+quá\s+chuẩn)\b", re.I),
+    re.compile(r"\bbạn\s+thấy\s+điều\s+gì\s+vừa\s+khớp\s+nối\s+lịch\s+sử\s+chưa\b", re.I),
+    re.compile(r"\bgiải\s+quyết\s+triệt\s+để\b", re.I),
+    re.compile(r"\bkhóa\s+chặt\s+mọi\s+đường\b", re.I),
+    re.compile(r"\bkhông\s+một\s+reviewer\s+nào\s+(?:có\s+thể\s+)?bắt\s+bẻ\b", re.I),
+    re.compile(r"\bhoàn\s+toàn\s+sạch\s+bóng\s+biến\s+nhiễu\b", re.I),
+    re.compile(r"(?<!\d)100%\s*(?:sạch(?:\s+bóng)?|chứng\s+minh)\b", re.I),
+    re.compile(r"\bphát\s+hiện\s+(?:đột\s+phá|lý\s+thuyết\s+cực\s+lớn)\b", re.I),
+    re.compile(r"\bđột\s+phá\s+ngay\s+lúc\s+này\b", re.I),
+    re.compile(r"\bbài\s+học\s+triệu\s+đô\b", re.I),
+    re.compile(r"\bdòng\s+huyết\s+thống\s+quý\s+tộc\b", re.I),
+    re.compile(r"\b(?:đối\s+nghịch\s+)?tuyệt\s+đẹp\b", re.I),
+    re.compile(r"\bhoàn\s+hảo\s+đến\s+từng\s+chữ\b", re.I),
+    re.compile(r"\bchứng\s+minh\s+tuyệt\s+đối\b", re.I),
+    re.compile(r"\b(?:đập\s+bẹp\s+tất\s+cả|đè\s+bẹp)\b", re.I),
 )
 
 
@@ -116,6 +144,7 @@ def _handle_session_start(payload: dict[str, Any]) -> dict[str, Any]:
     workspace = _resolve_workspace(payload)
     skill_path = _find_installed_skill()
     skill_ref = skill_path or "~/.agents/skills/research-scientist/SKILL.md"
+    mindset_ref = str(Path(skill_ref).parent / "references" / "researcher-mindset-and-epistemic-calibration.md")
     status, data, err = _load_project_state(workspace)
 
     if status == "valid" and data is not None:
@@ -130,9 +159,11 @@ def _handle_session_start(payload: dict[str, Any]) -> dict[str, Any]:
 
     msg = (
         f"[research-scientist session lock active in {workspace}] "
-        f"Read {skill_ref} and follow ./AGENTS.md on every turn. "
-        "Enforce zero-sycophancy falsification-first checks, read-before-cite (unread papers remain metadata_only with ratings=null), "
-        "zero-fabrication, engineering-before-novelty, and F19 parsimony; run shared CLI scripts with --out and --compact. "
+        f"Read {skill_ref} and {mindset_ref}, and follow ./AGENTS.md on every turn. "
+        "MANDATORY COLD RESEARCHER CONTRACT: ZERO EN+VI flattery/hype/sweeping overclaims ('tuyệt đẹp', 'đột phá', 'triệu đô', 'giải quyết triệt để', 'sạch bóng biến nhiễu', 'completely solves', 'no reviewer can object'); "
+        "use the 4 cold blocks (Verified Facts & Receipts | Unverified / Post-Hoc Hypotheses | Strongest Confounders & Reviewer #2 Kill-Shots | Cheapest Disconfirming Test), "
+        "L0-L4 claim ladder (never promote post-hoc observations or static ||ΔW||_F to 'Theorem'/'Định lý'), read-before-cite (metadata_only -> ratings=null), "
+        "zero-fabrication, Pre-GPU 5-step gate, F19 parsimony, and --out + --compact scripts. "
         f"{state_note}"
     )
     return {
@@ -202,6 +233,95 @@ def _check_state_integrity(data: dict[str, Any]) -> list[str]:
     return violations
 
 
+def _extract_latest_planner_content(transcript_raw: Any) -> str | None:
+    if not isinstance(transcript_raw, str) or not transcript_raw.strip():
+        return None
+    tp = Path(transcript_raw).expanduser()
+    if not tp.is_file():
+        return None
+    try:
+        lines = tp.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+
+    target_rec: dict[str, Any] | None = None
+    for raw_line in reversed(lines):
+        s = raw_line.strip()
+        if not s:
+            continue
+        try:
+            rec = json.loads(s, parse_constant=_reject_nonfinite)
+        except Exception:
+            continue
+        if (
+            isinstance(rec, dict)
+            and rec.get("type") == "PLANNER_RESPONSE"
+            and rec.get("source") == "MODEL"
+            and not rec.get("tool_calls")
+            and isinstance(rec.get("content"), str)
+            and rec["content"].strip()
+        ):
+            target_rec = rec
+            break
+
+    if target_rec is None:
+        return None
+
+    content = target_rec["content"]
+    trunc = target_rec.get("truncated_fields")
+    if isinstance(trunc, list) and "content" in trunc:
+        full_tp = tp.with_name("transcript_full.jsonl")
+        if full_tp.is_file():
+            step_idx = target_rec.get("step_index")
+            try:
+                for raw_line in reversed(full_tp.read_text(encoding="utf-8", errors="replace").splitlines()):
+                    s = raw_line.strip()
+                    if not s:
+                        continue
+                    try:
+                        frec = json.loads(s, parse_constant=_reject_nonfinite)
+                    except Exception:
+                        continue
+                    if (
+                        isinstance(frec, dict)
+                        and frec.get("step_index") == step_idx
+                        and frec.get("type") == "PLANNER_RESPONSE"
+                        and isinstance(frec.get("content"), str)
+                    ):
+                        return frec["content"]
+            except OSError:
+                pass
+    return content
+
+
+def _mask_non_asserted_text(text: str) -> str:
+    masked = re.sub(r"```[\s\S]*?```", " ", text)
+    masked = re.sub(r"~~~[\s\S]*?~~~", " ", masked)
+    masked = re.sub(r"`[^`\n]+`", " ", masked)
+    masked = re.sub(r"(?m)^\s*>.*$", " ", masked)
+    masked = re.sub(r'"[^"\n]{1,260}"|“[^”\n]{1,260}”', " ", masked)
+    return masked
+
+
+def _scan_transcript_firewall(transcript_raw: Any) -> list[str]:
+    content = _extract_latest_planner_content(transcript_raw)
+    if not content:
+        return []
+    prose = _mask_non_asserted_text(content)
+    hits: list[str] = []
+    seen: set[str] = set()
+    for pat in _FIREWALL_PATTERNS:
+        for m in pat.finditer(prose):
+            phrase = " ".join(m.group(0).split())
+            key = phrase.casefold()
+            if key not in seen:
+                seen.add(key)
+                hits.append(phrase)
+            if len(hits) >= 6:
+                return hits
+    return hits
+
+
 def _handle_stop(payload: dict[str, Any]) -> dict[str, Any]:
     if payload.get("continuationActive"):
         return {}
@@ -210,28 +330,28 @@ def _handle_stop(payload: dict[str, Any]) -> dict[str, Any]:
     if term_reason and term_reason != "NO_TOOL_CALL":
         return {}
 
+    reasons: list[str] = []
     workspace = _resolve_workspace(payload)
     status, data, err = _load_project_state(workspace)
-    if status == "absent":
-        return {}
-    if status == "corrupt" or data is None:
-        return {
-            "decision": "continue",
-            "reason": (
-                f"research-scientist session-lock Stop check failed: {workspace / 'project_state.json'} "
-                f"is unreadable/corrupt ({err}). Fix project_state.json before finishing."
-            ),
-        }
+    if status == "corrupt" or (status == "valid" and data is None):
+        reasons.append(f"project_state.json is unreadable/corrupt ({err})")
+    elif status == "valid" and data is not None:
+        violations = _check_state_integrity(data)
+        if violations:
+            reasons.append("project_state.json provenance violations: " + "; ".join(violations[:4]))
 
-    violations = _check_state_integrity(data)
-    if violations:
-        preview = "; ".join(violations[:5])
+    firewall_hits = _scan_transcript_firewall(payload.get("transcriptPath"))
+    if firewall_hits:
+        quoted = ", ".join(f"'{h}'" for h in firewall_hits)
+        reasons.append(
+            f"unverified hype/sycophancy/overclaim phrases detected in response ({quoted}). "
+            "Rewrite in cold Q1/A* researcher tone using Verified Facts / Unverified Hypotheses / Confounders & Kill-Shots / Cheapest Disconfirming Test"
+        )
+
+    if reasons:
         return {
             "decision": "continue",
-            "reason": (
-                f"research-scientist session-lock Stop check detected provenance/state violations in "
-                f"{workspace / 'project_state.json'}: {preview}. Repair project_state.json before finishing."
-            ),
+            "reason": "research-scientist session-lock Stop guard blocked output: " + " | ".join(reasons),
         }
     return {}
 

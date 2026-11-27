@@ -123,3 +123,11 @@ Every multi-component method or `confirmatory` `method` plan must pass all four 
 - **Pre-Mortem & 1–2 Day Killer Experiment (`--require-pre-mortem`):** Requires `top_failure_modes` (`>= 3`), a `1–2` day `killer_experiment` with an explicit `kill_threshold`, and a `pivot_path` (`DROP_INCOMPLETE_PRE_MORTEM` when missing/incomplete).
 - **Standardized `idea_seed_bundle` (`--seed-bundle-out`, `research_scientist_idea_seed_bundle_v1`):** Exports surviving gaps with `gap_id`, `closest_work_ids`, `prior_art_boundary`, `full_text_digests`, `gap_tier_ceiling`, `resource_feasibility`, `scoop_and_obsolescence_risk`, F28 portfolio/pre-mortem, F30 trajectory/failure/author/code fields, F32 lenses, and F31 `subfield_vetting` (with unassessed idea `ratings` kept strictly `null` for downstream idea scoring and project-state tracking).
 
+## 8. Q1/A\* Literature-to-RQ Discipline & Assumption-Collision Patterns
+
+Do NOT frame Related Work as a chronological catalog or claim a geographical/language gap (*"nobody combined X+Y for language Z"* -> fails `DROP_ARTIFICIAL_SCOPE` / `trivial_reskin_risk`). Consult [researcher mindset & epistemic calibration](../../research-scientist/references/researcher-mindset-and-epistemic-calibration.md) for the full epistemic contract:
+
+1. **Five-Column Critical Reading Matrix:** Extract `(a) Hidden Assumption`, `(b) Uncontrolled Confounder`, `(c) Metric Blind Spot`, `(d) Regime Collision` (where Paper A's assumption breaks under Paper B's regime), and `(e) Two-Way Publishable Platt RQ` ($H_1$ vs. $H_2$, where **both outcomes yield publishable knowledge**).
+2. **Seven Assumption-Collision Patterns (`collision_pattern`):** Classify candidate RQs under `hidden_tradeoff_paradox`, `confounder_disentanglement`, `internal_localization`, `intersectional_regime_breakdown`, `construct_validity_yardstick`, `paradigm_re_audit`, or `zero_retrain_intervention_ambiguity`.
+3. **Acronym Budget & Venue Framing:** Enforce an acronym cap (`1–2` new names strictly for the unifying law/benchmark; standard descriptive names for all preprocessing/auxiliary steps). Target `2–3` sharp Platt RQs for A\* conferences (`TACL`/`ICLR`/`ACL`) vs. `3–4` tiered Diagnostic $\to$ Mechanism $\to$ Transfer $\to$ Blind Human Eval RQs for Q1 journals (`ESWA`/`IP&M`/`KBS`/`TALLIP`), preserving bounded claims (`L0–L4`).
+

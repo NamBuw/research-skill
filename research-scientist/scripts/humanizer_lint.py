@@ -398,6 +398,9 @@ _SYC_FLATTERY_PATTERNS = [
     re.compile(r"\bwhat\s+a\s+(?:great|clever|smart|novel|elegant)\s+(?:idea|approach|insight)\b", re.I),
     re.compile(r"\bi\s+(?:love|really\s+like)\s+(?:this|your)\s+(?:idea|approach|framing|direction)\b", re.I),
     re.compile(r"\bthank\s+you\s+for\s+(?:sharing|pointing\s+out|raising)\s+(?:such\s+a|this)\s+(?:great|thoughtful|important)\b", re.I),
+    re.compile(r"\bý\s+tưởng\s+(?:tuyệt\s+vời|xuất\s+sắc|đỉnh\s+cao|quá\s+đỉnh)\b", re.I),
+    re.compile(r"\bbạn\s+(?:hoàn\s+toàn\s+đúng|nói\s+(?:rất|quá)\s+đúng|nhìn\s+ra\s+quá\s+chuẩn)\b", re.I),
+    re.compile(r"\bbạn\s+thấy\s+điều\s+gì\s+vừa\s+khớp\s+nối\s+lịch\s+sử\s+chưa\b", re.I),
 ]
 _SYC_CHEER_CRITICAL_PATTERNS = [
     re.compile(r"\b(?:groundbreaking|revolutionary|paradigm[- ]shifting|transformative|game[- ]changing|trailblazing)\b", re.I),
@@ -408,6 +411,23 @@ _SYC_CHEER_CRITICAL_PATTERNS = [
     re.compile(r"\bhighly\s+(?:promising|innovative|original|novel|compelling|impactful)\b", re.I),
     re.compile(r"\bclear(?:ly)?\s+superior\b|\bunquestionably\s+(?:better|superior|novel)\b", re.I),
     re.compile(r"\bexciting\s+(?:breakthrough|opportunity|direction|avenue|findings?)\b", re.I),
+    re.compile(r"\b(?:completely|fully|definitively|conclusively|irrefutably)\s+(?:solves?|resolves?|proves?|eliminates?|closes?)\b", re.I),
+    re.compile(r"(?:(?<!\d)100%|completely\s+free\s+of)\s+(?:clean\s+of\s+)?confounders?\b", re.I),
+    re.compile(r"\bno\s+reviewer\s+(?:can|could|will)\s+(?:object|challenge|question|fault)\b", re.I),
+    re.compile(r"\b(?:bulletproof|airtight|unassailable)\s+(?:proof|evidence|argument|contribution|paper|rqs?)\b", re.I),
+    re.compile(r"\bgiải\s+quyết\s+triệt\s+để\b", re.I),
+    re.compile(r"\bkhóa\s+chặt\s+mọi\s+đường\b", re.I),
+    re.compile(r"\bkhông\s+một\s+reviewer\s+nào\s+(?:có\s+thể\s+)?bắt\s+bẻ\b", re.I),
+    re.compile(r"\bhoàn\s+toàn\s+sạch\s+bóng\s+biến\s+nhiễu\b", re.I),
+    re.compile(r"(?<!\d)100%\s*(?:sạch(?:\s+bóng)?|chứng\s+minh)\b", re.I),
+    re.compile(r"\bphát\s+hiện\s+(?:đột\s+phá|lý\s+thuyết\s+cực\s+lớn)\b", re.I),
+    re.compile(r"\bđột\s+phá\s+ngay\s+lúc\s+này\b", re.I),
+    re.compile(r"\bbài\s+học\s+triệu\s+đô\b", re.I),
+    re.compile(r"\bdòng\s+huyết\s+thống\s+quý\s+tộc\b", re.I),
+    re.compile(r"\b(?:đối\s+nghịch\s+)?tuyệt\s+đẹp\b", re.I),
+    re.compile(r"\bhoàn\s+hảo\s+đến\s+từng\s+chữ\b", re.I),
+    re.compile(r"\bchứng\s+minh\s+tuyệt\s+đối\b", re.I),
+    re.compile(r"\b(?:đập\s+bẹp\s+tất\s+cả|đè\s+bẹp)\b", re.I),
 ]
 _SYC_CHEER_SOFT_PATTERNS = [
     re.compile(r"\bpioneering\s+(?:work|study|paper|method|approach)\b|\bseminal\b", re.I),

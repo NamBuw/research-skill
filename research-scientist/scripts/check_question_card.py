@@ -30,6 +30,36 @@ _PLACEHOLDER_PREFIX_RE = re.compile(
     re.I,
 )
 
+COLLISION_PATTERNS = {
+    'hidden_tradeoff_paradox',
+    'confounder_disentanglement',
+    'internal_localization',
+    'intersectional_regime_breakdown',
+    'construct_validity_yardstick',
+    'paradigm_re_audit',
+    'zero_retrain_intervention_ambiguity',
+}
+
+_DESCRIPTIVE_SCORE_RE = re.compile(
+    r'(?:\bhow\s+much\s+(?:does|can|do)\s+(?:our|the|this)\b|'
+    r'\bbao\s+nhi[eê]u\s+[đd]i[eể]m\b|'
+    r'\b(?:no\s+one|nobody)\s+(?:has\s+)?(?:applied|used|combined|tested)\b[^?\n]{0,60}\b(?:to|for|on)\b|'
+    r'\bch[uư]a\s+ai\s+(?:[aá]p\s+d[uụ]ng|gh[eé]p|th[uử])\b)',
+    re.I,
+)
+_DESCRIPTIVE_CONTRAST_RE = re.compile(r'(?:\bvs\.?\b|\bversus\b|\bthan\b|\bor\b|\bhay\b)', re.I)
+_RQ_OVERCLAIM_RE = re.compile(
+    r'(?:(?:completely|fully|definitively|conclusively|irrefutably)\s+'
+    r'(?:solves?|resolves?|proves?|eliminates?|closes?)|'
+    r'\bno\s+reviewer\s+(?:can|could|will)\b|'
+    r'\b(?:100%|completely)\s+free\s+of\s+confounders?\b|'
+    r'gi[aả]i\s+quy[eế]t\s+tri[eệ]t\s+[đd][eể]|'
+    r'kh[oó]a\s+ch[aặ]t\s+m[oọ]i\s+[đd][uư][oờ]ng|'
+    r's[aạ]ch\s+b[oó]ng\s+bi[eế]n\s+nhi[eễ]u|'
+    r'kh[oô]ng\s+m[oộ]t\s+reviewer\s+n[aà]o)',
+    re.I,
+)
+
 
 def normalize(value):
     return re.sub(r'\W+', ' ', value.casefold()).strip()
@@ -58,10 +88,26 @@ def check(card):
     ident = card.get('identification_assumptions')
     if card['question_type'].strip().lower() == 'causal' and (not isinstance(ident, str) or not ident.strip()):
         errors.append('causal_question_missing_identification_assumptions')
+    cp = card.get('collision_pattern')
+    if cp is not None:
+        if not isinstance(cp, str) or not cp.strip() or cp.strip().casefold() not in COLLISION_PATTERNS:
+            errors.append(f'invalid_collision_pattern:{cp}')
     if normalize(card['closest_work']) in {'none', 'na', 'n a', 'unknown', 'not searched', 'tbd'}:
         warnings.append('closest_work_unchecked; do not score novelty')
     if normalize(card['engineering_diagnosis']) in {'none', 'na', 'n a', 'not checked', 'unknown', 'tbd'}:
         warnings.append('engineering_diagnosis_unchecked; verify before promoting a failure to a gap')
+    q_text = card['question']
+    if _DESCRIPTIVE_SCORE_RE.search(q_text) and not _DESCRIPTIVE_CONTRAST_RE.search(q_text):
+        warnings.append('descriptive_or_non_falsifiable_question')
+    for oc_field in ('question', 'expected_if_focal', 'prior_art_boundary'):
+        if _RQ_OVERCLAIM_RE.search(card[oc_field]):
+            warnings.append('overclaim_language_in_rq_card')
+            break
+    for opt_field in ('internal_observable', 'predicted_failure_boundary'):
+        if opt_field in card:
+            oval = card[opt_field]
+            if not isinstance(oval, str) or not oval.strip() or _is_placeholder(oval):
+                warnings.append(f'weak_or_blank_{opt_field}')
     return {'valid_structure': not errors, 'errors': errors, 'warnings': warnings,
             'scope': 'Checks field presence and a few logical collisions only; it does not verify sources, novelty, measurement validity, causal identification, feasibility, or ethics.'}
 

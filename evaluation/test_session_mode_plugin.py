@@ -140,25 +140,23 @@ class TestSessionModePlugin(unittest.TestCase):
             )
             self.assertEqual(json.loads(r_other.stdout), {})
 
-            # (e) Follow-up turns 1..5 -> {}, 6th follow-up turn -> compact reminder
-            steps = 8
-            for idx in range(1, 6):
-                steps += 2
-                rt = _run_mode_hook(
-                    "PreInvocation",
-                    {"conversationId": "conv-a", "lastUserInput": f"Follow up question {idx}", "invocationNum": 1, "initialNumSteps": steps, "cwd": str(ws)},
-                    state_dir,
-                )
-                self.assertEqual(json.loads(rt.stdout), {}, f"Unexpected reminder on follow-up turn {idx}")
+            # (e) Follow-up turn 1 -> {}, follow-up turn 2 -> periodic reminder
+            rt1 = _run_mode_hook(
+                "PreInvocation",
+                {"conversationId": "conv-a", "lastUserInput": "Follow up question 1", "invocationNum": 1, "initialNumSteps": 10, "cwd": str(ws)},
+                state_dir,
+            )
+            self.assertEqual(json.loads(rt1.stdout), {}, "Unexpected reminder on follow-up turn 1")
 
-            steps += 2
             r_periodic = _run_mode_hook(
                 "PreInvocation",
-                {"conversationId": "conv-a", "lastUserInput": "Follow up question 6", "invocationNum": 1, "initialNumSteps": steps, "cwd": str(ws)},
+                {"conversationId": "conv-a", "lastUserInput": "Follow up question 2", "invocationNum": 1, "initialNumSteps": 12, "cwd": str(ws)},
                 state_dir,
             )
             periodic_out = json.loads(r_periodic.stdout)
             self.assertIn("REMINDER", periodic_out["injectSteps"][0]["systemMessage"]["systemMessage"])
+
+            steps = 12
 
             # (f) Context compaction (initialNumSteps drops) triggers immediate refresh
             r_compact = _run_mode_hook(
@@ -303,6 +301,89 @@ class TestSessionModePlugin(unittest.TestCase):
                 state_dir,
             )
             self.assertEqual(json.loads(s_after_off.stdout), {})
+
+    def test_stop_transcript_firewall(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            state_dir = root / "state"
+            ws = root / "workspace"
+            ws.mkdir()
+            tp = root / "transcript.jsonl"
+
+            def _write_transcript(content: str) -> None:
+                recs = [
+                    {"step_index": 1, "source": "MODEL", "type": "PLANNER_RESPONSE", "tool_calls": [{"id": "t1"}]},
+                    {"step_index": 2, "source": "MODEL", "type": "PLANNER_RESPONSE", "status": "DONE", "content": content},
+                ]
+                tp.write_text("\n".join(json.dumps(r) for r in recs) + "\n", encoding="utf-8")
+
+            hype_msg = (
+                "Ý tưởng tuyệt vời! Đây là PHÁT HIỆN ĐỘT PHÁ hoàn toàn sạch bóng biến nhiễu "
+                "và không một Reviewer nào bắt bẻ được."
+            )
+            _write_transcript(hype_msg)
+
+            # (e) Skips unlocked conversation
+            s_unlocked = _run_mode_hook(
+                "Stop",
+                {"conversationId": "conv-fw", "terminationReason": "NO_TOOL_CALL", "cwd": str(ws), "transcriptPath": str(tp)},
+                state_dir,
+            )
+            self.assertEqual(json.loads(s_unlocked.stdout), {})
+
+            # Activate lock
+            _run_mode_hook(
+                "PreInvocation",
+                {"conversationId": "conv-fw", "lastUserInput": "/research-scientist audit", "invocationNum": 1, "initialNumSteps": 1, "cwd": str(ws)},
+                state_dir,
+            )
+
+            # (a) Catches unquoted Vietnamese hype/overclaims
+            s_blocked = _run_mode_hook(
+                "Stop",
+                {"conversationId": "conv-fw", "terminationReason": "NO_TOOL_CALL", "cwd": str(ws), "transcriptPath": str(tp)},
+                state_dir,
+            )
+            out_blocked = json.loads(s_blocked.stdout)
+            self.assertEqual(out_blocked.get("decision"), "continue")
+            self.assertIn("PHÁT HIỆN ĐỘT PHÁ", out_blocked.get("reason", ""))
+
+            # (d) Respects continuationActive: true (max 1 retry)
+            s_cont = _run_mode_hook(
+                "Stop",
+                {"conversationId": "conv-fw", "continuationActive": True, "terminationReason": "NO_TOOL_CALL", "cwd": str(ws), "transcriptPath": str(tp)},
+                state_dir,
+            )
+            self.assertEqual(json.loads(s_cont.stdout), {})
+
+            # (b) Ignores quoted/backticked/fenced examples
+            quoted_msg = (
+                "Các cụm như \"PHÁT HIỆN ĐỘT PHÁ\" hoặc `hoàn toàn sạch bóng biến nhiễu` cần bị cấm.\n"
+                "> không một Reviewer nào bắt bẻ được\n"
+                "```text\nÝ tưởng tuyệt vời\n```\n"
+            )
+            _write_transcript(quoted_msg)
+            s_quoted = _run_mode_hook(
+                "Stop",
+                {"conversationId": "conv-fw", "terminationReason": "NO_TOOL_CALL", "cwd": str(ws), "transcriptPath": str(tp)},
+                state_dir,
+            )
+            self.assertEqual(json.loads(s_quoted.stdout), {})
+
+            # (c) Allows cold Vietnamese critique
+            cold_msg = (
+                "### Verified Facts & Receipts\n"
+                "Đã đo trên 982 câu NXB v3.\n\n"
+                "### Strongest Confounders & Reviewer #2 Kill-Shots\n"
+                "Chưa tách được biến nhiễu từ chính tả ở encoder và thiếu đối chứng LLM đa ngữ.\n"
+            )
+            _write_transcript(cold_msg)
+            s_clean = _run_mode_hook(
+                "Stop",
+                {"conversationId": "conv-fw", "terminationReason": "NO_TOOL_CALL", "cwd": str(ws), "transcriptPath": str(tp)},
+                state_dir,
+            )
+            self.assertEqual(json.loads(s_clean.stdout), {})
 
 
 if __name__ == "__main__":
